@@ -1,0 +1,23 @@
+#!/bin/bash --login
+########## Define Resources Needed with SBATCH Lines ##########
+
+#SBATCH --time=01:00:00             # limit of wall clock time - how long the job will run (same as -t)
+#SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
+#SBATCH --cpus-per-task=10           # number of CPUs (or cores) per task (same as -c)
+#SBATCH --mem=2G                    # memory required per node - amount of memory (in bytes)
+#SBATCH --array=0-1015
+
+########## Command Lines to Run ##########
+
+source $root/pkings_gwas.env
+
+module purge
+conda activate gcloud
+
+echo "${inputdata}"
+
+cd $root                   ### change to the directory where your code is located
+
+mapfile -t files < "${inputdata}"
+
+echo ${files[$SLURM_ARRAY_TASK_ID]} | gsutil -m -o GSUtil:parallel_composite_upload_threshold=150M cp -n -I gs://${bucket}/reads
