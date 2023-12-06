@@ -1,0 +1,1 @@
+{"PreProcessingForVariantDiscovery_GATK4.analysis_ready_bam":"${this.ar_bam}","PreProcessingForVariantDiscovery_GATK4.analysis_ready_bam_index":"${this.ar_bam_i}","PreProcessingForVariantDiscovery_GATK4.analysis_ready_bam_md5":"${this.arbam_md5}","PreProcessingForVariantDiscovery_GATK4.duplication_metrics":"${this.ar_bam_metrics}"}

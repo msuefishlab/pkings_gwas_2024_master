@@ -78,18 +78,24 @@ rm ./uifiles.txt
     gsutil -m -o GSUtil:parallel_composite_upload_threshold=150M cp -n -r ./input_data/00_Reference_Genome gs://${bucket}/reference
 
 5. Upload `./data_model/pkings_gwas_master_2024-workspace-attributes.tsv` to Terra
-4. Run Workflow `./workflows/01_FastqToSam_v1.wdl` with configuration `./configurations/01_FastqToSam.1.json` to convert Fastq Files to uBAMs
+
+## Create uBAMs
+1. Run Workflow `./wdl/01_FastqToSam_v1.wdl` with configuration `./wdl/01_FastqToSam.1.json` to convert Fastq Files to uBAMs
 
 ## Merge uBAMs
 1. Download The "Samples.TSV" from FireCloud
 2. Run this code:
-    awk -F "\t" '{print $13 >> ("./sample_metadata/unaligned_bams_" $12 ".txt")} ; close("./sample_metadata/unaligned_bams_" $12".txt")' ~/Downloads/Samples.TSV
+    cd input_data/01_Terra/data_model/
+    mkdir sample_metadata
+    awk -F "\t" '{print $13 >> ("./sample_metadata/unaligned_bams_" $12 ".txt")} ; close("./sample_metadata/unaligned_bams_" $12".txt")' samples_ubam_complete.tsv
 3. Upload `sample_metadata` directory to bucket
-4. Download Participants.TSV file from Terra and modify with column "unaligned_bam_list" pointing to google bucket location generated in step 3 above
-5. Run `./workflows/collect_unaligned_bams_by_participant.1.wdl` with configuration `./configurations/collect_unaligned_bams_by_participant.json`
+4. Run `./wdl/collect_unaligned_bams_by_participant.1.wdl` with configuration `./wdl/collect_unaligned_bams_by_participant.json`
+
+## Run Preprocess Data
+1. Run `./wdl/03_preprocess_data.2.wdl` with configurations `./wdl/preprocess_data_inputs.json` and `./wdl_preprocess_data_outputs.json`
 
 ## Run Haplotype Caller
-1. Run `./workflows/haplotype_caller.2.wdl` with configuration `./configurations/haplotype_caller.2.json`
+1. Run `./wdl/haplotype_caller.2.wdl` with configuration `./wdl/haplotype_caller.2.json`
 
 This step takes a long time and is probably the most expensive part of the pipeline.  Estimate for 177 samples is ~24h
 
