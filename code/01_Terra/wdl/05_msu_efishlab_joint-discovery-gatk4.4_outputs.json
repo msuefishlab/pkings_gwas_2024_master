@@ -1,0 +1,1 @@
+{"JointGenotyping.output_vcf":"${this.final_vcf}","JointGenotyping.output_vcf_index":"${this.final_vcf_index}"}

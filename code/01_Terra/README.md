@@ -97,10 +97,10 @@ rm ./uifiles.txt
 ## Run Haplotype Caller
 1. Run `./wdl/haplotype_caller.2.wdl` with configuration `./wdl/haplotype_caller.2.json`
 
-This step takes a long time and is probably the most expensive part of the pipeline.  Estimate for 177 samples is ~24h
+This step takes a long time and is probably the most expensive part of the pipeline.  Estimate for 300 samples is ~24h
 
 ## Run Joint Genotyping
-1. Run `./workflows/msu_efishlab_joint-discovery-gatk4.3.wdl` with configuration `msu_efishlab_joint-discovery-gatk4.3.json`
-This step takes a long time Estimate for 177 samples is ~12-24h
+1. Run `./wdl/05_msu_efishlab_joint-discovery-gatk4.4.wdl` with configuration `05_msu_efishlab_joint-discovery-gatk4.4._inputs.json` and `05_msu_efishlab_joint-discovery-gatk4.4_outputs.json`
+This step takes a long time Estimate for 300 samples is ~12-24h
 
 You now have a RAW VCF for downstream analysis!!
