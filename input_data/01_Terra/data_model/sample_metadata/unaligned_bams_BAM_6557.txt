@@ -1,0 +1,1 @@
+gs://fc-secure-439dbe80-8f90-415e-8c76-ab83f6ecf9d3/submissions/8e978b12-a361-4719-b767-1186ed728ffa/generateunalignedBAM/10d8f303-3c99-48b5-ae07-8704180ae1ab/call-FastqtoSam/BAM_6557_HLN32BBXX.7.TAATGCGC+CTTCGCCT_fastqtosam.bam
