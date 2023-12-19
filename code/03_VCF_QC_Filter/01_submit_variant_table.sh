@@ -14,5 +14,5 @@ nintervals=${#interval_files[@]}
 
 mkdir -p $root"/output_data/slurm_logs"/03_QC/
 
-echo sbatch --job-name "QC_MAKE_TABLE" --output ${root}"/output_data/slurm_logs"/03_QC/"qc_make_table_%a.log" -a 0-$nintervals --export=root=${root} ${root}/code/03_QC/get_variant_table.sb
-sbatch --job-name "QC_MAKE_TABLE" --output ${root}"/output_data/slurm_logs"/03_QC/"qc_make_table_%a.log" -a 0-$nintervals --export=root=${root} ${root}/code/03_QC/get_variant_table.sb
+echo sbatch --job-name "QC_MAKE_TABLE" --output ${root}"/output_data/slurm_logs"/03_QC/"qc_make_table_%a.log" -a 0-$nintervals --export=root=${root} ${root}/code/03_VCF_QC_Filter/get_variant_table.sb
+sbatch --job-name "QC_MAKE_TABLE" --output ${root}"/output_data/slurm_logs"/03_QC/"qc_make_table_%a.log" -a 0-$nintervals --export=root=${root} ${root}/code/03_VCF_QC_Filter/get_variant_table.sb

@@ -4,8 +4,8 @@
 
 #SBATCH --time=08:00:00             # limit of wall clock time - how long the job will run (same as -t)
 #SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
-#SBATCH --cpus-per-task=1           # number of CPUs (or cores) per task (same as -c)
-#SBATCH --mem=16G                    # memory required per node - amount of memory (in bytes)
+#SBATCH --cpus-per-task=2           # number of CPUs (or cores) per task (same as -c)
+#SBATCH --mem=30G                    # memory required per node - amount of memory (in bytes)
 #SBATCH --job-name VariantsToTable      # you can give your job a name for easier identification (same as -J)
 ########## Command Lines to Run ##########
 
