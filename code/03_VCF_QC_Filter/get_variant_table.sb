@@ -15,10 +15,13 @@ source $root/pkings_gwas.env
 
 mkdir -p $root"/output_data/slurm_logs"/03_QC/
 
+interval_files=($(find "${root}/input_data/01_Terra/chrom-interval-files/" "${root}/input_data/01_Terra/remaining-interval-files/" -type f))
+
 singularity exec --bind $root:/project_root ${gatk_image} /gatk/gatk \
 --java-options "-Xms8000m -Xmx25000m"   VariantsToTable \
     -R /project_root/input_data/00_Reference_Genome/${reference} \
     -V /project_root/output_data/01_Terra/${vcf_file} \
+    -L ${interval_files[$SLURM_ARRAY_TASK_ID]} \
     -F CHROM \
     -F POS \
     -F TYPE \
@@ -38,13 +41,14 @@ singularity exec --bind $root:/project_root ${gatk_image} /gatk/gatk \
     -F ReadPosRankSum \
     -F SOR \
     -GF GQ \
-    -O /project_root/output_data/03_QC/${vcf_file%.vcf.gz}.tab
+    -O /project_root/output_data/03_QC/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.tab
 
 
-awk 'NR<=3 || $3 == "SNP"' ${root}/output_data/03_QC/${vcf_file%.vcf.gz}.tab > ${root}/output_data/03_QC/${vcf_file%.vcf.gz}.snp.tab
-awk 'NR<=3 || $3 == "INDEL"' ${root}/output_data/03_QC/${vcf_file%.vcf.gz}.tab > ${root}/output_data/03_QC/${vcf_file%.vcf.gz}.indel.tab
 
-rm ${root}/output_data/03_QC/${vcf_file%.vcf.gz}.tab
+awk 'NR<=3 || $3 == "SNP"' ${root}/output_data/03_QC/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.tab > ${root}/output_data/03_QC/${vcf_file%.vcf.gz}.snp.${SLURM_ARRAY_TASK_ID}.tab
+awk 'NR<=3 || $3 == "INDEL"' ${root}/output_data/03_QC/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.tab > ${root}/output_data/03_QC/${vcf_file%.vcf.gz}.indel.${SLURM_ARRAY_TASK_ID}.tab
+
+rm ${root}/output_data/03_QC/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.tab
 
 
 
