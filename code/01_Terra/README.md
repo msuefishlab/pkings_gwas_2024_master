@@ -31,24 +31,29 @@ docker exec gatk gatk CreateSequenceDictionary R= /input_data/$reference
 
 docker exec gatk ./gatk SplitIntervals -R /input_data/$reference -L /output_data/intervals.list -scatter 50 -O /output_data/interval-files -mode BALANCING_WITHOUT_INTERVAL_SUBDIVISION_WITH_OVERFLOW
 
-docker exec gatk cat /input_data/$reference.fai | cut -f1,2 > $root/input_data/01_Terra/intervals.list
+docker exec gatk cat /input_data/$reference.fai | cut -f1,2 | sort -nrk 2 | head -25 | cut -f1 > $root/input_data/01_Terra/chrom_intervals.list
+docker exec gatk cat /input_data/$reference.fai | cut -f1,2 | sort -nrk 2 | tail +26 | cut -f1 > $root/input_data/01_Terra/remaining_intervals.list
 
-docker exec gatk ./gatk PreprocessIntervals -R /input_data/$reference --bin-length 200000 --padding 0 -O /output_data/preprocessed_intervals.interval_list
+docker exec gatk ./gatk SplitIntervals -R /input_data/$reference -L /output_data/chrom_intervals.list --scatter-count 50 -O /output_data/chrom-interval-files --subdivision-mode INTERVAL_SUBDIVISION
 
-docker exec gatk ./gatk SplitIntervals -R /input_data/$reference -L /output_data/preprocessed_intervals.interval_list --scatter-count 100 -O /output_data/unpadded-interval-files --subdivision-mode INTERVAL_SUBDIVISION
+docker exec gatk ./gatk SplitIntervals -R /input_data/$reference -L /output_data/remaining_intervals.list --scatter-count 50 -O /output_data/remaining-interval-files --subdivision-mode BALANCING_WITHOUT_INTERVAL_SUBDIVISION_WITH_OVERFLOW
 
 cd $root/input_data/01_Terra
 
 ls -1 ./interval-files > ./ifiles.txt
 
-ls -1 ./unpadded-interval-files > ./uifiles.txt
+ls -1 ./chrom-interval-files > ./uifiles1.txt
+ls -1 ./remaining-interval-files > ./uifiles2.txt
+
 
 awk -v bucket=$bucket '{ print "gs://"bucket"/interval-files/" $0}' ./ifiles.txt > ./scattered-intervals-file.txt
 
-awk -v bucket=$bucket '{ print "gs://"bucket"/unpadded-interval-files/" $0}' ./uifiles.txt >./unpadded_intervals_file.txt
+awk -v bucket=$bucket '{ print "gs://"bucket"/chrom-interval-files/" $0}' ./uifiles1.txt >./unpadded_intervals_file.txt
+awk -v bucket=$bucket '{ print "gs://"bucket"/remaining-interval-files/" $0}' ./uifiles2.txt >> ./unpadded_intervals_file.txt
 
 rm ./ifiles.txt
-rm ./uifiles.txt
+rm ./uifiles1.txt
+rm ./uifiles2.txt
 
 #### Upload to Workspace Bucket
 1. Transfer `./unpadded_intervals_file.txt`, `./scattered-intervals-file.txt` and the directories `interval-files` and `unpadded-interval-files` to the Google Bucket
