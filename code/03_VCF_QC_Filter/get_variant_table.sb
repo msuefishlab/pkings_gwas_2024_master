@@ -1,0 +1,50 @@
+#!/bin/bash --login
+
+########## Define Resources Needed with SBATCH Lines ##########
+
+#SBATCH --time=08:00:00             # limit of wall clock time - how long the job will run (same as -t)
+#SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
+#SBATCH --cpus-per-task=1           # number of CPUs (or cores) per task (same as -c)
+#SBATCH --mem=16G                    # memory required per node - amount of memory (in bytes)
+#SBATCH --job-name VariantsToTable      # you can give your job a name for easier identification (same as -J)
+########## Command Lines to Run ##########
+
+cd $root
+
+source $root/pkings_gwas.env
+
+mkdir -p $root"/output_data/slurm_logs"/03_QC/
+
+singularity exec --bind $root:/project_root ${gatk_image} /gatk/gatk \
+--java-options "-Xms8000m -Xmx25000m"   VariantsToTable \
+    -R /project_root/input_data/00_Reference_Genome/${reference} \
+    -V /project_root/output_data/01_Terra/${vcf_file} \
+    -F CHROM \
+    -F POS \
+    -F TYPE \
+    -F ID \
+    -F QUAL \
+    -F AC \
+    -F HET \
+    -F HOM-REF \
+    -F HOM-VAR \
+    -F AN \
+    -F BaseQRankSum \
+    -F DP \
+    -F FS \
+    -F MQ \
+    -F MQRankSum \
+    -F QD \
+    -F ReadPosRankSum \
+    -F SOR \
+    -GF GQ \
+    -O /project_root/output_data/03_QC/${vcf_file%.vcf.gz}.tab
+
+
+awk 'NR<=3 || $3 == "SNP"' ${root}/output_data/03_QC/${vcf_file%.vcf.gz}.tab > ${root}/output_data/03_QC/${vcf_file%.vcf.gz}.snp.tab
+awk 'NR<=3 || $3 == "INDEL"' ${root}/output_data/03_QC/${vcf_file%.vcf.gz}.tab > ${root}/output_data/03_QC/${vcf_file%.vcf.gz}.indel.tab
+
+rm ${root}/output_data/03_QC/${vcf_file%.vcf.gz}.tab
+
+
+
