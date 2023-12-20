@@ -13,5 +13,5 @@ require(tools)
 
 rmarkdown::render(file.path(args[3]),
                   params=list(
-                    data_path=file.path(root,'results/01_QC/',args[1])),
-                    output_file=file.path(root,'results/01_QC',paste0(args[2],'.report.html')))
+                  data_path=args[1],
+                  output_file=file.path(paste0(args[2], ".report.html"))))
