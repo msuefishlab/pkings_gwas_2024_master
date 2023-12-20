@@ -2,7 +2,8 @@
 title: "VCF QC Report for SNPs"
 output: html_notebook
 params:
-  data_path: ./test
+  data_path: NULL
+  output_file: NULL
 ---
 
 ```{r setup, include=FALSE}
