@@ -11,7 +11,12 @@ require(yaml)
 require(tools)
 
 
-rmarkdown::render(file.path(args[3]),
-                  params=list(
-                  data_path=args[1],
-                  output_file=file.path(paste0(args[2], ".report.html"))))
+rmarkdown::render(
+		  input=file.path(args[3]),
+                  output_file= basename(paste0(args[2], ".report.html")),
+		  output_dir = dirname(args[2]),
+		  params=list(
+                  	data_path=args[1]
+		  	)
+		  )
+)
