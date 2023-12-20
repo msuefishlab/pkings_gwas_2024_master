@@ -1,0 +1,44 @@
+---
+title: "VCF QC Report for INDELs"
+output: html_notebook
+params:
+  data_path: ./test
+---
+
+```{r setup, include=FALSE}
+root<-rprojroot::find_root(".git/index")
+knitr::opts_knit$set(root.dir = root)
+require(data.table)
+require(ggplot2)
+```
+
+```{r}
+#proposed cutoffs
+QUAL_thresh=30
+QD_thresh=5
+FS_thresh=200
+ReadPosRankSum_thresh=-8
+```
+
+See https://gatk.broadinstitute.org/hc/en-us/articles/360035890471-Hard-filtering-germline-short-variants
+
+```{r}
+snp_data<-fread(params$data_path)
+```
+
+```{r, fig.width=12,fig.height=6}
+ggplot(data=snp_data, aes(x=QUAL)) + geom_density(color="darkblue",fill="lightblue") + xlim(0,5000) + geom_vline(xintercept = QUAL_thresh, linetype="dotted", color = "red", size=1.5)
+```
+
+
+```{r, fig.width=12,fig.height=6}
+ggplot(data=snp_data, aes(x=QD)) + geom_density(color="darkblue",fill="lightblue") + geom_vline(xintercept = QD_thresh, linetype="dotted", color = "red", size=1.5)
+```
+
+```{r, fig.width=12,fig.height=6}
+ggplot(data=snp_data, aes(x=FS)) + geom_density(color="darkblue",fill="lightblue") + geom_vline(xintercept = FS_thresh, linetype="dotted", color = "red", size=1.5)+xlim(0,100) + scale_x_continuous(trans='log10')
+```
+
+```{r, fig.width=12,fig.height=6}
+ggplot(data=snp_data, aes(x=ReadPosRankSum)) + geom_density(color="darkblue",fill="lightblue") + geom_vline(xintercept = ReadPosRankSum_thresh, linetype="dotted", color = "red", size=1.5)+xlim(-8,8)
+```
