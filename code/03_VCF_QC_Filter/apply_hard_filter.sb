@@ -17,8 +17,6 @@ mkdir -p $root"/output_data/slurm_logs"/03_QC/
 
 interval_files=($(find "${root}/input_data/01_Terra/chrom-interval-files/" "${root}/input_data/01_Terra/remaining-interval-files/" -type f))
 
-OUTROOT=${vcf_file%".vcf.gz"}
-
 mkdir -p ${root}/output_data/03_QC/split_select/${vartype}
 mkdir -p ${root}/output_data/03_QC/split_select_filtered/${vartype}
 
