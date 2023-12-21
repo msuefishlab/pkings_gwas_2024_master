@@ -23,7 +23,7 @@ RUN R -e 'BiocManager::install("SNPRelate")'
 RUN mkdir -p /snphylo/bin
 
 RUN apt-get update && \
-    apt-get install -y muscle phylip curl git python2
+    apt-get install -y muscle phylip curl git python2 bcftools vcftools tabix
 
 RUN git clone https://github.com/thlee/SNPhylo.git
 
