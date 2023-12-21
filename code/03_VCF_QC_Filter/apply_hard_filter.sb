@@ -1,0 +1,52 @@
+#!/bin/bash --login
+
+########## Define Resources Needed with SBATCH Lines ##########
+
+#SBATCH --time=08:00:00             # limit of wall clock time - how long the job will run (same as -t)
+#SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
+#SBATCH --cpus-per-task=1           # number of CPUs (or cores) per task (same as -c)
+#SBATCH --mem=30G                    # memory required per node - amount of memory (in bytes)
+#SBATCH --job-name ApplyHardFilter      # you can give your job a name for easier identification (same as -J)
+########## Command Lines to Run ##########
+
+cd $root
+
+source $root/pkings_gwas.env
+
+mkdir -p $root"/output_data/slurm_logs"/03_QC/
+
+interval_files=($(find "${root}/input_data/01_Terra/chrom-interval-files/" "${root}/input_data/01_Terra/remaining-interval-files/" -type f))
+
+OUTROOT=${vcf_file%".vcf.gz"}
+
+mkdir -p ${root}/output_data/03_QC/split_select/${vartype}
+mkdir -p ${root}/output_data/03_QC/split_select_filtered/${vartype}
+
+singularity exec --bind $root:/project_root ${gatk_image} /gatk/gatk \
+--java-options "-Xms8000m -Xmx25000m" SelectVariants \
+    -V /project_root/output_data/01_Terra/${vcf_file} \
+    -select-type ${vartype} \
+    -O /project_root/output_data/03_QC/split_select/${vartype}/${vcf_file%.vcf.gz}.${vartype}.${SLURM_ARRAY_TASK_ID}.vcf.gz
+
+if [[ ${vartype}= "SNP" ]]; then
+  singularity exec --bind $root:/project_root ${gatk_image} /gatk/gatk --java-options "-Xms8000m -Xmx25000m" VariantFiltration \
+  -V /project_root/output_data/03_QC/split_select/${vartype}/${vcf_file%.vcf.gz}.${vartype}.${SLURM_ARRAY_TASK_ID}.vcf.gz \
+  -filter "QD < 5.0" --filter-name "QD2" \
+  -filter "QUAL < 30.0" --filter-name "QUAL30" \
+  -filter "SOR > 3.0" --filter-name "SOR3" \
+  -filter "FS > 60.0" --filter-name "FS60" \
+  -filter "MQ < 40.0" --filter-name "MQ40" \
+  -filter "MQRankSum < -12.5" --filter-name "MQRRS125" \
+  -filter "ReadPosRankSum < -8.0" --filter-name "RPS8" \
+  -O /project_root/output_data/03_QC/split_select_filtered/${vartype}/${vcf_file%.vcf.gz}.${vartype}.${SLURM_ARRAY_TASK_ID}.filtered.vcf.gz
+fi
+
+if [[ ${vartype}= "INDEL" ]]; then
+gatk VariantFiltration \
+  -V /project_root/output_data/03_QC/split_select/${vartype}/${vcf_file%.vcf.gz}.${vartype}.${SLURM_ARRAY_TASK_ID}.vcf.gz \ \
+  -filter "QD < 5.0" --filter-name "QD5" \
+  -filter "QUAL < 30.0" --filter-name "QUAL30" \
+  -filter "FS > 200.0" --filter-name "FS200" \
+  -filter "ReadPosRankSum < -20.0" --filter-name "RPS20" \
+  -O /project_root/output_data/03_QC/split_select_filtered/${vartype}/${vcf_file%.vcf.gz}.${vartype}.${SLURM_ARRAY_TASK_ID}.filtered.vcf.gz
+fi
