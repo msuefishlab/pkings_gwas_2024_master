@@ -112,7 +112,6 @@ if [[ "${vartype}" == "INDEL" ]]; then
       -O /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.INDEL.vcf.gz
 
   singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gatk_image} /gatk/gatk --java-options "-Xms8000m -Xmx25000m" VariantFiltration \
-    -V /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.SNP.and.inv.vcf.gz \
     -R /project_root/input_data/00_Reference_Genome/${reference} \
     -V /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.INDEL.vcf.gz \
     -filter-expression "(vc.isIndel() && (vc.hasAttribute('QD') && QD < 5.0))" \
