@@ -62,35 +62,35 @@ singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gatk_image
   --set-filtered-gt-to-nocall \
   -O /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.SNP.and.inv.filtered.setGT.vcf.gz
 
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools} vcftools \
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools_image} vcftools \
 --gzvcf /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.SNP.and.inv.filtered.setGT.vcf.gz \
 --FILTER-summary \
 --out  /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.SNP.and.inv.filtered.setGT.vcf.summary
 
 #filtered with invariants. new line here
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools} \
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools_image} \
 bash -c "bcftools view --threads 4 -f PASS -e 'ALT="*" | TYPE~"indel" | ref="N"' /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.SNP.and.inv.filtered.setGT.vcf.gz | bcftools annotate -x '^INFO/AN,INFO/AC,^FORMAT/GT,FORMAT/AD,FORMAT/DP' -O z -o /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.SNP.and.inv.filtered.setGT.PASS.vcf.gz"
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools} bash -c "tabix /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.SNP.and.inv.filtered.setGT.PASS.vcf.gz"
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools_image} bash -c "tabix /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.SNP.and.inv.filtered.setGT.PASS.vcf.gz"
 
 #filtered SNPs only
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools} bash -c "bcftools view --threads 4 -v snps -O z -o /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.SNP.ONLY.filtered.setGT.PASS.vcf.gz /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.SNP.and.inv.filtered.setGT.PASS.vcf.gz"
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools} bash -c "tabix /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.SNP.ONLY.filtered.setGT.PASS.vcf.gz"
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools_image} bash -c "bcftools view --threads 4 -v snps -O z -o /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.SNP.ONLY.filtered.setGT.PASS.vcf.gz /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.SNP.and.inv.filtered.setGT.PASS.vcf.gz"
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools_image} bash -c "tabix /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.SNP.ONLY.filtered.setGT.PASS.vcf.gz"
 
 #filtered biallelic SNPs only
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools} bash -c "bcftools view --threads 4 -v snps -m2 -M2 -O z -o /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.SNP.ONLY.BIALLELIC.ONLY.filtered.setGT.PASS.vcf.gz /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.SNP.ONLY.filtered.setGT.PASS.vcf.gz"
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools} bash -c "tabix /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.SNP.ONLY.BIALLELIC.ONLY.filtered.setGT.PASS.vcf.gz"
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools_image} bash -c "bcftools view --threads 4 -v snps -m2 -M2 -O z -o /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.SNP.ONLY.BIALLELIC.ONLY.filtered.setGT.PASS.vcf.gz /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.SNP.ONLY.filtered.setGT.PASS.vcf.gz"
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools_image} bash -c "tabix /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.SNP.ONLY.BIALLELIC.ONLY.filtered.setGT.PASS.vcf.gz"
 
 #require that 50% of samples were non missing to include invariant site
 #note that later I found that this does not exclude triallelic sites
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools} bash -c "vcftools --gzvcf /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.SNP.and.inv.filtered.setGT.PASS.vcf.gz \
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools_image} bash -c "vcftools --gzvcf /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.SNP.and.inv.filtered.setGT.PASS.vcf.gz \
 --max-maf 0 \
 --max-missing 0.50 \
 --max-alleles 1 \
 --recode --stdout | bgzip -c > /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.INVARIANT.ONLY.vcf.gz"
 
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools} bash -c "tabix /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.INVARIANT.ONLY.vcf.gz"
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools_image} bash -c "tabix /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.INVARIANT.ONLY.vcf.gz"
 
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools} bash -c "bcftools concat \
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools_image} bash -c "bcftools concat \
 --threads 4 \
 --allow-overlaps \
 --rm-dups all \
@@ -98,7 +98,7 @@ singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools
 /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.INVARIANT.ONLY.vcf.gz \
 -O z -o /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.SNP.BIALLELIC.ONLY.AND.INV.TOGETHER.filtered.setGT.PASS.vcf.gz"
 
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools} bash -c "tabix /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.SNP.BIALLELIC.ONLY.AND.INV.TOGETHER.filtered.setGT.PASS.vcf.gz"
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools_image} bash -c "tabix /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.SNP.BIALLELIC.ONLY.AND.INV.TOGETHER.filtered.setGT.PASS.vcf.gz"
 
 fi
 
@@ -134,7 +134,7 @@ if [[ "${vartype}" == "INDEL" ]]; then
   --set-filtered-gt-to-nocall \
   -O /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.INDEL.filtered.setGT.vcf.gz
 
-  singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools} vcftools \
+  singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools_image} vcftools \
   --gzvcf /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.INDEL.filtered.setGT.vcf.gz \
   --FILTER-summary \
   --out  /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.INDEL.filtered.setGT.vcf.summary
