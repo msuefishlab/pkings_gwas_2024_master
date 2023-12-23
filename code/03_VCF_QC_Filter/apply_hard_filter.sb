@@ -69,7 +69,7 @@ singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools
 
 #filtered with invariants. new line here
 singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools_image} \
-bash -c "bcftools view --threads 4 -f PASS -e 'ALT="*" | TYPE~"indel" | ref="N"' /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.SNP.and.inv.filtered.setGT.vcf.gz | bcftools annotate -x '^INFO/AN,INFO/AC,^FORMAT/GT,FORMAT/AD,FORMAT/DP' -O z -o /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.SNP.and.inv.filtered.setGT.PASS.vcf.gz"
+bash -c "bcftools view --threads 4 -f PASS -e 'ALT=\"*\" | TYPE~\"indel\" | ref=\"N\"' /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.SNP.and.inv.filtered.setGT.vcf.gz | bcftools annotate -x '^INFO/AN,INFO/AC,^FORMAT/GT,FORMAT/AD,FORMAT/DP' -O z -o /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.SNP.and.inv.filtered.setGT.PASS.vcf.gz"
 singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools_image} bash -c "tabix /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.SNP.and.inv.filtered.setGT.PASS.vcf.gz"
 
 #filtered SNPs only
