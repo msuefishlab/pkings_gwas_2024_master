@@ -21,7 +21,7 @@ mkdir -p ${outdir}
 
 OUTROOT=${vcf_file%".raw.vcf.gz"}
 
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools_image} bash -c "bcftools query -H -f '%CHROM %POS0 [ %GQ ]\n' /out_dir/${OUTROOT}.FILTERED_BIALLELIC_SNPS_ONLY.vcf.gz  > /out_dir/${OUTROOT}.FILTERED_BIALLELIC_SNPS_ONLY.gq.txt"
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools_image} bash -c "bcftools query -H -f '%CHROM %POS0 [ %GQ ]\\n' /out_dir/${OUTROOT}.FILTERED_BIALLELIC_SNPS_ONLY.vcf.gz > /out_dir/${OUTROOT}.FILTERED_BIALLELIC_SNPS_ONLY.gq.txt"
 head -1  ${outdir}/${OUTROOT}.FILTERED_BIALLELIC_SNPS_ONLY.gq.txt | sed --regexp-extended 's/\[[0-9]+\]//g' | sed 's/:GQ//g' | sed 's/# //g' > ${outdir}/header.txt
 ( sed 1q ${outdir}/header.txt ; sed 1d ${outdir}/${OUTROOT}.FILTERED_BIALLELIC_SNPS_ONLY.gq.txt ) > ${outdir}/${OUTROOT}.FILTERED_BIALLELIC_SNPS_ONLY.gq.rh.txt
 rm ${outdir}/header.txt
