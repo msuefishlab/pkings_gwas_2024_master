@@ -1,9 +1,9 @@
 #!/bin/bash
 
-## 01_submit_variant_table.sh
-## Feb 2023
+## 05_combine_filtered.sh
+## Dec 2023
 ## JRG
-# This script creates a variant table for SNPS and INDELS to determine filter settings.
+# This script submits bcftools concat jobs to slurm  to create downstream VCF files for analysis.
 
 #!/bin/bash
 
