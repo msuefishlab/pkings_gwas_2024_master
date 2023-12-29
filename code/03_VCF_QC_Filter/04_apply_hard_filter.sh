@@ -1,7 +1,7 @@
-## run_upload.sh
+## 04_apply_hard_filter.sh
 ## 12-03-23
 ## JRG
-## Submits to queue for variant table construction
+## Submits hard filtering to queue, scattered over chromosome intervals
 
 #!/bin/bash
 

@@ -1,7 +1,7 @@
-## run_merge.sh
+## 06_get_gqs.sh
 ## 12-03-23
 ## JRG
-## Merges interval split tab delimited files for QC Analysis
+## Submits a job to extract GQ values from Biallelic VCF File for QC analysis.
 
 #!/bin/bash
 

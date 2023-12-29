@@ -1,4 +1,4 @@
-## run_upload.sh
+## 01_submit_variant_table.sh
 ## 12-03-23
 ## JRG
 ## Submits to queue for variant table construction

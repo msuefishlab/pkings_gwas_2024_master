@@ -1,7 +1,7 @@
-## run_merge.sh
+## 03_run_qc_reports.sh
 ## 12-03-23
 ## JRG
-## Merges interval split tab delimited files for QC Analysis
+## Submits jobs to slurm for constructing QC Report Files
 
 #!/bin/bash
 

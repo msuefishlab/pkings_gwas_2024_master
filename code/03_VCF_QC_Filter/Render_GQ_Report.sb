@@ -1,0 +1,31 @@
+#!/bin/bash --login
+
+########## Define Resources Needed with SBATCH Lines ##########
+
+#SBATCH --time=04:00:00             # limit of wall clock time - how long the job will run (same as -t)
+#SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
+#SBATCH --cpus-per-task=1           # number of CPUs (or cores) per task (same as -c)
+#SBATCH --mem=200G                    # memory required per node - amount of memory (in bytes)
+#SBATCH --job-name RenderGQReport      # you can give your job a name for easier identification (same as -J)
+########## Command Lines to Run ##########
+
+cd $root
+
+source $root/pkings_gwas.env
+
+mkdir -p $root"/output_data/slurm_logs"/03_QC/
+
+outdir=${root}/output_data/03_QC/
+
+mkdir -p ${outdir}
+
+OUTROOT=${vcf_file%".raw.vcf.gz"}
+
+head -1 ${outdir}/${OUTROOT}.FILTERED_BIALLELIC_SNPS_ONLY.gq.txt > ${outdir}/${OUTROOT}.FILTERED_BIALLELIC_SNPS_ONLY.gq.ss.txt
+perl -ne 'print if (rand() < .01)' ${outdir}/${OUTROOT}.FILTERED_BIALLELIC_SNPS_ONLY.gq.txt >> ${outdir}/${OUTROOT}.FILTERED_BIALLELIC_SNPS_ONLY.gq.ss.txt
+
+Rscript ./scripdir/01_QC_Filter/render_qc_report.R ${FINALOUTROOT}.final.filt_applied.gq.ss.txt ${FINALOUTROOT}.final.filt_applied.gq ./scripdir/01_QC_Filter/GQ_Report.Rmd
+
+echo singularity exec --bind $root:/project_root ${gwas_tools_image} Rscript  /project_root/output_data/03_QC/${OUTROOT}.FILTERED_BIALLELIC_SNPS_ONLY.gq.ss.txt  /project_root/output_data/03_QC/${OUTROOT}.FILTERED_BIALLELIC_SNPS_ONLY.gq /project_root/code/03_VCF_QC_Filter/GQ_Report.Rmd
+
+singularity exec --bind $root:/project_root ${gwas_tools_image} Rscript  /project_root/output_data/03_QC/${OUTROOT}.FILTERED_BIALLELIC_SNPS_ONLY.gq.ss.txt  /project_root/output_data/03_QC/${OUTROOT}.FILTERED_BIALLELIC_SNPS_ONLY.gq /project_root/code/03_VCF_QC_Filter/GQ_Report.Rmd

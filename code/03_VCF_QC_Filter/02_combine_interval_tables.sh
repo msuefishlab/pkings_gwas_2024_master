@@ -1,7 +1,7 @@
-## run_merge.sh
+## 02_combine_internal_tables.sh
 ## 12-03-23
 ## JRG
-## Merges interval split tab delimited files for QC Analysis
+## Combines variant tables into one large table for QC analysis
 
 #!/bin/bash
 
