@@ -2,7 +2,7 @@
 title: "VCF QC Report for SNPs"
 output: html_notebook
 params:
-  data_path: ./results/01_QC/pk_0.2_sform_11_ref_callset_outgroups_added.final.filt_applied.gq.ss.txt
+  data_path: ~/Desktop/MIC4273_HAP1_MSU618_all_fish_all_sites.FILTERED_BIALLELIC_SNPS_ONLY.gq.ss.txt
 ---
 
 ```{r setup, include=FALSE}
