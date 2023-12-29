@@ -2,10 +2,10 @@
 
 ########## Define Resources Needed with SBATCH Lines ##########
 
-#SBATCH --time=08:00:00             # limit of wall clock time - how long the job will run (same as -t)
+#SBATCH --time=012:00:00             # limit of wall clock time - how long the job will run (same as -t)
 #SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
-#SBATCH --cpus-per-task=9           # number of CPUs (or cores) per task (same as -c)
-#SBATCH --mem=64G                    # memory required per node - amount of memory (in bytes)
+#SBATCH --cpus-per-task=13           # number of CPUs (or cores) per task (same as -c)
+#SBATCH --mem=128G                    # memory required per node - amount of memory (in bytes)
 #SBATCH --job-name Combine_Filtered     # you can give your job a name for easier identification (same as -J)
 ########## Command Lines to Run ##########
 
@@ -27,5 +27,5 @@ shard_file=$(basename ${shard_list[$SLURM_ARRAY_TASK_ID]})
 out_name_part=${shard_file%".list"}
 
 echo "Working on ${out_name_part}..."
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools_image} bash -c "bcftools concat --threads 8 --allow-overlaps --rm-dups all -f ${shard_list[$SLURM_ARRAY_TASK_ID]} -O z -o /out_dir/${OUTROOT}.${out_name_part}.vcf.gz"
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools_image} bash -c "bcftools concat --threads 12 --allow-overlaps --rm-dups all -f ${shard_list[$SLURM_ARRAY_TASK_ID]} -O z -o /out_dir/${OUTROOT}.${out_name_part}.vcf.gz"
 singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools_image} bash -c "tabix ${OUTROOT}.${out_name_part}.vcf.gz"
