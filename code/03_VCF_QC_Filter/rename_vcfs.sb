@@ -27,5 +27,5 @@ shard_file=$(basename ${shard_list[$SLURM_ARRAY_TASK_ID]})
 out_name_part=${shard_file%".list"}
 
 echo "Working on ${out_name_part}..."
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools_image} bash -c "bcftools annotate --threads 12 --rename-chrs /project_root/input_data/00_Reference_Genome/${chr_name_map} /out_dir/${OUTROOT}.${out_name_part}.vcf.gz -O z -o ${chr_name_map} /out_dir/${OUTROOT}.${out_name_part}.renamed.vcf.gz"
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools_image} bash -c "bcftools annotate --threads 12 --rename-chrs /project_root/input_data/00_Reference_Genome/${chr_name_map} /out_dir/${OUTROOT}.${out_name_part}.vcf.gz -O z -o /out_dir/${OUTROOT}.${out_name_part}.renamed.vcf.gz"
 singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools_image} bash -c "tabix /out_dir/${OUTROOT}.${out_name_part}.renamed.vcf.gz"
