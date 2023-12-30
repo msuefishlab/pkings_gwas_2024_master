@@ -1,0 +1,31 @@
+#!/bin/bash --login
+
+########## Define Resources Needed with SBATCH Lines ##########
+
+#SBATCH --time=012:00:00             # limit of wall clock time - how long the job will run (same as -t)
+#SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
+#SBATCH --cpus-per-task=13           # number of CPUs (or cores) per task (same as -c)
+#SBATCH --mem=128G                    # memory required per node - amount of memory (in bytes)
+#SBATCH --job-name Rename_VCFs    # you can give your job a name for easier identification (same as -J)
+########## Command Lines to Run ##########
+
+cd $root
+
+source $root/pkings_gwas.env
+
+mkdir -p $root"/output_data/slurm_logs"/03_QC/
+
+outdir=${root}/output_data/03_QC/
+
+mkdir -p ${outdir}
+
+OUTROOT=${vcf_file%".raw.vcf.gz"}
+
+shard_list=($(ls $outdir*.list))
+
+shard_file=$(basename ${shard_list[$SLURM_ARRAY_TASK_ID]})
+out_name_part=${shard_file%".list"}
+
+echo "Working on ${out_name_part}..."
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools_image} bash -c "bcftools annotate --threads 12 --rename-chrs /project_root/input_data/00_Reference_Genome/${chr_name_map} /out_dir/${OUTROOT}.${out_name_part}.vcf.gz -O z -o ${chr_name_map} /out_dir/${OUTROOT}.${out_name_part}.renamed.vcf.gz"
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools_image} bash -c "tabix /out_dir/${OUTROOT}.${out_name_part}.renamed.vcf.gz"
