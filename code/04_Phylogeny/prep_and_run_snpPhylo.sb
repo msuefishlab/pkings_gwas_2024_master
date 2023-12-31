@@ -25,7 +25,7 @@ OUTROOT=${snps_only_vcf%".vcf.gz"}
 
 
 #prefilter VCF for MAF < 0.1 and Missingness > 10% and DP < 5
-cat /project_root/input_data/00_Reference_Genome/${chr_name_map} | cut -f2,3 > /project_root/input_data/00_Reference_Genome/${chr_name_map}.chromosome_number_map.txt
+cat ${root}/input_data/00_Reference_Genome/${chr_name_map} | cut -f2,3 > ${root}/input_data/00_Reference_Genome/${chr_name_map}.chromosome_number_map.txt
 
 echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "bcftools annotate --rename-chrs /project_root/input_data/00_Reference_Genome/${chr_name_map}.chromosome_number_map.txt /in_dir/${snps_only_vcf} | bcftools filter -e \"F_MISSING > 0.1 || MAF < 0.10 || INFO/DP < 5\" -o /tmp_dir/${OUTROOT}.renamed.maf10.miss10.dp5.vcf"
 
