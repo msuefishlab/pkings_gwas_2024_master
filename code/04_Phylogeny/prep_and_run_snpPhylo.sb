@@ -2,10 +2,10 @@
 
 ########## Define Resources Needed with SBATCH Lines ##########
 
-#SBATCH --time=04:00:00             # limit of wall clock time - how long the job will run (same as -t)
+#SBATCH --time=08:00:00             # limit of wall clock time - how long the job will run (same as -t)
 #SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
-#SBATCH --cpus-per-task=9           # number of CPUs (or cores) per task (same as -c)
-#SBATCH --mem=16G                    # memory required per node - amount of memory (in bytes)
+#SBATCH --cpus-per-task=19           # number of CPUs (or cores) per task (same as -c)
+#SBATCH --mem=30G                    # memory required per node - amount of memory (in bytes)
 #SBATCH --job-name RUN_SNPHYLO      # you can give your job a name for easier identification (same as -J)
 ########## Command Lines to Run ##########
 cd $root
@@ -31,6 +31,6 @@ echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind 
 
 singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "bcftools annotate --rename-chrs /project_root/input_data/00_Reference_Genome/${chr_name_map}.chromosome_number_map.txt /in_dir/${snps_only_vcf} | bcftools filter -e \"F_MISSING > 0.1 || MAF < 0.10 || INFO/DP < 5\" -o /tmp_dir/${OUTROOT}.renamed.maf10.miss10.dp5.vcf"
 
-echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /snphylo/SNPhylo/snphylo.sh -v  /tmp_dir/${OUTROOT}.renamed.maf10.miss10.dp5.vcf -o ${outgroup} -a 25 -t 8 -P /out_dir/${OUTROOT}.renamed.maf10.miss10.dp5
+echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /snphylo/SNPhylo/snphylo.sh -v  /tmp_dir/${OUTROOT}.renamed.maf10.miss10.dp5.vcf -o ${outgroup} -a 25 -t 18 -P /out_dir/${OUTROOT}.renamed.maf10.miss10.dp5
 
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /snphylo/SNPhylo/snphylo.sh -v  /tmp_dir/${OUTROOT}.renamed.maf10.miss10.dp5.vcf -o ${outgroup} -a 25 -t 8 -P /out_dir/${OUTROOT}.renamed.maf10.miss10.dp5
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /snphylo/SNPhylo/snphylo.sh -v  /tmp_dir/${OUTROOT}.renamed.maf10.miss10.dp5.vcf -o ${outgroup} -a 25 -t 18 -P /out_dir/${OUTROOT}.renamed.maf10.miss10.dp5
