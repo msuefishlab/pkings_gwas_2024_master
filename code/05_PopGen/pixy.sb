@@ -26,3 +26,12 @@ echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind 
   --populations /project_root/input_data/05_PopGen/popsfile.txt \
   --output_folder /out_dir \
   --output_prefix ${popgen_prefix}
+
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir ${gwas_tools_image} pixy --stats pi fst dxy \
+  --vcf /in_dir/${allsites_vcf} \
+  --bypass_invariant_check yes \
+  --n_cores 28 \
+  --window_size 20000 \
+  --populations /project_root/input_data/05_PopGen/popsfile.txt \
+  --output_folder /out_dir \
+  --output_prefix ${popgen_prefix}
