@@ -1,0 +1,27 @@
+#!/bin/bash --login
+
+########## Define Resources Needed with SBATCH Lines ##########
+
+#SBATCH --time=04:00:00             # limit of wall clock time - how long the job will run (same as -t)
+#SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
+#SBATCH --cpus-per-task=9           # number of CPUs (or cores) per task (same as -c)
+#SBATCH --mem=16G                    # memory required per node - amount of memory (in bytes)
+#SBATCH --job-name bootstrap_tree      # you can give your job a name for easier identification (same as -J)
+########## Command Lines to Run ##########
+
+cd $root
+
+source $root/pkings_gwas.env
+
+MYNAME=$(whoami)
+
+indir=${root}/output_data/03_QC/
+outdir=${root}/output_data/04_Phylogeny/
+
+mkdir -p ${outdir}
+mkdir -p ${tmpoutdir}
+
+OUTROOT=${snps_only_vcf%".vcf.gz"}
+
+echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir ${gwas_tools_image} R --slave --vanilla --file="/snphylo/SNPhylo/scripts/determine_bs_tree.R" --args -i "/out_dir/${OUTROOT}.renamed.maf10.miss10.dp5.ml.tree" -o "/out_dir/${OUTROOT}.renamed.maf10.miss10.dp5.ml.bs" -p "/out_dir/${OUTROOT}.renamed.maf10.miss10.dp5.phylip.txt" -n "100"
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir ${gwas_tools_image} R --slave --vanilla --file="/snphylo/SNPhylo/scripts/determine_bs_tree.R" --args -i "/out_dir/${OUTROOT}.renamed.maf10.miss10.dp5.ml.tree" -o "/out_dir/${OUTROOT}.renamed.maf10.miss10.dp5.ml.bs" -p "/out_dir/${OUTROOT}.renamed.maf10.miss10.dp5.phylip.txt" -n "100"
