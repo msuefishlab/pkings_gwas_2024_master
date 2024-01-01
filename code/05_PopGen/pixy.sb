@@ -1,0 +1,28 @@
+#!/bin/bash --login
+
+########## Define Resources Needed with SBATCH Lines ##########
+
+#SBATCH --time=12:00:00             # limit of wall clock time - how long the job will run (same as -t)
+#SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
+#SBATCH --cpus-per-task=29           # number of CPUs (or cores) per task (same as -c)
+#SBATCH --mem=50g                    # memory required per node - amount of memory (in bytes)
+#SBATCH -J pixy
+########## Command Lines to Run ##########
+
+cd $root
+
+source $root/pkings_gwas.env
+
+indir=${root}/output_data/03_QC/
+outdir=${root}/output_data/05_PopGen/
+
+mkdir -p ${outdir}
+
+echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir ${gwas_tools_image} pixy --stats pi fst dxy \
+  --vcf /in_dir/${allsites_vcf} \
+  --bypass_invariant_check yes \
+  --n_cores 28 \
+  --window_size 20000 \
+  --populations /project_root/input_data/05_PopGen/popsfile.txt \
+  --output_folder /out_dir \
+  --output_prefix ${popgen_prefix}

@@ -40,4 +40,18 @@ RUN printf "yyymusclenydnamln" | bash setup.sh
 
 RUN chmod -R 777 /snphylo
 
+RUN mkdir -p /pixy
+
+WORKDIR /pixy
+
+RUN git clone https://github.com/ksamuk/pixy.git
+
+WORKDIR /pixy/pixy
+
+RUN python3 setup.py install
+
+
+
+
+
 CMD ["/bin/bash"]

@@ -19,7 +19,6 @@ indir=${root}/output_data/03_QC/
 outdir=${root}/output_data/04_Phylogeny/
 
 mkdir -p ${outdir}
-mkdir -p ${tmpoutdir}
 
 OUTROOT=${snps_only_vcf%".vcf.gz"}
 
