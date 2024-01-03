@@ -23,7 +23,7 @@ RUN R -e 'BiocManager::install("SNPRelate")'
 RUN mkdir -p /snphylo/bin
 
 RUN apt-get update && \
-    apt-get install -y muscle phylip curl git python2 bcftools vcftools tabix
+    apt-get install -y muscle phylip curl git python2 bcftools vcftools tabix wget
 
 RUN git clone https://github.com/jasongallant/SNPhylo.git
 
@@ -50,8 +50,12 @@ WORKDIR /pixy/pixy
 
 RUN python3 setup.py install
 
+RUN mkdir -p /seqkit
 
+WORKDIR /seqkit
 
+RUN wget https://github.com/shenwei356/seqkit/releases/download/v2.6.1/seqkit_linux_amd64.tar.gz
 
+RUN tar -zxvf seqkit_linux_amd64.tar.gz
 
 CMD ["/bin/bash"]
