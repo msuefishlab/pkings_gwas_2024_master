@@ -1,0 +1,51 @@
+#!/bin/bash --login
+########## Define Resources Needed with SBATCH Lines ##########
+
+#SBATCH --time=04:00:00             # limit of wall clock time - how long the job will run (same as -t)
+#SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
+#SBATCH --cpus-per-task=1           # number of CPUs (or cores) per task (same as -c)
+#SBATCH --mem=8G                    # memory required per node - amount of memory (in bytes)
+#SBATCH --job-name SPLIT_VCFS      # you can give your job a name for easier identification (same as -J)
+#####
+
+cd $root
+
+source $root/pkings_gwas.env
+
+indir=${root}/output_data/03_QC/
+outdir=${root}/output_data/05_PopGen/tajd_chunks
+tmpoutdir=/mnt/local/${MYNAME}/${SLURM_JOB_ID}/
+
+mkdir -p ${outdir}
+
+TN=$(basename ${allsites_vcf})
+VCFBASE=${TN%".vcf.gz"}
+INTERVAL_FILES=($(find "${root}/input_data/01_Terra/chrom-interval-files/" "${root}/input_data/01_Terra/remaining-interval-files/" -type f))
+f=${INTERVAL_FILES[$SLURM_ARRAY_TASK_ID]}
+
+sed '/^@/d' $f > ${tmpoutdir}/interval.txt
+TN=$(basename ${f})
+NUM=${TN%"-scattered.interval_list"}
+
+#subset vcf
+echo "Subsetting VCF..."
+echo singularity exec --bind $root:/project_root  --bind $indir:/in_dir --bind $outdir:/out_dir --bind $tmpdir:/tmp_dir ${gwas_tools_image} bcftools view -R /tmp_dir/interval.txt -Oz -o /tmp_dir/${VCFBASE}_${NUM}.vcf.gz /in_dir/${allsites_vcf}
+singularity exec --bind $root:/project_root  --bind $indir:/in_dir --bind $outdir:/out_dir --bind $tmpdir:/tmp_dir ${gwas_tools_image} bcftools view -R /tmp_dir/interval.txt -Oz -o /tmp_dir/${VCFBASE}_${NUM}.vcf.gz /in_dir/${allsites_vcf}
+
+#index vcf
+echo "Indexing VCF..."
+echo singularity exec --bind $root:/project_root  --bind $indir:/in_dir --bind $outdir:/out_dir --bind $tmpdir:/tmp_dir ${gwas_tools_image} tabix /tmp_dir/${VCFBASE}_${NUM}.vcf.gz
+singularity exec --bind $root:/project_root  --bind $indir:/in_dir --bind $outdir:/out_dir --bind $tmpdir:/tmp_dir ${gwas_tools_image} tabix /tmp_dir/${VCFBASE}_${NUM}.vcf.gz
+
+
+#create popsfiles
+echo "Creating Popfiles..."
+bash ${root}/code/05_PopGen/split_popfile.sh ${root}/input_data/05_PopGen/popsfile.txt ${tmpoutdir}
+
+#run tajima's d calculation in 20kb windows
+echo "Running Tajima's D Calculations"
+while read j;
+do
+	echo singularity exec --bind $root:/project_root  --bind $outdir:/out_dir --bind $tmpdir:/tmp_dir ${gwas_tools_image} vcftools --gzvcf /tmp_dir/${VCFBASE}_${NUM}.vcf.gz --TajimaD 20000 --keep /tmp_dir/${j}.txt --out /out_dir/${j}_TAJD_chunk_${SLURM_ARRAY_TASK_ID};
+	singularity exec --bind $root:/project_root  --bind $outdir:/out_dir --bind $tmpdir:/tmp_dir ${gwas_tools_image} vcftools --gzvcf /tmp_dir/${VCFBASE}_${NUM}.vcf.gz --TajimaD 20000 --keep /tmp_dir/${j}.txt --out /out_dir/${j}_TAJD_chunk_${SLURM_ARRAY_TASK_ID};
+done < ${tmpoutdir}/unique_pops.txt
