@@ -16,9 +16,10 @@ MYNAME=$(whoami)
 
 indir=${root}/output_data/03_QC/
 outdir=${root}/output_data/05_PopGen/tajd_chunks
-tmpoutdir=/mnt/local/${MYNAME}/${SLURM_JOB_ID}/
+tmpoutdir=/mnt/local/${MYNAME}/${SLURM_JOB_ID}
 
 mkdir -p ${outdir}
+mkdir -p ${tmpoutdir}
 
 TN=$(basename ${allsites_vcf})
 VCFBASE=${TN%".vcf.gz"}
