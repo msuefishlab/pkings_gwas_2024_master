@@ -37,7 +37,6 @@ done < ${root}/input_data/00_Reference_Genome/${chr_name_map}.only.txt
 # Apply the sed expressions to the data file
 sed "$sed_expr" ${tmpoutdir}/interval.txt > ${tmpoutdir}/tmp_interval.txt
 mv ${tmpoutdir}/tmp_interval.txt ${tmpoutdir}/interval.txt
-rm ${tmpoutdir}/tmp_interval.txt
 
 TN=$(basename ${f})
 NUM=${TN%"-scattered.interval_list"}
