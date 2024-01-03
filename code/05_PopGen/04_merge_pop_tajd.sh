@@ -9,7 +9,7 @@ root="$(git rev-parse --show-toplevel)"
 source ${root}/"pkings_gwas.env"
 
 # Define the output file
-output_file=${root}/output_data/05_PopGen/${popgen_prefix}.tajd.stats.final.txt
+output_file=${root}/output_data/05_PopGen/${popgen_prefix}_tajd.txt
 
 # Check if the output file already exists and remove it to start fresh
 if [ -f "$output_file" ]; then
