@@ -31,8 +31,8 @@ for file in ${root}/output_data/05_PopGen/*.tajd.stats.txt; do
         header_written=true
     fi
 
-    # Add the population name as the first column, skip the second line (blank line)
-    awk -v pop="$pop_name" 'NR>2 {print pop, $0}' OFS="\t" "$file" >> "$output_file"
+   # Add the population name as the first column, skip blank lines
+    awk -v pop="$pop_name" 'NF && NR>1 {print pop, $0}' OFS="\t" "$file" >> "$output_file"
 done
 
 echo "Combined file created: $output_file"
