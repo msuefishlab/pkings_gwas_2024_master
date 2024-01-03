@@ -15,3 +15,4 @@ nintervals=${#interval_files[@]}
 mkdir -p $root"/output_data/slurm_logs"/05_PopGen/
 
 echo sbatch --job-name "POPGEN_TAJD" --output ${root}"/output_data/slurm_logs"/05_PopGen/"POPGEN_TAJD_%a.log" -a 0-$nintervals --export=root=${root} ${root}/code/03_VCF_QC_Filter/tajd.sb
+sbatch --job-name "POPGEN_TAJD" --output ${root}"/output_data/slurm_logs"/05_PopGen/"POPGEN_TAJD_%a.log" -a 0-$nintervals --export=root=${root} ${root}/code/03_VCF_QC_Filter/tajd.sb
