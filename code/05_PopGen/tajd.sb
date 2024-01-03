@@ -12,6 +12,8 @@ cd $root
 
 source $root/pkings_gwas.env
 
+MYNAME=$(whoami)
+
 indir=${root}/output_data/03_QC/
 outdir=${root}/output_data/05_PopGen/tajd_chunks
 tmpoutdir=/mnt/local/${MYNAME}/${SLURM_JOB_ID}/
@@ -24,6 +26,18 @@ INTERVAL_FILES=($(find "${root}/input_data/01_Terra/chrom-interval-files/" "${ro
 f=${INTERVAL_FILES[$SLURM_ARRAY_TASK_ID]}
 
 sed '/^@/d' $f > ${tmpoutdir}/interval.txt
+
+# Read the dictionary and create sed expressions
+sed_expr=""
+while IFS=$'\t' read -r key value; do
+    sed_expr+="s/^$key/$value/;"
+done < ${root}/input_data/00_Reference_Genome/${chr_name_map}.only.txt
+
+# Apply the sed expressions to the data file
+sed "$sed_expr" ${tmpoutdir}/interval.txt > ${tmpoutdir}/tmp_interval.txt
+mv ${tmpoutdir}/tmp_interval.txt ${tmpoutdir}/interval.txt
+rm ${tmpoutdir}/tmp_interval.txt
+
 TN=$(basename ${f})
 NUM=${TN%"-scattered.interval_list"}
 
