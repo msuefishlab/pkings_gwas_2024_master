@@ -19,5 +19,5 @@ keepfilename=$(basename $keep_path)
 
 OUTNAME=${keepfilename%.txt}
 
-echo sbatch --job-name $OUTNAME"_MAKE_RELMAT" --output ${root}"/output_data/slurm_logs/06_Assocation/gemma/ASSOC_"${OUTNAME}"_MAKE_RELMAT.slurm.log" --export=root=${root} ${root}/code/06_Association/prep_data.sb $keep_path $pheno_path $OUTNAME
-sbatch --job-name $OUTNAME"_MAKE_RELMAT" --output ${root}"/output_data/slurm_logs/06_Assocation/gemma/ASSOC_"${OUTNAME}"_MAKE_RELMAT.slurm.log" --export=root=${root} ${root}/code/06_Association/prep_data.sb $keep_path $pheno_path $OUTNAME
+echo sbatch --job-name $OUTNAME"_MAKE_RELMAT" --output ${root}"/output_data/slurm_logs/06_Assocation/gemma/ASSOC_"${OUTNAME}"_prep_data.log" --export=root=${root} ${root}/code/06_Association/prep_data.sb $keep_path $pheno_path $OUTNAME
+sbatch --job-name $OUTNAME"_MAKE_RELMAT" --output ${root}"/output_data/slurm_logs/06_Assocation/gemma/ASSOC_"${OUTNAME}"_prep_data.log" --export=root=${root} ${root}/code/06_Association/prep_data.sb $keep_path $pheno_path $OUTNAME
