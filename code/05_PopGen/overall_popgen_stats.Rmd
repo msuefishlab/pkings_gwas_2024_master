@@ -52,10 +52,10 @@ print(pop_phenos)
 ```{r}
 pixy_df <- list()
 
-dxy_file=file.path(root,"output_data/05_PopGen/",paste0(popgen_prefix,"_dxy.txt"))
-fst_file=file.path(root,"output_data/05_PopGen/",paste0(popgen_prefix,"_fst.txt"))
-pi_file=file.path(root,"output_data/05_PopGen/",paste0(popgen_prefix,"_pi.txt"))
-tajd_file=file.path(root,"output_data/05_PopGen/",paste0(popgen_prefix,"_tajd.txt"))
+dxy_file=file.path(root,"output_data/05_PopGen/",paste0(params$popgen_prefix,"_dxy.txt"))
+fst_file=file.path(root,"output_data/05_PopGen/",paste0(params$popgen_prefix,"_fst.txt"))
+pi_file=file.path(root,"output_data/05_PopGen/",paste0(params$popgen_prefix,"_pi.txt"))
+tajd_file=file.path(root,"output_data/05_PopGen/",paste0(params$popgen_prefix,"_tajd.txt"))
 
 tajd_df<-fread(tajd_file)
 
