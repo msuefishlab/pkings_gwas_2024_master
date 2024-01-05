@@ -11,7 +11,7 @@ source ${root}/"pkings_gwas.env"
 
 mkdir -p ${root}/output_data/slurm_logs/06_Assocation/
 
-$OUTNAME=$1
+OUTNAME=$1
 
 echo sbatch --job-name $OUTNAME"_MAKE_RELMAT" --output ${root}"/output_data/slurm_logs/06_Assocation/ASSOC_"${OUTNAME}"_prep_data.log" --export=root=${root},OUTNAME=${OUTNAME} ${root}/code/06_Association/prep_data.sb
 echo sbatch --job-name $OUTNAME"_MAKE_RELMAT" --output ${root}"/output_data/slurm_logs/06_Assocation/ASSOC_"${OUTNAME}"_prep_data.log" --export=root=${root},OUTNAME=${OUTNAME} ${root}/code/06_Association/prep_data.sb
