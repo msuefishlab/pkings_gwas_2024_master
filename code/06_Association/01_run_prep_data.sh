@@ -13,7 +13,5 @@ mkdir -p ${root}/output_data/slurm_logs/06_Assocation/
 
 $OUTNAME=$1
 
-keepfilename=$(basename $keep_path)
-
 echo sbatch --job-name $OUTNAME"_MAKE_RELMAT" --output ${root}"/output_data/slurm_logs/06_Assocation/ASSOC_"${OUTNAME}"_prep_data.log" --export=root=${root},OUTNAME=${OUTNAME} ${root}/code/06_Association/prep_data.sb
 echo sbatch --job-name $OUTNAME"_MAKE_RELMAT" --output ${root}"/output_data/slurm_logs/06_Assocation/ASSOC_"${OUTNAME}"_prep_data.log" --export=root=${root},OUTNAME=${OUTNAME} ${root}/code/06_Association/prep_data.sb
