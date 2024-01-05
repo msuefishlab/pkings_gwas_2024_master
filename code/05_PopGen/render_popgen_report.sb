@@ -1,0 +1,20 @@
+#!/bin/bash --login
+
+########## Define Resources Needed with SBATCH Lines ##########
+
+#SBATCH --time=04:00:00             # limit of wall clock time - how long the job will run (same as -t)
+#SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
+#SBATCH --cpus-per-task=1           # number of CPUs (or cores) per task (same as -c)
+#SBATCH --mem=20G                    # memory required per node - amount of memory (in bytes)
+#SBATCH --job-name Render_Popgen_Report      # you can give your job a name for easier identification (same as -J)
+########## Command Lines to Run ##########
+
+cd $root
+
+source $root/pkings_gwas.env
+
+mkdir -p $root/output_data/05_PopGen/
+
+echo singularity exec --bind $root:/project_root ${gwas_tools_image} Rscript /project_root/code/05_PopGen/render_popgen_report.R ${popgen_prefix}  /project_root/output_data/05_PopGen/${popgen_prefix}.report /project_root/code/05_PopGen/overall_popgen_stats.Rmd
+
+singularity exec --bind $root:/project_root ${gwas_tools_image} Rscript /project_root/code/05_PopGen/render_popgen_report.R ${popgen_prefix}  /project_root/output_data/05_PopGen/${popgen_prefix}.report /project_root/code/05_PopGen/overall_popgen_stats.Rmd
