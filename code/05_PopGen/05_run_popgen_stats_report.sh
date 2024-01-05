@@ -11,3 +11,4 @@ source ${root}/"pkings_gwas.env"
 mkdir -p $root"/output_data/slurm_logs"/05_PopGen/
 
 echo sbatch --job-name "RUN_POPGEN_REPORT" --output ${root}"/output_data/slurm_logs"/05_PopGen/"POPGEN_report.log" --export=root=${root} ${root}/code/05_PopGen/render_popgen_report.sb
+sbatch --job-name "RUN_POPGEN_REPORT" --output ${root}"/output_data/slurm_logs"/05_PopGen/"POPGEN_report.log" --export=root=${root} ${root}/code/05_PopGen/render_popgen_report.sb
