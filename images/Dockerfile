@@ -58,4 +58,14 @@ RUN wget https://github.com/shenwei356/seqkit/releases/download/v2.6.1/seqkit_li
 
 RUN tar -zxvf seqkit_linux_amd64.tar.gz
 
+RUN mkdir -p /qctool
+
+WORKDIR /qctool
+
+RUN wget https://www.well.ox.ac.uk/~gav/resources/qctool_v2.2.0-CentOS_Linux7.8.2003-x86_64.tgz
+
+RUN tar -zxvf qctool_v2.2.0-CentOS_Linux7.8.2003-x86_64.tgz
+
+RUN mv ./*/qctool /qctool
+
 CMD ["/bin/bash"]
