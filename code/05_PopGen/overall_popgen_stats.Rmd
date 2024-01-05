@@ -1,6 +1,8 @@
 ---
 title: "Overall Popgen Stats"
 output: html_notebook
+params:
+  popgen_prefix: MIC4273_HAP1_MSU618_all_fish
 ---
 
 ```{r setup, include=FALSE}
