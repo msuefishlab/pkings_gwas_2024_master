@@ -21,10 +21,6 @@ tmpoutdir=/mnt/local/${MYNAME}/${SLURM_JOB_ID}
 mkdir -p ${outdir}
 mkdir -p ${tmpoutdir}
 
-KEEPFILE=$1
-PHENO=$2
-OUTNAME=$3
-
 mkdir -p ${outdir}/$OUTNAME
 
 #prune for rel matrix
@@ -42,5 +38,5 @@ singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpo
 echo grep -v "NA" ${tmpoutdir}/$OUTNAME/${OUTNAME}.pruned.geno  >  ${tmpoutdir}/$OUTNAME/${OUTNAME}._noNA.pruned.geno
 grep -v "NA" ${tmpoutdir}/$OUTNAME/${OUTNAME}.pruned.geno  >  ${tmpoutdir}/$OUTNAME/${OUTNAME}._noNA.pruned.geno
 
-echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} gemma -g  /tmp_dir/$OUTNAME/${OUTNAME}._noNA.pruned.geno -p $PHENO -gk 1 -outdir /out_dir/$OUTNAME/ -o ${OUTNAME}.noNA.relate
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} gemma -g  /tmp_dir/$OUTNAME/${OUTNAME}._noNA.pruned.geno -p $PHENO -gk 1 -outdir /out_dir/$OUTNAME/ -o ${OUTNAME}.noNA.relate
+echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} gemma -g  /tmp_dir/$OUTNAME/${OUTNAME}._noNA.pruned.geno -p /project_root/input_data/06_Association/${OUTNAME}.pheno.txt -gk 1 -outdir /out_dir/$OUTNAME/ -o ${OUTNAME}.noNA.relate
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} gemma -g  /tmp_dir/$OUTNAME/${OUTNAME}._noNA.pruned.geno -p /project_root/input_data/06_Association/${OUTNAME}.pheno.txt  -gk 1 -outdir /out_dir/$OUTNAME/ -o ${OUTNAME}.noNA.relate
