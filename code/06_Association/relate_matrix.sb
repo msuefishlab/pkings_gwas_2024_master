@@ -32,8 +32,8 @@ singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpo
 echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "bcftools index /tmp_dir/$OUTNAME/${OUTNAME}.prune.for_gemma.vcf.gz"
 singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "bcftools index /tmp_dir/$OUTNAME/${OUTNAME}.prune.for_gemma.vcf.gz"
 
-echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /qctool/qctool -g /tmp_dir/$OUTNAME/${OUTNAME}.prune.for_gemma.vcf.gz -ofiletype bimbam_dosage -og /tmp_dir/$OUTNAME/$OUTNAME/${OUTNAME}.pruned.geno
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /qctool/qctool -g /tmp_dir/$OUTNAME/${OUTNAME}.prune.for_gemma.vcf.gz -ofiletype bimbam_dosage -og /tmp_dir/$OUTNAME/$OUTNAME/${OUTNAME}.pruned.geno
+echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /qctool/qctool -g /tmp_dir/$OUTNAME/${OUTNAME}.prune.for_gemma.vcf.gz -ofiletype bimbam_dosage -og /tmp_dir/$OUTNAME/${OUTNAME}.pruned.geno
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /qctool/qctool -g /tmp_dir/$OUTNAME/${OUTNAME}.prune.for_gemma.vcf.gz -ofiletype bimbam_dosage -og /tmp_dir/$OUTNAME/${OUTNAME}.pruned.geno
 
 ##create relatedness matrix (centered is best reccomendation for starting off in the documentation)
 
