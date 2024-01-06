@@ -68,4 +68,12 @@ RUN tar -zxvf qctool_v2.2.0-CentOS_Linux7.8.2003-x86_64.tgz
 
 RUN mv ./*/qctool /qctool
 
+RUN mkdir -p /plink
+
+WORKDIR /plink
+
+RUN wget https://s3.amazonaws.com/plink1-assets/plink_linux_x86_64_20231211.zip
+
+RUN unzip plink_linux_x86_64_20231211.zip
+
 CMD ["/bin/bash"]
