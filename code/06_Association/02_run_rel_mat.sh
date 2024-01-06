@@ -14,5 +14,5 @@ mkdir -p ${root}/output_data/slurm_logs/06_Assocation/
 
 OUTNAME=$1
 
-echo sbatch --job-name $OUTNAME"_MAKE_RELMAT" --output ${root}"/output_data/slurm_logs/06_Assocation/gemma/ASSOC_"${OUTNAME}"_MAKE_RELMAT.slurm.log" --export=root=${root},OUTNAME=${OUTNAME} ${root}/code/06_Association/relate_matrix.sb
-sbatch --job-name $OUTNAME"_MAKE_RELMAT" --output ${root}"/output_data/slurm_logs/06_Assocation/gemma/ASSOC_"${OUTNAME}"_MAKE_RELMAT.slurm.log" --export=root=${root},OUTNAME=${OUTNAME} ${root}/code/06_Association/relate_matrix.sb
+echo sbatch --job-name $OUTNAME"_MAKE_RELMAT" --output ${root}"/output_data/slurm_logs/06_Assocation/ASSOC_"${OUTNAME}"_MAKE_RELMAT.slurm.log" --export=root=${root},OUTNAME=${OUTNAME} ${root}/code/06_Association/relate_matrix.sb
+sbatch --job-name $OUTNAME"_MAKE_RELMAT" --output ${root}"/output_data/slurm_logs/06_Assocation/ASSOC_"${OUTNAME}"_MAKE_RELMAT.slurm.log" --export=root=${root},OUTNAME=${OUTNAME} ${root}/code/06_Association/relate_matrix.sb
