@@ -36,5 +36,5 @@ singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpo
 --pheno /project_root/input_data/06_Association/${OUTNAME}.pheno.txt \
 --out /out_dir/$OUTNAME/$OUTNAME
 
-echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} gemma -bfile  /out_dir/$OUTNAME/$OUTNAME.pruned -lmm 2 -k  /out_dir/$OUTNAME/${OUTNAME}.relate.cXX.txt -outdir /out_dir/$OUTNAME/ -o ${OUTNAME}.lmm2
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} gemma -bfile  /out_dir/$OUTNAME/$OUTNAME.pruned -lmm 2 -k  /out_dir/$OUTNAME/${OUTNAME}.relate.cXX.txt -outdir /out_dir/$OUTNAME/ -o ${OUTNAME}.lmm2
+echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} gemma -bfile  /out_dir/$OUTNAME/$OUTNAME -lmm 2 -k  /out_dir/$OUTNAME/${OUTNAME}.relate.cXX.txt -outdir /out_dir/$OUTNAME/ -o ${OUTNAME}.lmm2
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} gemma -bfile  /out_dir/$OUTNAME/$OUTNAME -lmm 2 -k  /out_dir/$OUTNAME/${OUTNAME}.relate.cXX.txt -outdir /out_dir/$OUTNAME/ -o ${OUTNAME}.lmm2
