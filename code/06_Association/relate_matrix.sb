@@ -22,9 +22,10 @@ mkdir -p ${outdir}
 mkdir -p ${tmpoutdir}
 
 mkdir -p ${outdir}/$OUTNAME
+mkdir -p ${tmpoutdir}/$OUTNAME
+
 
 #prune for rel matrix
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} ls /tmp_dir
 echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "bcftools +prune -n 1 -w 20000bp --nsites-per-win-mode rand --random-seed 42 -O z -o /tmp_dir/$OUTNAME/${OUTNAME}.prune.for_gemma.vcf.gz /out_dir/$OUTNAME/${OUTNAME}_merge_ID.vcf.gz"
 singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "bcftools +prune -n 1 -w 20000bp --nsites-per-win-mode rand --random-seed 42 -O z -o /tmp_dir/$OUTNAME/${OUTNAME}.prune.for_gemma.vcf.gz /out_dir/$OUTNAME/${OUTNAME}_merge_ID.vcf.gz"
 
