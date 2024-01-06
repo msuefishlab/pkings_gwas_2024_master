@@ -1,10 +1,10 @@
 #!/bin/bash
 
-## 01_run_rel_mat.sh
+## 02_run_rel_mat.sh
 ## January 2024
 ## JRG
-# This script submits a set of individuals specified in arg1 with phenotypes in arg2 to make a relationship matrix
-# e.g. bash 01_run_rel_mat.sh ./apa_bam_wobs_only.txt ./apa_bam_wobs_only_phenos.txt
+# This script submits a set of individuals specified in arg1 
+# e.g.  bash code/06_Association/02_run_rel_mat.sh APA_BAM_ONLY_BP1_TP0_WOBBLE9
 # note that output is names based on the keep file.
 
 root="$(git rev-parse --show-toplevel)"
