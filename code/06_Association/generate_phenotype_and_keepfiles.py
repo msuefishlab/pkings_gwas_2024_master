@@ -46,7 +46,7 @@ def filter_data(file_path, output_directory, include_pop=None, exclude_pop=None,
             try:
                 user_input = int(input(f"Select a value (0, 1, 2, or -9) for phenotype '{phenotype}': "))
                 if user_input in [0, 1, 2, -9]:
-                    phenotype_values[phenotype] = user_input
+                    phenotype_values[phenotype] = int(user_input)
                     break
                 else:
                     print("Invalid input. Please enter 0, 1, 2, or -9.")
@@ -54,7 +54,7 @@ def filter_data(file_path, output_directory, include_pop=None, exclude_pop=None,
                 print("Invalid input. Please enter a number.")
 
     # Map the user input values to the data
-    data['Mapped_Value'] = data['Phenotype'].map(phenotype_values)
+    data['Mapped_Value'] = data['Phenotype'].map(phenotype_values).fillna(-9).astype(int)
 
    # Prompt for output filename
     outfilename = input("Enter the name for the output files (without extension): ")
