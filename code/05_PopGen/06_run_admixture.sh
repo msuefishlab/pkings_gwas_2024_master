@@ -23,7 +23,7 @@ MYNAME=$(whoami)
 
 singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir ${gwas_tools_image} R --slave --vanilla --file="/project_root/code/05_PopGen/convert_gds_to_plink.R" --args -i "/in_dir/${OUTROOT}.renamed.maf10.miss10.dp5.gds" -o "/out_dir/${OUTROOT}.renamed.maf10.miss10.dp5.filtered"
 
-cat ${outdir}/{OUTROOT}.renamed.maf10.miss10.dp5.filtered.fam | cut -f2 | awk 'BEGIN { FS = "_" } ; { print $1"_"$2,"unk",$1 }' > ${outdir}/indfile.txt
+cat ${outdir}/${OUTROOT}.renamed.maf10.miss10.dp5.filtered.fam | cut -f2 | awk 'BEGIN { FS = "_" } ; { print $1"_"$2,"unk",$1 }' > ${outdir}/indfile.txt
 
 numk=$(cat ${outdir}/indfile.txt | cut -d" " -f3 | uniq | wc -l)
 
