@@ -1,6 +1,6 @@
 library(getopt)
 getwd()
-source('gdsSubset.R')
+source('code/05_PopGen/gdsSubset.R')
 
 h <- function(x) {
     cat("Usage: Rscript --vanilla convert_GDS_to_PLINK.R -i VCF_FILE -o PLINK_FILE_PREFIX [-h]\n\n")
