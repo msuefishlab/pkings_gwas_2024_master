@@ -76,4 +76,14 @@ RUN wget https://s3.amazonaws.com/plink1-assets/plink_linux_x86_64_20231211.zip
 
 RUN unzip plink_linux_x86_64_20231211.zip
 
+RUN mkdir -p /admixture
+
+WORKDIR /admixture
+
+RUN wget https://dalexander.github.io/admixture/binaries/admixture_linux-1.3.0.tar.gz
+
+RUN tar -zxvf admixture_linux-1.3.0.tar.gz
+
+RUN mv dist/*/admixture .
+
 CMD ["/bin/bash"]
