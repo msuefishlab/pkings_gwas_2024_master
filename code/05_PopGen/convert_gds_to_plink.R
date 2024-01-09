@@ -26,14 +26,7 @@ if (! is.null(opt$input)) {
 
 require(SNPRelate)
 
-gdsfile<-snpgdsOpen(gds.file)
-sampID <- read.gdsn(index.gdsn(gdsfile, "sample.id"))
-sampID_rm<-sampID[!grepl("PMAG|PHOP",sampID)]
-snpgdsClose(gdsfile)
-
-gdsSubset(opt$input,'/mnt/gs18/scratch/users/jgallant/admixture/outgroups.dropped.gds',sample.include = sampID_rm)
-
-gdsfile_new<-snpgdsOpen('/mnt/gs18/scratch/users/jgallant/admixture/outgroups.dropped.gds')
+gdsfile_new<-snpgdsOpen(gds.file)
 snpset<-snpgdsLDpruning(gdsfile_new,ld.threshold=0.1,maf=0.1,missing.rate=0.1,num.thread=2)
 snpset.id<-unlist(snpset)
 snpgdsGDS2BED(gdsfile_new, opt$output, sample.id=NULL, snp.id=snpset.id, snpfirstdim=NULL,verbose=TRUE)
