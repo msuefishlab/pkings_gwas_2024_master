@@ -1,4 +1,11 @@
-cd $root
+#!/bin/bash
+
+## 06_run_admixture.sh
+## Jan 2024
+## JRG
+# This script runs ADMIXTURE on the GDS file genereated for the phylogeny
+
+root="$(git rev-parse --show-toplevel)"
 
 source $root/pkings_gwas.env
 
