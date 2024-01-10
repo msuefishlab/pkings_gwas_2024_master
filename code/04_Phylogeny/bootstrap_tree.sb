@@ -22,5 +22,5 @@ mkdir -p ${outdir}
 
 OUTROOT=${snps_only_vcf%".vcf.gz"}
 
-echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir ${gwas_tools_image} R --slave --vanilla --file="/snphylo/SNPhylo/scripts/determine_bs_tree.R" --args -i "/out_dir/${OUTROOT}.renamed.maf20.miss1.dp5.ml.tree" -o "/out_dir/${OUTROOT}.renamed.maf20.miss1.dp5.ml.bs" -p "/out_dir/${OUTROOT}.renamed.maf20.miss1.dp5.ml.phylip.txt" -n "100"
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir ${gwas_tools_image} R --slave --vanilla --file="/snphylo/SNPhylo/scripts/determine_bs_tree.R" --args -i "/out_dir/${OUTROOT}.renamed.maf20.miss1.dp5.ml.tree" -o "/out_dir/${OUTROOT}.renamed.maf20.miss1.dp5.ml.bs" -p "/out_dir/${OUTROOT}.renamed.maf20.miss1.dp5.ml.phylip.txt" -n "100"
+echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir ${gwas_tools_image} R --slave --vanilla --file="/snphylo/SNPhylo/scripts/determine_bs_tree.R" --args -i "/out_dir/${OUTROOT}.renamed.maf20.miss1.dp5.ml.tree" -o "/out_dir/${OUTROOT}.renamed.maf20.miss1.dp5.ml.bs" -p "/out_dir/${OUTROOT}.renamed.maf20.miss1.dp5.phylip.txt" -n "100"
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir ${gwas_tools_image} R --slave --vanilla --file="/snphylo/SNPhylo/scripts/determine_bs_tree.R" --args -i "/out_dir/${OUTROOT}.renamed.maf20.miss1.dp5.ml.tree" -o "/out_dir/${OUTROOT}.renamed.maf20.miss1.dp5.ml.bs" -p "/out_dir/${OUTROOT}.renamed.maf20.miss1.dp5.phylip.txt" -n "100"
