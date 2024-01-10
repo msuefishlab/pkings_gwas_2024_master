@@ -23,7 +23,7 @@ RUN R -e 'BiocManager::install("SNPRelate")'
 RUN mkdir -p /snphylo/bin
 
 RUN apt-get update && \
-    apt-get install -y muscle phylip curl git python2 bcftools vcftools tabix wget gemma
+    apt-get install -y muscle phylip curl git python2 bcftools vcftools tabix wget build-essential libgsl-dev libblas-dev liblapack-dev zlib1g-dev
 
 RUN git clone https://github.com/jasongallant/SNPhylo.git
 
@@ -85,5 +85,17 @@ RUN wget https://dalexander.github.io/admixture/binaries/admixture_linux-1.3.0.t
 RUN tar -zxvf admixture_linux-1.3.0.tar.gz
 
 RUN mv dist/*/admixture .
+
+RUN mkdir -p /gemma
+
+WORKDIR /gemma
+
+RUN git clone https://github.com/genetics-statistics/GEMMA.git
+
+WORKDIR /gemma/GEMMA
+
+RUN git checkout 8132837
+
+RUN make
 
 CMD ["/bin/bash"]

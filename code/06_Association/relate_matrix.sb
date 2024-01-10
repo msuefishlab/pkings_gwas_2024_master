@@ -43,5 +43,5 @@ singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpo
 
 ##create relatedness matrix (centered is best reccomendation for starting off in the documentation)
 
-echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} gemma -bfile  /out_dir/$OUTNAME/$OUTNAME -gk 1 -outdir /out_dir/$OUTNAME/ -o ${OUTNAME}.relate
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} gemma -bfile  /out_dir/$OUTNAME/$OUTNAME -gk 1 -outdir /out_dir/$OUTNAME/ -o ${OUTNAME}.relate
+echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /gemma/GEMMA/bin/gemma -bfile  /out_dir/$OUTNAME/$OUTNAME -gk 1 -outdir /out_dir/$OUTNAME/ -o ${OUTNAME}.relate
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /gemma/GEMMA/bin/gemma -bfile  /out_dir/$OUTNAME/$OUTNAME -gk 1 -outdir /out_dir/$OUTNAME/ -o ${OUTNAME}.relate
