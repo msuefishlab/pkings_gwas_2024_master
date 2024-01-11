@@ -30,7 +30,7 @@ numk=$(cat ${outdir}/indfile.txt | cut -d" " -f3 | uniq | wc -l)
 cd $outdir
 
 for K in $(seq 1 $numk); do
-    CMD="singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir ${gwas_tools_image} bash -c '/admixture/admixture --cv -j8 /out_dir/${OUTROOT}.renamed.maf20.miss1.dp5.filtered.bed $K | tee /out_dir/${OUTROOT}.renamed.maf20.miss1.dp5.filtered.${K}.out'" # Normally you should give --cv as first option to admixture
+    CMD="singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir ${gwas_tools_image} bash -c '/admixture/admixture --cv -j8 /out_dir/${OUTROOT}.renamed.maf20.miss1.dp5.filtered.bed $K | tee /out_dir/${OUTROOT}${OUTROOT}.renamed.maf20.miss1.dp5.filtered.${K}.out'" # Normally you should give --cv as first option to admixture
     echo sbatch --time=04:00:00 -c 8 -J ADMIXTURE_${K} -o ${root}"/output_data/slurm_logs/05_PopGen/popgen_ADMIXTURE_${K}.log" --export=root=${root} --mem 12000 --wrap="$CMD"
     sbatch --time=04:00:00 -c 8 -J ADMIXTURE_${K} -o ${root}"/output_data/slurm_logs/05_PopGen/popgen_ADMIXTURE_${K}.log" --export=root=${root} --mem 12000 --wrap="$CMD"
 done
