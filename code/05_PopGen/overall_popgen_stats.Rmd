@@ -55,9 +55,13 @@ pixy_df <- list()
 dxy_file=file.path(root,"output_data/05_PopGen/",paste0(params$popgen_prefix,"_dxy.txt"))
 fst_file=file.path(root,"output_data/05_PopGen/",paste0(params$popgen_prefix,"_fst.txt"))
 pi_file=file.path(root,"output_data/05_PopGen/",paste0(params$popgen_prefix,"_pi.txt"))
+
+#note there is a problem with how tajima's d is being calculated.  there are double values for some intervals, suggesting that the method of breaking up the chromosomes needs to be revisited for this step.
 tajd_file=file.path(root,"output_data/05_PopGen/",paste0(params$popgen_prefix,"_tajd.txt"))
 
 tajd_df<-fread(tajd_file)
+
+tajd_df<-tajd_df %>% arrange(pop1,CHROM,BIN_START)
 
 tajd_df <- tajd_df %>%
     mutate(window_pos_1=BIN_START+1) %>%
@@ -66,7 +70,8 @@ tajd_df <- tajd_df %>%
     mutate(statistic="avg_tajd") %>%
     mutate(value=TajimaD) %>%
     mutate(pop2=NA) %>%
-    select(pop1, chromosome, window_pos_1, window_pos_2, statistic, value, pop2 )
+    select(pop1,  pop2, chromosome, window_pos_1, window_pos_2, statistic, value, ) %>%
+    arrange(pop1,  pop2, chromosome, window_pos_1)
 
 df_pi <- fread(pi_file)
       
@@ -93,12 +98,31 @@ dxy_df <- dxy_df %>%
 pixy_df[[1]] <- fst_df
 pixy_df[[2]] <- dxy_df
 pixy_df[[3]] <- df_pi
-pixy_df[[4]] <- tajd_df
+#pixy_df[[4]] <- tajd_df
 
 pixy<-bind_rows(pixy_df) %>%
     arrange(pop1, pop2, chromosome, window_pos_1, statistic)
 
-pixy<-pixy %>% mutate(comparison=paste0(pop1,"_",pop2))
+```
+
+```{r}
+{tajd_df} %>%
+  dplyr::group_by(pop1, pop2, chromosome, window_pos_1, window_pos_2, statistic) %>%
+  dplyr::summarise(n = dplyr::n(), .groups = "drop") %>%
+  dplyr::filter(n > 1L)
+```
+
+
+```{r}
+#time for some dplyr kung-fu.  easier to calculate rolling means and zfst when the table is wide, therefore...
+
+pixy<-pixy %>% pivot_wider(names_from=statistic,values_from=value) %>% mutate(comparison=paste0(pop1,"_",pop2))
+
+pixy<-pixy %>% group_by(comparison) %>% mutate(zfst=((avg_wc_fst-mean(avg_wc_fst,na.rm=T))/sd(avg_wc_fst,na.rm=T)))
+
+pixy <- pixy %>% 
+  pivot_longer(cols = -c(pop1, pop2, chromosome, window_pos_1, window_pos_2,comparison),
+               names_to = "statistic", values_to = "value")
 ```
 
 ```{r}
@@ -248,3 +272,49 @@ combined_plot <- combined_plot +
 combined_plot
 ```
 
+```{r, fig.width=12}
+
+# Step 1: Filter for zfst statistic
+zfst_data <- pixy %>%
+  filter(statistic == "zfst")
+
+zfst_data$chromosome <- factor(zfst_data$chromosome, levels = unique(zfst_data$chromosome))
+
+zfst_data$chromosome_num <- as.numeric(zfst_data$chromosome)
+
+zfst_data<-zfst_data %>% filter(chromosome_num <25) %>% filter(comparison=="APA_BAM")
+
+# Step 2: Calculate chromosome lengths and create cumulative positions
+chromosome_lengths <- zfst_data %>%
+  group_by(chromosome_num) %>%
+  summarize(chrom_length = max(window_pos_2), .groups = 'drop')
+
+zfst_data <- zfst_data %>%
+  left_join(chromosome_lengths, by = "chromosome_num") %>%
+  arrange(chromosome_num, window_pos_1) %>%
+  mutate(cumulative_pos = cumsum(as.numeric(chrom_length)) - chrom_length + window_pos_1)
+
+chromosome_ends <- zfst_data %>%
+  group_by(chromosome_num) %>%
+  summarize(end_position = max(cumulative_pos), .groups = 'drop')
+
+# Create a data frame for x-axis breaks and labels
+x_breaks_labels <- chromosome_ends %>%
+  mutate(start_position = lag(end_position, default = 0),
+         mid_position = (start_position + end_position) / 2) %>%
+  select(chromosome_num, mid_position)
+
+# Create the Manhattan plot with custom x-axis and vertical lines
+ggplot(zfst_data, aes(x = cumulative_pos, y = value, color = comparison)) +
+  geom_line(alpha = 0.6, size=1) +
+  scale_color_viridis_d() +
+  geom_vline(data = chromosome_ends, aes(xintercept = end_position), color = "grey70", linetype = "dashed") +
+  scale_x_continuous(breaks = x_breaks_labels$mid_position, labels = x_breaks_labels$chromosome_num) +
+  theme_minimal() +
+  labs(title = "Manhattan Plot of zfst values",
+       x = "Chromosome",
+       y = "zfst Value",
+       color = "Comparison") +
+  theme(legend.position = "bottom",
+        axis.text.x = element_text(angle = 45, hjust = 1))
+```

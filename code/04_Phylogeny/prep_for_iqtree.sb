@@ -31,9 +31,9 @@ echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind 
 
 singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "bcftools view --threads 16 /in_dir/${snps_only_vcf} | bcftools annotate --rename-chrs /project_root/input_data/00_Reference_Genome/${chr_name_map}.chromosome_number_map.txt  | bcftools filter -e \"F_MISSING > 0.20 || MAF < 0.05 || INFO/DP < 5\" -o /tmp_dir/${OUTROOT}.renamed.maf5.miss20.dp5.vcf"
 
-echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "bcftools +prune -m 0.9 -w 500000 /tmp_dir/${OUTROOT}.renamed.maf5.miss20.dp5.vcf -o /tmp_dir/${OUTROOT}.renamed.maf5.miss20.dp5.ld90.vcf"
+echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "bcftools +prune -m 0.9 -w 500kb /tmp_dir/${OUTROOT}.renamed.maf5.miss20.dp5.vcf -o /tmp_dir/${OUTROOT}.renamed.maf5.miss20.dp5.ld90.vcf"
 
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "bcftools +prune -m 0.9 -w 500000 /tmp_dir/${OUTROOT}.renamed.maf5.miss20.dp5.vcf -o /tmp_dir/${OUTROOT}.renamed.maf5.miss20.dp5.ld90.vcf"
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "bcftools +prune -m 0.9 -w 500kb /tmp_dir/${OUTROOT}.renamed.maf5.miss20.dp5.vcf -o /tmp_dir/${OUTROOT}.renamed.maf5.miss20.dp5.ld90.vcf"
 
 echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} python3 /vcf2phylip/vcf2phylip/vcf2phylip.py -i /tmp_dir/${OUTROOT}.renamed.maf5.miss20.dp5.ld90.vcf -r -n --output-folder /out_dir/ --output-prefix ${OUTROOT}.renamed.maf5.miss20.dp5.ld90
 
