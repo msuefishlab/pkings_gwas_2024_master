@@ -98,4 +98,10 @@ RUN git checkout 8132837
 
 RUN make
 
+RUN mkdir -p /vcf2phylip
+
+WORKDIR /vcf2phylip
+
+RUN git clone https://github.com/edgardomortiz/vcf2phylip.git
+
 CMD ["/bin/bash"]
