@@ -24,6 +24,6 @@ mkdir -p ${tmpoutdir}
 OUTROOT=${snps_only_vcf%".vcf.gz"}
 
 
-echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} cd /outdir; /iqtree/iqtree2 --threads-max 18 --mem 28G -s /out_dir/${OUTROOT}.renamed.maf5.miss20.dp5.ld90.phy -m MFP+ASC -B 1000
+echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} cd /out_dir; /iqtree/iqtree2 --threads-max 18 --mem 28G -s /out_dir/${OUTROOT}.renamed.maf5.miss20.dp5.ld90.phy -m MFP+ASC -B 1000
 
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} cd /outdir; /iqtree/iqtree2 --threads-max 18 --mem 28G -s /out_dir/${OUTROOT}.renamed.maf5.miss20.dp5.ld90.phy -m MFP+ASC -B 1000
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} cd /out_dir; /iqtree/iqtree2 --threads-max 18 --mem 28G -s /out_dir/${OUTROOT}.renamed.maf5.miss20.dp5.ld90.phy -m MFP+ASC -B 1000
