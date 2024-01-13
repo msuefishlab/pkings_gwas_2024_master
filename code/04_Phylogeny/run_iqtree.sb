@@ -4,8 +4,8 @@
 
 #SBATCH --time=8:00:00             # limit of wall clock time - how long the job will run (same as -t)
 #SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
-#SBATCH --cpus-per-task=19           # number of CPUs (or cores) per task (same as -c)
-#SBATCH --mem=30G                    # memory required per node - amount of memory (in bytes)
+#SBATCH --cpus-per-task=40           # number of CPUs (or cores) per task (same as -c)
+#SBATCH --mem=200G                    # memory required per node - amount of memory (in bytes)
 #SBATCH --job-name RUN_SNPHYLO      # you can give your job a name for easier identification (same as -J)
 ########## Command Lines to Run ##########
 cd $root
@@ -24,6 +24,8 @@ mkdir -p ${tmpoutdir}
 OUTROOT=${snps_only_vcf%".vcf.gz"}
 
 
-echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} cd /out_dir; /iqtree/iqtree2 --threads-max 18 --mem 28G -s /out_dir/${OUTROOT}.renamed.maf5.miss20.dp5.ld90.phy -m MFP+ASC -B 1000
+cd ${outdir}
 
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} cd /out_dir; /iqtree/iqtree2 --threads-max 18 --mem 28G -s /out_dir/${OUTROOT}.renamed.maf5.miss20.dp5.ld90.phy -m MFP+ASC -B 1000
+echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /iqtree/iqtree2 --nt 40 --mem 190G -s /out_dir/${OUTROOT}.renamed.maf5.miss20.dp5.ld90.min4.phy -m MFP+ASC -B 1000
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /iqtree/iqtree2 --nt 40 --mem 190G -s /out_dir/${OUTROOT}.renamed.maf5.miss20.dp5.ld90.min4.phy -m MFP+ASC -B 1000
+
