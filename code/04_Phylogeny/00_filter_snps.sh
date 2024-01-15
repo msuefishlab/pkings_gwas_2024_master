@@ -10,5 +10,5 @@ source ${root}/"pkings_gwas.env"
 
 mkdir -p ${root}/output_data/slurm_logs/04_Phylogeny/
 
-echo sbatch --job-name "PHYLO_RUN_SNP_PHYLO" --output ${root}"/output_data/slurm_logs/04_Phylogeny/phylo_run_snp_phylo.log" --export=root=${root} ${root}/code/04_Phylogeny/filter_snps.sb
-sbatch --job-name "PHYLO_RUN_SNP_PHYLO" --output ${root}"/output_data/slurm_logs/04_Phylogeny/phylo_run_snp_phylo.log" --export=root=${root} ${root}/code/04_Phylogeny/filter_snps.sb
+echo sbatch --job-name "PHYLO_FILTER_SNPS" --output ${root}"/output_data/slurm_logs/04_Phylogeny/phylo_filter_snps.log" --export=root=${root} ${root}/code/04_Phylogeny/filter_snps.sb
+sbatch --job-name "PHYLO_FILTER_SNPS" --output ${root}"/output_data/slurm_logs/04_Phylogeny/phylo_filter_snps.log" --export=root=${root} ${root}/code/04_Phylogeny/filter_snps.sb
