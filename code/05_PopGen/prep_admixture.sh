@@ -31,15 +31,15 @@ echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind 
 
 singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "bcftools view --threads 16 /in_dir/${snps_only_vcf} | bcftools annotate --rename-chrs /project_root/input_data/00_Reference_Genome/${chr_name_map}.chromosome_number_map.txt  | bcftools filter -e \"F_MISSING > 0.20 || MAF < 0.05 || INFO/DP < 5\" -o /tmp_dir/${OUTROOT}.renamed.maf5.miss20.dp5.vcf"
 
-echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "bcftools +prune -m 0.9 -w 500kb /tmp_dir/${OUTROOT}.renamed.maf5.miss20.dp5.vcf -o /tmp_dir/${OUTROOT}.renamed.maf5.miss20.dp5.ld90.vcf"
+echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "bcftools +prune -n 1 -w 20000bp --nsites-per-win-mode rand --random-seed 42 /tmp_dir/${OUTROOT}.renamed.maf5.miss20.dp5.vcf -o /tmp_dir/${OUTROOT}.renamed.maf5.miss20.dp5.r20kb.vcf"
 
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "bcftools +prune -m 0.9 -w 500kb /tmp_dir/${OUTROOT}.renamed.maf5.miss20.dp5.vcf -o /tmp_dir/${OUTROOT}.renamed.maf5.miss20.dp5.ld90.vcf"
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "bcftools +prune -n 1 -w 20000bp --nsites-per-win-mode rand --random-seed 42 /tmp_dir/${OUTROOT}.renamed.maf5.miss20.dp5.vcf -o /tmp_dir/${OUTROOT}.renamed.maf5.miss20.dp5.r20kb.vcf"
 
 singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /plink/plink \
---vcf  /tmp_dir/${OUTROOT}.renamed.maf5.miss20.dp5.ld90.vcf \
+--vcf  /tmp_dir/${OUTROOT}.renamed.maf5.miss20.dp5.r20kb.vcf \
 --allow-extra-chr \
 --allow-no-sex \
 --double-id \
 --make-bed \
 --pheno /project_root/input_data/06_Association/${OUTNAME}.pheno.txt \
---out /out_dir/$OUTROOT.renamed.maf5.miss20.dp5.ld90.for_admixture
+--out /out_dir/$OUTROOT.renamed.maf5.miss20.dp5.r20kb.for_admixture
