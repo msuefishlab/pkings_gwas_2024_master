@@ -11,8 +11,8 @@ source $root/pkings_gwas.env
 
 MYNAME=$(whoami)
 
-indir=${root}/output_data/04_Phylogeny_and_Admixture/
-outdir=${root}/output_data/04_Phylogeny_and_Admixture/
+indir=${root}/output_data/04_Phylogeny_And_Admixture/
+outdir=${root}/output_data/04_Phylogeny_And_Admixture/
 
 mkdir -p ${outdir}
 
