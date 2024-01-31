@@ -18,7 +18,7 @@ mkdir -p ${outdir}
 
 OUTROOT=${snps_only_vcf%".vcf.gz"}
 
-cat ${outdir}/${OUTROOT}.renamed.maf5.miss20.dp5.autosomes_only.set_ids.pruned.fam | cut -f2 | awk 'BEGIN { FS = "_" } ; { print $1"_"$2,"unk",$1 }' > ${outdir}/indfile.txt
+cat ${outdir}/${OUTROOT}.renamed.maf5.miss20.dp5.autosomes_only.set_ids.pruned.fam | cut -d" " -f1,2 | awk ' { print $1"_"$2,"unk",$1 }' > ${outdir}/indfile.txt
 
 numk=$(cat ${outdir}/indfile.txt | cut -d" " -f3 | uniq | wc -l)
 
