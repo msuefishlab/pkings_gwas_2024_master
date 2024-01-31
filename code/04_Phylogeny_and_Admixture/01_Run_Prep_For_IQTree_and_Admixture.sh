@@ -10,5 +10,5 @@ source ${root}/"pkings_gwas.env"
 
 mkdir -p ${root}/output_data/slurm_logs/04_Phylogeny_And_Admixture/
 
-echo sbatch --job-name "PREP_FOR_PHYLO_ADMIX" --output ${root}"/output_data/slurm_logs/04_Phylogeny_And_Admixture/phylo_prep_iq_tree.log" --export=root=${root} ${root}/code/04_Phylogeny_And_Admixture/prep_for_iqtree_and_admixture.sb
-sbatch --job-name "PREP_FOR_PHYLO_ADMIX" --output ${root}"/output_data/slurm_logs/04_Phylogeny_And_Admixture/phylo_prep_iq_tree.log" --export=root=${root} ${root}/code/04_Phylogeny_And_Admixture/prep_for_iqtree_and_admixture.sb
+echo sbatch --job-name "PREP_FOR_PHYLO_ADMIX" --output ${root}"/output_data/slurm_logs/04_Phylogeny_And_Admixture/phylo_prep_iq_tree.log" --export=root=${root} ${root}/code/04_Phylogeny_and_Admixture/prep_for_iqtree_and_admixture.sb
+sbatch --job-name "PREP_FOR_PHYLO_ADMIX" --output ${root}"/output_data/slurm_logs/04_Phylogeny_And_Admixture/phylo_prep_iq_tree.log" --export=root=${root} ${root}/code/04_Phylogeny_and_Admixture/prep_for_iqtree_and_admixture.sb
