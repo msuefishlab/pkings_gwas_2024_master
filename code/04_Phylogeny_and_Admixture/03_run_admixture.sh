@@ -20,7 +20,7 @@ mkdir -p ${outdir}
 OUTROOT=${snps_only_vcf%".vcf.gz"}
 
 ## keep only P. kingsleyae
-singularity exec --bind $root:/project_root --bind $keepdir:/keep_dir --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /plink/plink \
+singularity exec --bind $root:/project_root --bind $keepdir:/keep_dir --bind $outdir:/out_dir --bind $indir:/in_dir ${gwas_tools_image} /plink/plink \
 --bfile /out_dir/${OUTROOT}.renamed.maf5.miss20.dp5.autosomes_only.set_ids.pruned  \
 --allow-extra-chr \
 --allow-no-sex \
