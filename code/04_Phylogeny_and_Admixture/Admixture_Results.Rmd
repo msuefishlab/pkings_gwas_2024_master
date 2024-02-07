@@ -1,0 +1,112 @@
+---
+title: "ADMIXTURE Results"
+output: html_notebook
+params:
+  data_path: NULL
+  output_file: NULL
+---
+
+```{r setup, include=FALSE}
+root <- rprojroot::find_root(".git/index")
+knitr::opts_knit$set(root.dir = root)
+library(tidyverse) # includes ggplot2, dplyr, tibble, purrr, and forcats
+library(ggthemes)
+library(patchwork)
+```
+
+```{r}
+admix.file=file.path(root,"output_data/04_Phylogeny_And_Admixture/admixture_long_results.header.txt")
+cv.file=file.path(root,"output_data/04_Phylogeny_And_Admixture/cv_errors.txt")
+fish_data_file<-file.path(root,"input_data/01_Terra/data_model/fish_data_2023.txt")
+```
+
+
+```{r}
+admix_data<-read_tsv(admix.file)
+cv_errors<-read_tsv(cv.file,col_names = c("K","CV"))
+fish_data<-read.csv(fish_data_file,row.names=1,sep="\t")
+
+pheno_discrete <- fish_data %>% 
+  mutate(Phenotype = factor(Phenotype)) %>%
+  select(Phenotype)
+
+phenos<-setNames(as.character(pheno_discrete$Phenotype), row.names(pheno_discrete))
+phenos <- gsub("TYPE_II", "TP", phenos)
+phenos <- gsub("TYPE_I", "TP", phenos)
+phenos<-as.factor(phenos)
+## set colors for plotting 
+col.pheno<-setNames(c("blue","red","purple"),levels(phenos)) 
+
+phenos_df <- data.frame(Sample = names(phenos), Phenotype = as.factor(phenos))
+admix_data <- merge(admix_data, phenos_df, by = "Sample", all.x = TRUE)
+```
+
+```{r}
+ggplot(cv_errors, aes(K,CV)) +
+  geom_line()+
+  geom_vline(xintercept = 8,linetype='dotted', col = 'red')
+```
+
+```{r, fig.width=12, fig.height=4}
+# plotting
+
+custom_colors <- c(
+  "#8C964A",  # Olive green
+  "#875C36",  # Brown
+  "#816A9C",  # Muted purple
+  "#A67350",  # Copper
+  "#647D6E",  # Muted teal
+  "#B45554",  # Brick red
+  "#C7BDBD",  # Soft gray
+  "#B5B682"   # Sage green
+)
+
+
+p1<-ggplot(subset(admix_data,MAXK==8), aes(factor(Sample), Q, fill = factor(GROUP))) +
+  geom_col(color = "gray", size = 0.1) +
+  facet_grid(~fct_inorder(Pop), switch = "x", scales = "free", space = "free") +
+  theme_minimal() + labs(x = "Individuals", y = "Ancestry") +
+  scale_y_continuous(expand = c(0, 0)) +
+  scale_x_discrete(expand = expand_scale(add = 1)) +
+  theme(
+    panel.spacing.x = unit(0.1, "lines"),
+    axis.text.x = element_blank(),
+    panel.grid = element_blank(),
+    legend.position = "none"  # This line hides the legend
+
+  ) +
+    scale_fill_manual(values = custom_colors) 
+
+
+p2 <- ggplot(subset(admix_data, MAXK == 8), aes(x = factor(Sample), y = 0.5, fill = factor(Phenotype))) +
+  geom_col(position="identity",color = "gray", size = 0.1) +
+  scale_fill_manual(values = col.pheno) +
+  facet_grid(~fct_inorder(Pop), switch = "x", scales = "free", space = "free") +
+  scale_y_continuous(expand = c(0, 0)) +
+  scale_x_discrete(expand = expand_scale(add = 1)) +
+  theme_minimal() +
+  labs(title = "K=8") +
+   theme(
+    panel.spacing.x = unit(0.1, "lines"),
+    axis.text.x = element_blank(),  # Hides x-axis text
+    axis.text.y = element_blank(),  # Hides y-axis text
+    axis.ticks = element_blank(),  # Hides axis ticks
+    strip.background = element_blank(),
+    strip.text.x = element_blank(),
+    axis.title.x = element_blank(),  # Hides x-axis title
+    axis.title.y = element_blank(),   # Hides y-axis title
+    legend.position = "none"  # This line hides the legend
+
+  )
+
+
+combined_plot <- p2 / p1 + 
+  plot_layout(heights = c(0.025, 1)) # Adjust the ratio to control the relative height of the phenotype plot
+
+combined_plot
+
+
+```
+```{r}
+ggsave(file.path(root,'output_data/04_Phylogeny_And_Admixture/final_admixture.pdf'), plot = combined_plot, width = 12, height = 4, units = "in")
+```

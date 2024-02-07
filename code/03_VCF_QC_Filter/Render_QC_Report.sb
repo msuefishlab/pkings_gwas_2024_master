@@ -16,10 +16,10 @@ source $root/pkings_gwas.env
 
 mkdir -p $root/output_data/03_QC/
 
-echo singularity exec --bind $root:/project_root ${gwas_tools_image} Rscript /project_root/code/03_VCF_QC_Filter/render_qc_report.R /project_root/output_data/03_QC/${vcf_file%.vcf.gz}.all.snp.tab  /project_root/output_data/03_QC/${vcf_file%.vcf.gz}.snp /project_root/code/03_VCF_QC_Filter/03b_QC_Report_snps.Rmd
+echo singularity exec --bind $root:/project_root ${gwas_tools_image} Rscript /project_root/code/00_common/render_rmd_report.R /project_root/output_data/03_QC/${vcf_file%.vcf.gz}.all.snp.tab  /project_root/output_data/03_QC/${vcf_file%.vcf.gz}.snp /project_root/code/03_VCF_QC_Filter/03b_QC_Report_snps.Rmd
 
-singularity exec --bind $root:/project_root ${gwas_tools_image} Rscript /project_root/code/03_VCF_QC_Filter/render_qc_report.R /project_root/output_data/03_QC/${vcf_file%.vcf.gz}.all.snp.tab  /project_root/output_data/03_QC/${vcf_file%.vcf.gz}.snp /project_root/code/03_VCF_QC_Filter/03b_QC_Report_snps.Rmd
+singularity exec --bind $root:/project_root ${gwas_tools_image} Rscript /project_root/code/00_common/render_rmd_report.R /project_root/output_data/03_QC/${vcf_file%.vcf.gz}.all.snp.tab  /project_root/output_data/03_QC/${vcf_file%.vcf.gz}.snp /project_root/code/03_VCF_QC_Filter/03b_QC_Report_snps.Rmd
 
-echo singularity exec --bind $root:/project_root ${gwas_tools_image} Rscript /project_root/code/03_VCF_QC_Filter/render_qc_report.R /project_root/output_data/03_QC/${vcf_file%.vcf.gz}.all.indel.tab  /project_root/output_data/03_QC/${vcf_file%.vcf.gz}.indel /project_root/code/03_VCF_QC_Filter/03a_QC_Report_indels.Rmd
+echo singularity exec --bind $root:/project_root ${gwas_tools_image} Rscript /project_root/code/00_common/render_rmd_report.R /project_root/output_data/03_QC/${vcf_file%.vcf.gz}.all.indel.tab  /project_root/output_data/03_QC/${vcf_file%.vcf.gz}.indel /project_root/code/03_VCF_QC_Filter/03a_QC_Report_indels.Rmd
 
-singularity exec --bind $root:/project_root ${gwas_tools_image} Rscript /project_root/code/03_VCF_QC_Filter/render_qc_report.R /project_root/output_data/03_QC/${vcf_file%.vcf.gz}.all.indel.tab  /project_root/output_data/03_QC/${vcf_file%.vcf.gz}.indel /project_root/code/03_VCF_QC_Filter/03a_QC_Report_indels.Rmd
+singularity exec --bind $root:/project_root ${gwas_tools_image} Rscript /project_root/code/00_common/render_rmd_report.R /project_root/output_data/03_QC/${vcf_file%.vcf.gz}.all.indel.tab  /project_root/output_data/03_QC/${vcf_file%.vcf.gz}.indel /project_root/code/03_VCF_QC_Filter/03a_QC_Report_indels.Rmd

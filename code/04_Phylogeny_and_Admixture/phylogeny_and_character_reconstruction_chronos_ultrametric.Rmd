@@ -1,0 +1,280 @@
+---
+title: "Phylogenetic Reconstruction of BP, TP and Wobbles"
+output: html_notebook
+params:
+  data_path: NULL
+  output_file: NULL
+---
+```{r setup, include=FALSE}
+root <- rprojroot::find_root(".git/index")
+knitr::opts_knit$set(root.dir = root)
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(crop = TRUE)
+library(tidyverse)  # Includes ggplot2 and other data manipulation packages
+library(data.table)
+library(ape)
+library(phytools)
+```
+
+# Set up analysis
+Specify the paths for the various input phylogenetic trees and phenotypic data
+```{r}
+mormyrid_time_tree_file<-file.path(root,"input_data/04_Phylogenetics/ssAll_iqtree_timtree.nex")
+treefile<-file.path(root,"output_data/04_Phylogeny_And_Admixture/MIC4273_HAP1_MSU618_all_fish_all_sites.FILTERED_BIALLELIC_SNPS_ONLY.renamed.renamed.maf5.miss20.dp5.autosomes_only.set_ids.pruned.min4.phy.treefile")
+fish_data_file<-file.path(root,"input_data/01_Terra/data_model/fish_data_2023.txt")
+```
+
+```{r}
+snp_tree<-read.tree(treefile)
+fish_data<-read.csv(fish_data_file,row.names=1,sep="\t")
+
+pheno_discrete <- fish_data %>% 
+  mutate(Phenotype = factor(Phenotype)) %>%
+  select(Phenotype)
+```
+
+Is there any missing samples between the phenotype file and the tree?
+```{r}
+phylo_samps<-snp_tree$tip.label
+pheno_discrete_samps<-rownames(pheno_discrete)
+setdiff(phylo_samps,pheno_discrete_samps)
+```
+
+# Root the tree based on the common ancestor of *Paramormyrops szaboi*
+```{r, fig.height=12}
+new_root_node <- getMRCA(snp_tree,c("PSZA_454","IVI_4834"))
+rooted_snp_tree<-root(snp_tree,node=new_root_node)
+```
+
+# Create a Time Calibrated Chronogram of the *Paramormyrops* populations with a maximum age based on the above estimate
+```{r}
+mycalibration=makeChronosCalib(rooted_snp_tree,node="root",age.max=1)
+ultrametric_rooted_tree <- chronos(rooted_snp_tree, lambda = 1, model = "correlated", calibration = mycalibration, control = chronos.control(dual.iter.max=100) )
+```
+# Organize phenotypes so that there are three (TP, BP and Wobble)
+```{r}
+phenos<-setNames(as.character(pheno_discrete$Phenotype), row.names(pheno_discrete))
+phenos <- gsub("TYPE_II", "TP", phenos)
+phenos <- gsub("TYPE_I", "TP", phenos)
+phenos<-as.factor(phenos)
+## set colors for plotting 
+col.pheno<-setNames(c("blue","red","purple"),levels(phenos)) 
+```
+
+```{r, fig.height=12}
+plotTree(rooted_snp_tree,lwd=1,fsize=0.8)
+```
+
+
+```{r}
+# Define nodes for coloring later on
+id <- c("APA", "BAM", "BAV","BIK","BIR","BEN","MOV","DOV","DOG","IVI","PMAG_","PHOP_","PGAB_","PPAR_","COB","PCUR_")
+parent_nodes <- sapply(id, function(x) ape::getMRCA(ultrametric_rooted_tree, ultrametric_rooted_tree$tip.label[str_detect(ultrametric_rooted_tree$tip.label, x)]))
+parent_nodes
+```
+
+
+```{r, fig.height=8}
+par(mfrow=c(1,2))
+plotTree(rooted_snp_tree,type="fan",lwd=1,ftype="off")
+obj<-get("last_plot.phylo",envir=.PlotPhyloEnv)
+n<-Ntip(rooted_snp_tree)
+par(lend=3)
+for(i in 1:Ntip(rooted_snp_tree)){
+    cc<-if(obj$xx[i]>0) .01 else -.01
+    th<-atan(obj$yy[i]/obj$xx[i])
+    segments(obj$xx[i],obj$yy[i],
+        obj$xx[i]+cc*cos(th),
+        obj$yy[i]+cc*sin(th),
+        lwd=4,
+        col=col.pheno[phenos[rooted_snp_tree$tip.label[i]]])
+}
+legend("topleft",c(levels(phenos)),
+    pch=15,col=c(col.pheno),
+    pt.cex=1.5,cex=0.8,bty="n")
+title("ML Tree",line=-2)
+add.scale.bar()
+# Example: Set larger margins (bottom, left, top, right)
+plotTree(ultrametric_rooted_tree,type="fan",lwd=1,ftype="off", "Chronos Default")
+obj<-get("last_plot.phylo",envir=.PlotPhyloEnv)
+n<-Ntip(ultrametric_rooted_tree)
+#par(lend=3)
+for(i in 1:Ntip(ultrametric_rooted_tree)){
+    cc<-if(obj$xx[i]>0) .02 else -.02
+    th<-atan(obj$yy[i]/obj$xx[i])
+    segments(obj$xx[i],obj$yy[i],
+        obj$xx[i]+cc*cos(th),
+        obj$yy[i]+cc*sin(th),
+        lwd=4,
+        col=col.pheno[phenos[ultrametric_rooted_tree$tip.label[i]]])
+}
+legend("topleft",c(levels(phenos)),
+    pch=15,col=c(col.pheno),
+    pt.cex=1.5,cex=0.8,bty="n")
+title("Chronos Ultrametric Tree",line=-2)
+arc.cladelabels(text="Bikagala Creek",node=parent_nodes['BIK'],ln.offset=1.05,
+    lab.offset=1.07,mark.node=FALSE)
+arc.cladelabels(text="Bavavela Creek",node=parent_nodes['BAV'],ln.offset=1.05,
+    lab.offset=1.07,mark.node=FALSE)
+arc.cladelabels(text="Douengi Creek",node=parent_nodes['DOG'],ln.offset=1.05,
+    lab.offset=1.07,mark.node=FALSE)
+arc.cladelabels(text="Douvalou Creek",node=parent_nodes['DOV'],ln.offset=1.05,
+    lab.offset=1.07,mark.node=FALSE)
+arc.cladelabels(text="Mouvanga Creek",node=parent_nodes['MOV'],ln.offset=1.05,
+    lab.offset=1.07,mark.node=FALSE)
+arc.cladelabels(text="Bengue Creek",node=parent_nodes['BEN'],ln.offset=1.05,
+    lab.offset=1.07,mark.node=FALSE)
+arc.cladelabels(text="Bambomo Creek",node=parent_nodes['BAM'],ln.offset=1.05,
+    lab.offset=1.07,mark.node=FALSE)
+arc.cladelabels(text="Biroundou Creek",node=parent_nodes['BIR'],ln.offset=1.05,
+    lab.offset=1.07,mark.node=FALSE)
+arc.cladelabels(text="P. sp MAG",node=parent_nodes['PMAG_'],ln.offset=1.05,
+    lab.offset=1.07,mark.node=FALSE)
+arc.cladelabels(text="P. hopkinsi",node=parent_nodes['PHOP_'],ln.offset=1.05,
+    lab.offset=1.07,mark.node=FALSE)
+arc.cladelabels(text="P. gabonensis",node=parent_nodes['PGAB_'],ln.offset=1.05,
+    lab.offset=1.07,mark.node=FALSE)
+arc.cladelabels(text="P. curvifrons",node=parent_nodes['PCUR_'],ln.offset=1.05,
+    lab.offset=1.07,mark.node=FALSE)
+arc.cladelabels(text="P. sp. PAR",node=parent_nodes['PPAR_'],ln.offset=1.05,
+    lab.offset=1.07,mark.node=FALSE)
+arc.cladelabels(text="Cocobeach",node=parent_nodes['COB'],ln.offset=1.05,
+    lab.offset=1.07,mark.node=FALSE)
+arc.cladelabels(text="Ipassa Creek",node=getMRCA(ultrametric_rooted_tree,c("APA_6684","APA_193")),ln.offset=1.05,
+    lab.offset=1.07,mark.node=FALSE)
+add.scale.bar()
+```
+
+# Estimate the transition rates among discrete phenotypes using stochastic character mapping.
+
+## Fit the models to the phylogenetic tree & select the best fitting model
+
+We are going to select the model based on the lowest AIC value. The various models assume one rate for all transitions (ER), all different rates (forward and reverse) (ARD) or different rates for each transition but symmetrical (SYM).
+
+```{r}
+## fit ER model 
+fitER<-fitMk(ultrametric_rooted_tree,phenos,model="ER",pi="estimated") 
+## fit ARD model 
+fitARD<-fitMk(ultrametric_rooted_tree,phenos,model="ARD",pi="estimated") 
+## fit SYM model
+fitSYM<-fitMk(ultrametric_rooted_tree,phenos,model="SYM",pi="estimated")
+
+## extract AIC values for each model 
+aic<-c(AIC(fitER),AIC(fitARD),AIC(fitSYM)) 
+## print summary table 
+
+model_summary<-data.frame(
+  model=c("ER","ARD","Symmetric"), 
+  logL=c(logLik(fitER),logLik(fitARD),logLik(fitSYM)), 
+  AIC=aic,delta.AIC=aic-min(aic),
+  weight=unclass(aic.w(aic)))
+
+model_summary
+```
+
+
+For all trees, the "best" fit model is the ARD model.  Let's visualize the transition rates for the ARD model:
+```{r, fig.width=4, fig.height=4}
+  plot(fitARD, width=TRUE, color=TRUE, cex.rates=0.9, main="ARD Model") # Add a main title with the tree name
+```
+
+## Perform Stochastic Character Mapping
+
+See Revell & Harmon (2022) "Comparative Phylogenetic Comparative Methods in R", page 245.
+
+```{r}
+mtrees<-make.simmap(ultrametric_rooted_tree,phenos,model="ARD",nsim=1000,Q="mcmc",vQ=0.01, prior=list(use.empirical=TRUE),samplefreq=10)
+pd<-summary(mtrees)
+pd
+```
+
+Let's examine the distribution of changes that we see.
+
+Interestingly, about 6 transitions directly from TP->BP (on average) (see http://blog.phytools.org/2022/07/understanding-number-of-changes-of.html)
+```{r}
+dd<-density(mtrees)
+dd
+```
+
+We can look at these densities graphically as well...
+```{r, fig.height=12}
+plot(dd,colors=c("orange","lightgreen","lightblue"),alpha=0.5)
+
+```
+Here, we can illustrate the difference between a single tree...
+```{r}
+ss<-lapply(mtrees,summary)
+head(ss,2)
+```
+And all of the trees....
+```{r}
+all_trees<-as.data.frame(countSimmap(mtrees,c("BP","TP","Wobble")))
+
+all_trees<-rownames_to_column(all_trees, "treeno")
+all_trees<-all_trees %>% arrange(Tr.N)
+head(all_trees)
+```
+
+In this case, I've selected for the tree with the fewest overall number of changes in our nsim as the "base tree" and I'm going to plot the posterior densities onto the phylogenetic tree:
+
+```{r, fig.width=18,fig.align='center',out.width="70%"}
+pdf(file.path(root,'output_data/04_Phylogeny_And_Admixture/final_phylogeny.pdf'), width=1400/300, height=800/300)
+
+par(oma=c(0,0.5,0.2,0)) # all sides have 3 lines of space
+par(mar=c(0,0,0,0) + 0.1)
+cols<-setNames(c("blue","red","purple"),levels(phenos)) 
+library(geiger)
+library(plotrix)
+
+sodat<-treedata(ultrametric_rooted_tree, phenos, sort=TRUE, warnings=TRUE)
+TipColors <- cols[match(sodat$data[,1], names(cols), nomatch=1)]
+
+source(file.path(root,'code/04_Phylogeny_And_Admixture/customsimmap.R'))
+source(file.path(root,'code/04_Phylogeny_And_Admixture/custom_pie.R'))
+
+i<-1
+customsimmap(mtrees[[40]],cols,ftype="off",type="fan",fsize=0.2,
+    outline=TRUE,lwd=1,part=0.5,mar=c(0, 0,0, 0),ylim=c(-0.05,1.2))
+customnodelabels(pie=pd$ace,piecol=cols, cex=0.25)
+tiplabels(pch=21, col="black", bg = TipColors, cex=0.6,lwd=0.4)
+arc.cladelabels(text="Bikagala",node=parent_nodes['BIK'],ln.offset=1.05,cex=0.2,
+    lab.offset=1.07,mark.node=FALSE,orientation="horizontal")
+arc.cladelabels(text="Bavavela",node=parent_nodes['BAV'],ln.offset=1.05,cex=0.2,
+    lab.offset=1.07,mark.node=FALSE,orientation="horizontal")
+arc.cladelabels(text="Douengi",node=parent_nodes['DOG'],ln.offset=1.05,cex=0.2,
+    lab.offset=1.07,mark.node=FALSE,orientation="horizontal")
+arc.cladelabels(text="Douvalou",node=parent_nodes['DOV'],ln.offset=1.06,cex=0.2,
+    lab.offset=1.07,mark.node=FALSE,orientation="horizontal")
+arc.cladelabels(text="Mouvanga",node=parent_nodes['MOV'],ln.offset=1.05,cex=0.2,
+    lab.offset=1.07,mark.node=FALSE,orientation="horizontal")
+arc.cladelabels(text="Bengue",node=parent_nodes['BEN'],ln.offset=1.05,cex=0.2,
+    lab.offset=1.07,mark.node=FALSE,orientation="horizontal")
+arc.cladelabels(text="Bambomo",node=parent_nodes['BAM'],ln.offset=1.05,cex=0.2,
+    lab.offset=1.07,mark.node=FALSE,orientation="horizontal")
+arc.cladelabels(text="Biroundou",node=parent_nodes['BIR'],ln.offset=1.05,cex=0.2,
+    lab.offset=1.07,mark.node=FALSE,orientation="horizontal")
+arc.cladelabels(text="PMAG",node=parent_nodes['PMAG_'],ln.offset=1.05,cex=0.2,
+    lab.offset=1.07,mark.node=FALSE,orientation = "horizontal")
+arc.cladelabels(text="PHOP",node=parent_nodes['PHOP_'],ln.offset=1.05,cex=0.2,
+    lab.offset=1.07,mark.node=FALSE,orientation="horizontal")
+arc.cladelabels(text="PGAB",node=parent_nodes['PGAB_'],ln.offset=1.05,cex=0.2,
+    lab.offset=1.07,mark.node=FALSE,orientation="horizontal")
+arc.cladelabels(text="PCUR",node=parent_nodes['PCUR_'],ln.offset=1.05,cex=0.2,
+    lab.offset=1.07,mark.node=FALSE,orientation="horizontal")
+arc.cladelabels(text="PPAR",node=parent_nodes['PPAR_'],ln.offset=1.05,cex=0.2,
+    lab.offset=1.07,mark.node=FALSE,orientation="horizontal")
+arc.cladelabels(text="Cocobeach",node=parent_nodes['COB'],ln.offset=1.05,cex=0.2,
+    lab.offset=1.07,mark.node=FALSE,orientation="horizontal")
+arc.cladelabels(text="Ipassa",node=getMRCA(ultrametric_rooted_tree,c("APA_6684","APA_193")),ln.offset=1.05,cex=0.2,
+    lab.offset=1.07,mark.node=FALSE,orientation="horizontal")
+arc.cladelabels(text="Balé",node=getMRCA(ultrametric_rooted_tree,c("IVI_4832","IVI_4897")),ln.offset=1.05,cex=0.2,
+    lab.offset=1.07,mark.node=FALSE,orientation="horizontal")
+arc.cladelabels(text="PSZA",node=getMRCA(ultrametric_rooted_tree,c("PSZA_456","PSZA_450")),ln.offset=1.05,cex=0.2,
+    lab.offset=1.07,mark.node=FALSE, orientation="horizontal")
+legend("topleft",c(levels(phenos)),
+    pch=15,col=c(col.pheno),
+    pt.cex=.9,cex=0.4,bty="n")
+add.scale.bar(cex = 0.4, length=0.1)
+dev.off()
+```
+

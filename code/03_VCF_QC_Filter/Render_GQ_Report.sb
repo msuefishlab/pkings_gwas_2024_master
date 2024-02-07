@@ -24,6 +24,6 @@ OUTROOT=${vcf_file%".raw.vcf.gz"}
 head -1 ${outdir}/${OUTROOT}.FILTERED_BIALLELIC_SNPS_ONLY.gq.txt > ${outdir}/${OUTROOT}.FILTERED_BIALLELIC_SNPS_ONLY.gq.ss.txt
 perl -ne 'print if (rand() < .01)' ${outdir}/${OUTROOT}.FILTERED_BIALLELIC_SNPS_ONLY.gq.txt >> ${outdir}/${OUTROOT}.FILTERED_BIALLELIC_SNPS_ONLY.gq.ss.txt
 
-echo singularity exec --bind $root:/project_root ${gwas_tools_image} Rscript  /project_root/output_data/03_QC/${OUTROOT}.FILTERED_BIALLELIC_SNPS_ONLY.gq.ss.txt  /project_root/output_data/03_QC/${OUTROOT}.FILTERED_BIALLELIC_SNPS_ONLY.gq /project_root/code/03_VCF_QC_Filter/GQ_Report.Rmd
+echo singularity exec --bind $root:/project_root ${gwas_tools_image} Rscript /project_root/code/00_common/render_rmd_report.R /project_root/output_data/03_QC/${OUTROOT}.FILTERED_BIALLELIC_SNPS_ONLY.gq.ss.txt  /project_root/output_data/03_QC/${OUTROOT}.FILTERED_BIALLELIC_SNPS_ONLY.gq /project_root/code/03_VCF_QC_Filter/GQ_Report.Rmd
 
-singularity exec --bind $root:/project_root ${gwas_tools_image} Rscript /project_root/code/03_VCF_QC_Filter/render_qc_report.R /project_root/output_data/03_QC/${OUTROOT}.FILTERED_BIALLELIC_SNPS_ONLY.gq.ss.txt  /project_root/output_data/03_QC/${OUTROOT}.FILTERED_BIALLELIC_SNPS_ONLY.gq /project_root/code/03_VCF_QC_Filter/GQ_Report.Rmd
+singularity exec --bind $root:/project_root ${gwas_tools_image} Rscript /project_root/code/00_common/render_rmd_report.R /project_root/output_data/03_QC/${OUTROOT}.FILTERED_BIALLELIC_SNPS_ONLY.gq.ss.txt  /project_root/output_data/03_QC/${OUTROOT}.FILTERED_BIALLELIC_SNPS_ONLY.gq /project_root/code/03_VCF_QC_Filter/GQ_Report.Rmd
