@@ -32,10 +32,9 @@ mkdir -p ${tmpoutdir}/$OUTNAME
 mkdir -p ${outdir}/${OUTNAME}_permution/
 
 singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "/gemma-wrapper/gemma-wrapper/bin/gemma-wrapper \
---cache-dir /out_dir/$OUTNAME/${OUTNAME}_permution \
+--cache-dir --no-parallel /out_dir/$OUTNAME/${OUTNAME}_permution \
 --json -- \
--a /out_dir/$OUTNAME/${OUTNAME}_merge_map.txt \
--g /out_dir/$OUTNAME/$OUTNAME.geno \
+-g /tmp_dir/$OUTNAME/${OUTNAME}.prune.for_gemma.geno \
 -p /out_dir/$OUTNAME/$OUTNAME.pheno \
 -gk 1 \
 -debug > /out_dir/${OUTNAME}_permution/${OUTNAME}_K.json"
