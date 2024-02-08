@@ -26,15 +26,8 @@ mkdir -p ${tmpoutdir}
 mkdir -p ${outdir}/$OUTNAME
 mkdir -p ${tmpoutdir}/$OUTNAME
 
+echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /qctool/qctool -g /out_dir/$OUTNAME/${OUTNAME}_merge_ID.vcf.gz -ofiletype bimbam_dosage -og /out_dir/$OUTNAME/$OUTNAME.geno -os  /out_dir/$OUTNAME/$OUTNAME.sample -reorder /out_dir/$OUTNAME/$OUTNAME.order
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /qctool/qctool -g /out_dir/$OUTNAME/${OUTNAME}_merge_ID.vcf.gz -ofiletype bimbam_dosage -og /out_dir/$OUTNAME/$OUTNAME.geno -os  /out_dir/$OUTNAME/$OUTNAME.sample -reorder /out_dir/$OUTNAME/$OUTNAME.order
 
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /plink/plink \
---vcf /out_dir/$OUTNAME/${OUTNAME}_merge_ID.vcf.gz \
---allow-extra-chr \
---allow-no-sex \
---double-id \
---make-bed \
---pheno /project_root/input_data/06_Association/${OUTNAME}.pheno.txt \
---out /out_dir/$OUTNAME/$OUTNAME
-
-echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /gemma/GEMMA/bin/gemma -bfile  /out_dir/$OUTNAME/$OUTNAME -lmm 2 -k  /out_dir/$OUTNAME/${OUTNAME}.relate.cXX.txt -outdir /out_dir/$OUTNAME/ -o ${OUTNAME}.lmm2
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /gemma/GEMMA/bin/gemma -bfile  /out_dir/$OUTNAME/$OUTNAME -lmm 2 -k  /out_dir/$OUTNAME/${OUTNAME}.relate.cXX.txt -outdir /out_dir/$OUTNAME/ -o ${OUTNAME}.lmm2
+echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /gemma/GEMMA/bin/gemma -g /out_dir/$OUTNAME/$OUTNAME.geno -p /out_dir/$OUTNAME/$OUTNAME.pheno -a /out_dir/$OUTNAME/${OUTNAME}_merge_map.txt -lmm 2 -k  /out_dir/$OUTNAME/${OUTNAME}.relate.cXX.txt -outdir /out_dir/$OUTNAME/ -o ${OUTNAME}.lmm2
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /gemma/GEMMA/bin/gemma -g /out_dir/$OUTNAME/$OUTNAME.geno -p /out_dir/$OUTNAME/$OUTNAME.pheno -a /out_dir/$OUTNAME/${OUTNAME}_merge_map.txt -lmm 2 -k  /out_dir/$OUTNAME/${OUTNAME}.relate.cXX.txt -outdir /out_dir/$OUTNAME/ -o ${OUTNAME}.lmm2

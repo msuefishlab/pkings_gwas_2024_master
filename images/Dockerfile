@@ -23,7 +23,7 @@ RUN R -e 'BiocManager::install("SNPRelate")'
 RUN mkdir -p /snphylo/bin
 
 RUN apt-get update && \
-    apt-get install -y muscle phylip curl git python2 bcftools vcftools tabix wget build-essential libgsl-dev libblas-dev liblapack-dev zlib1g-dev
+    apt-get install -y muscle phylip curl git python2 bcftools vcftools tabix wget build-essential libgsl-dev libblas-dev liblapack-dev zlib1g-dev ruby
 
 RUN git clone https://github.com/jasongallant/SNPhylo.git
 
@@ -103,5 +103,13 @@ RUN mkdir -p /vcf2phylip
 WORKDIR /vcf2phylip
 
 RUN git clone https://github.com/edgardomortiz/vcf2phylip.git
+
+RUN mkdir -p /gemma-wrapper
+
+WORKDIR /gemma-wrapper
+
+RUN git clone https://github.com/jasongallant/gemma-wrapper.git
+
+ARG GEMMA_COMMAND=/gemma/GEMMA/bin/gemma
 
 CMD ["/bin/bash"]

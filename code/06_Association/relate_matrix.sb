@@ -32,16 +32,15 @@ singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpo
 echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "bcftools index /tmp_dir/$OUTNAME/${OUTNAME}.prune.for_gemma.vcf.gz"
 singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "bcftools index /tmp_dir/$OUTNAME/${OUTNAME}.prune.for_gemma.vcf.gz"
 
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /plink/plink \
---vcf /tmp_dir/$OUTNAME/${OUTNAME}.prune.for_gemma.vcf.gz \
---allow-extra-chr \
---allow-no-sex \
---double-id \
---make-bed \
---pheno /project_root/input_data/06_Association/${OUTNAME}.pheno.txt \
---out /out_dir/$OUTNAME/$OUTNAME
+# get proper order of individuals
+cat ${root}/input_data/06_Association/${OUTNAME}.pheno.txt | cut -f1 | tail -n+2 > ${outdir}/$OUTNAME/$OUTNAME.order
+
+# create phenotype file
+cat ${root}/input_data/06_Association/${OUTNAME}.pheno.txt | cut -f3 | tail -n+2 > ${outdir}/$OUTNAME/$OUTNAME.pheno
+
+echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /qctool/qctool -g /tmp_dir/$OUTNAME/${OUTNAME}.prune.for_gemma.vcf.gz -ofiletype bimbam_dosage -og /tmp_dir/$OUTNAME/${OUTNAME}.prune.for_gemma.geno -os  /out_dir/$OUTNAME/$OUTNAME.sample -reorder /out_dir/$OUTNAME/$OUTNAME.order
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /qctool/qctool -g /tmp_dir/$OUTNAME/${OUTNAME}.prune.for_gemma.vcf.gz -ofiletype bimbam_dosage -og /tmp_dir/$OUTNAME/${OUTNAME}.prune.for_gemma.geno -os  /out_dir/$OUTNAME/$OUTNAME.sample -reorder /out_dir/$OUTNAME/$OUTNAME.order
 
 ##create relatedness matrix (centered is best reccomendation for starting off in the documentation)
-
-echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /gemma/GEMMA/bin/gemma -bfile  /out_dir/$OUTNAME/$OUTNAME -gk 1 -outdir /out_dir/$OUTNAME/ -o ${OUTNAME}.relate
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /gemma/GEMMA/bin/gemma -bfile  /out_dir/$OUTNAME/$OUTNAME -gk 1 -outdir /out_dir/$OUTNAME/ -o ${OUTNAME}.relate
+echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /gemma/GEMMA/bin/gemma -g /tmp_dir/$OUTNAME/${OUTNAME}.prune.for_gemma.geno  -p /out_dir/$OUTNAME/$OUTNAME.pheno -gk 1 -outdir /out_dir/$OUTNAME/ -o ${OUTNAME}.relate
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /gemma/GEMMA/bin/gemma -g /tmp_dir/$OUTNAME/${OUTNAME}.prune.for_gemma.geno  -p /out_dir/$OUTNAME/$OUTNAME.pheno -gk 1 -outdir /out_dir/$OUTNAME/ -o ${OUTNAME}.relate
