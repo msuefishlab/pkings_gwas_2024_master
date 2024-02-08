@@ -31,7 +31,7 @@ mkdir -p ${tmpoutdir}/$OUTNAME
 
 mkdir -p ${outdir}/${OUTNAME}_permution/
 
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "/gemma-wrapper/gemma-wrapper/bin/gemma-wrapper \
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "env GEMMA_COMMAND=~/opt/gemma/bin/gemma /gemma-wrapper/gemma-wrapper/bin/gemma-wrapper \
 --cache-dir /out_dir/$OUTNAME/${OUTNAME}_permution \
 --json -- \
 -a /out_dir/$OUTNAME/${OUTNAME}_merge_map.txt \
@@ -43,7 +43,7 @@ singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpo
 
 cd ${outdir}/${OUTNAME}_permution/
 
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "/gemma-wrapper/gemma-wrapper/bin/gemma-wrapper \
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "env GEMMA_COMMAND=~/opt/gemma/bin/gemma /gemma-wrapper/gemma-wrapper/bin/gemma-wrapper \
 -input /out_dir/${OUTNAME}_permution/${OUTNAME}_K.json \
 --permutate 100 --permute-phenotype /out_dir/$OUTNAME/$OUTNAME.pheno \
 --cache-dir /out_dir/$OUTNAME/${OUTNAME}_permution \
