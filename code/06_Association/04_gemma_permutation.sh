@@ -4,11 +4,14 @@
 ## Feb 2023
 ## JRG
 # This script submits a previously run association analysis (arg1) with phenotypes in arg2 to run a permuted GEMMA lmm asscoiation analysis
-# e.g. bash 03_gemma_permution.sh apa_bam_wobs_only ./apa_bam_wobs_only_phenos.txt
+# e.g. bash 04_gemma_permution.sh APA_BAM_ONLY_BP1_TP0_WOBBLE9
+
 # note to get slurm working with gemma wrapper, pay close attention to the versions and add these lines to the slurm command in the gemma-wrapper code:
 # #SBATCH --cpus-per-task=4
 # #SBATCH --mem=120g
 # #SBATCH -o gemma_permute_%j.out
+
+OUTNAME=$1
 
 cd $root
 
