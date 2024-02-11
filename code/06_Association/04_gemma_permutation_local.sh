@@ -31,6 +31,7 @@ mkdir -p ${tmpoutdir}/$OUTNAME
 
 mkdir -p ${outdir}/${OUTNAME}_permution/
 
+echo "making relmat..."
 env GEMMA_COMMAND=~/GEMMA/bin/gemma ~/gemma-wrapper/bin/gemma-wrapper \
 --no-parallel --cache-dir ${outdir}/$OUTNAME/${OUTNAME}_permution \
 --json -- \
@@ -41,6 +42,7 @@ env GEMMA_COMMAND=~/GEMMA/bin/gemma ~/gemma-wrapper/bin/gemma-wrapper \
 -debug > ${outdir}/${OUTNAME}_permution/${OUTNAME}_K.json
 
 
+echo "starting permution..."
 cd ${outdir}/${OUTNAME}_permution/
 
 env GEMMA_COMMAND=~/GEMMA/bin/gemma ~/gemma-wrapper/bin/gemma-wrapper \
