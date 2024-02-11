@@ -49,7 +49,6 @@ env GEMMA_COMMAND=~/GEMMA/bin/gemma ~/gemma-wrapper/bin/gemma-wrapper \
 --input ${outdir}/${OUTNAME}_permution/${OUTNAME}_K.json \
 --permutate 5 \
 --permute-phenotypes ${outdir}/$OUTNAME/$OUTNAME.pheno \
---parallel \
 --cache-dir ${outdir}/$OUTNAME/${OUTNAME}_permution \
 -- \
 -g ${outdir}/$OUTNAME/$OUTNAME.geno \
