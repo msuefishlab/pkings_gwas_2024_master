@@ -47,9 +47,11 @@ cd ${outdir}/${OUTNAME}_permution/
 
 env GEMMA_COMMAND=~/GEMMA/bin/gemma ~/gemma-wrapper/bin/gemma-wrapper \
 --input ${outdir}/${OUTNAME}_permution/${OUTNAME}_K.json \
---permutate 100 --permute-phenotype ${outdir}/$OUTNAME/$OUTNAME.pheno \
+--permutate 5 \
+--phenotypes ${outdir}/$OUTNAME/$OUTNAME.pheno \
+--parallel \
 --cache-dir ${outdir}/$OUTNAME/${OUTNAME}_permution \
---slurm -- \
+-- \
 -g ${outdir}/$OUTNAME/$OUTNAME.geno \
 -a ${outdir}/$OUTNAME/${OUTNAME}_merge_map.txt \
 -lmm 2 \
