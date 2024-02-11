@@ -34,6 +34,7 @@ mkdir -p ${outdir}/${OUTNAME}_permution/
 env GEMMA_COMMAND=~/GEMMA/bin/gemma ~/gemma-wrapper/bin/gemma-wrapper \
 --no-parallel --cache-dir ${outdir}/$OUTNAME/${OUTNAME}_permution \
 --json -- \
+-a ${outdir}/$OUTNAME/${OUTNAME}_merge_map.txt \
 -g ${tmpdir}/$OUTNAME/${OUTNAME}.prune.for_gemma.geno \
 -p ${outdir}/$OUTNAME/$OUTNAME.pheno \
 -gk 1 \
