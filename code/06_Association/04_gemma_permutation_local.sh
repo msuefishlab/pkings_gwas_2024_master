@@ -33,7 +33,7 @@ mkdir -p ${tmpoutdir}/$OUTNAME
 
 mkdir -p ${outdir}/$OUTNAME/${OUTNAME}_permution/
 
-export GEMMA_COMMAND="singularity exec ${gwas_tools_image} /gemma/GEMMA/bin/gemma" 
+export GEMMA_COMMAND="singularity exec --bind $PWD:$PWD ${gwas_tools_image} /gemma/GEMMA/bin/gemma" 
 
 echo "making relmat..."
 ~/gemma-wrapper-0.99.1/bin/gemma-wrapper \
