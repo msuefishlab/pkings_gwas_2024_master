@@ -11,6 +11,8 @@
 # #SBATCH --mem=120g
 # #SBATCH -o gemma_permute_%j.out
 
+module load GCC/12.2.0 OpenBLAS/0.3.21 GSL/2.7
+
 OUTNAME=$1
 
 cd $root
@@ -32,7 +34,7 @@ mkdir -p ${tmpoutdir}/$OUTNAME
 mkdir -p ${outdir}/${OUTNAME}_permution/
 
 echo "making relmat..."
-env GEMMA_COMMAND=~/GEMMA/bin/gemma ~/gemma-wrapper/bin/gemma-wrapper \
+env GEMMA_COMMAND=~/GEMMA/bin/gemma ~/gemma-wrapper-0.99.1/bin/gemma-wrapper \
 --no-parallel --cache-dir ${outdir}/$OUTNAME/${OUTNAME}_permution \
 --json -- \
 -a ${outdir}/$OUTNAME/${OUTNAME}_merge_map.txt \
@@ -45,11 +47,12 @@ env GEMMA_COMMAND=~/GEMMA/bin/gemma ~/gemma-wrapper/bin/gemma-wrapper \
 echo "starting permution..."
 cd ${outdir}/${OUTNAME}_permution/
 
-env GEMMA_COMMAND=~/GEMMA/bin/gemma ~/gemma-wrapper/bin/gemma-wrapper \
+env GEMMA_COMMAND=~/GEMMA/bin/gemma ~/gemma-wrapper-0.99.1/bin/gemma-wrapper \
 --input ${outdir}/${OUTNAME}_permution/${OUTNAME}_K.json \
---permutate 5 \
+--no-parallel --permutate 100 \
 --permute-phenotypes ${outdir}/$OUTNAME/$OUTNAME.pheno \
 --cache-dir ${outdir}/$OUTNAME/${OUTNAME}_permution \
+--slurm \
 -- \
 -g ${outdir}/$OUTNAME/$OUTNAME.geno \
 -a ${outdir}/$OUTNAME/${OUTNAME}_merge_map.txt \

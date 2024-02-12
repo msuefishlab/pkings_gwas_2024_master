@@ -29,21 +29,22 @@ mkdir -p ${tmpoutdir}
 mkdir -p ${outdir}/$OUTNAME
 mkdir -p ${tmpoutdir}/$OUTNAME
 
-mkdir -p ${outdir}/${OUTNAME}_permution/
+mkdir -p ${outdir}/${OUTNAME}/${OUTNAME}_permution/
 
+echo "constructing relmat..."
 singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "/gemma-wrapper/gemma-wrapper/bin/gemma-wrapper \
 --no-parallel --cache-dir /out_dir/$OUTNAME/${OUTNAME}_permution \
 --json -- \
 -g /tmp_dir/$OUTNAME/${OUTNAME}.prune.for_gemma.geno \
 -p /out_dir/$OUTNAME/$OUTNAME.pheno \
 -gk 1 \
--debug > /out_dir/${OUTNAME}_permution/${OUTNAME}_K.json"
+-debug > /out_dir/${OUTNAME}/${OUTNAME}_permution/${OUTNAME}_K.json"
 
 
-cd ${outdir}/${OUTNAME}_permution/
-
+cd ${outdir}/${OUTNAME}/${OUTNAME}_permution/
+echo "running gemma..."
 singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "/gemma-wrapper/gemma-wrapper/bin/gemma-wrapper \
---input /out_dir/${OUTNAME}_permution/${OUTNAME}_K.json \
+--verbose --debug --no-parallel --input /out_dir/${OUTNAME}/${OUTNAME}_permution/${OUTNAME}_K.json \
 --permutate 100 --permute-phenotype /out_dir/$OUTNAME/$OUTNAME.pheno \
 --cache-dir /out_dir/$OUTNAME/${OUTNAME}_permution \
 --slurm -- \
