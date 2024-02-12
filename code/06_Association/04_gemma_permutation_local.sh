@@ -31,24 +31,24 @@ mkdir -p ${tmpoutdir}
 mkdir -p ${outdir}/$OUTNAME
 mkdir -p ${tmpoutdir}/$OUTNAME
 
-mkdir -p ${outdir}/${OUTNAME}_permution/
+mkdir -p ${outdir}/$OUTNAME/${OUTNAME}_permution/
 
 echo "making relmat..."
-env GEMMA_COMMAND=~/GEMMA/bin/gemma ~/gemma-wrapper-0.99.1/bin/gemma-wrapper \
+env GEMMA_COMMAND="singularity exec ${gwas_tools_image} /gemma-wrapper/gemma-wrapper/bin/gemma-wrapper" ~/gemma-wrapper-0.99.1/bin/gemma-wrapper \
 --no-parallel --cache-dir ${outdir}/$OUTNAME/${OUTNAME}_permution \
 --json -- \
 -a ${outdir}/$OUTNAME/${OUTNAME}_merge_map.txt \
 -g ${tmpoutdir}/$OUTNAME/${OUTNAME}.prune.for_gemma.geno \
 -p ${outdir}/$OUTNAME/$OUTNAME.pheno \
 -gk 1 \
--debug > ${outdir}/${OUTNAME}_permution/${OUTNAME}_K.json
+-debug > ${outdir}/$OUTNAME/${OUTNAME}_permution/${OUTNAME}_K.json
 
 
 echo "starting permution..."
-cd ${outdir}/${OUTNAME}_permution/
+cd ${outdir}/$OUTNAME/${OUTNAME}_permution/
 
-env GEMMA_COMMAND=~/GEMMA/bin/gemma ~/gemma-wrapper-0.99.1/bin/gemma-wrapper \
---input ${outdir}/${OUTNAME}_permution/${OUTNAME}_K.json \
+env GEMMA_COMMAND="singularity exec ${gwas_tools_image} /gemma-wrapper/gemma-wrapper/bin/gemma-wrapper" ~/gemma-wrapper-0.99.1/bin/gemma-wrapper \
+--input ${outdir}/$OUTNAME/${OUTNAME}_permution/${OUTNAME}_K.json \
 --no-parallel --permutate 100 \
 --permute-phenotypes ${outdir}/$OUTNAME/$OUTNAME.pheno \
 --cache-dir ${outdir}/$OUTNAME/${OUTNAME}_permution \
