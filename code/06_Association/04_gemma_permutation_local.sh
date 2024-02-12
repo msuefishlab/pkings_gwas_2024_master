@@ -11,8 +11,6 @@
 # #SBATCH --mem=120g
 # #SBATCH -o gemma_permute_%j.out
 
-module load GCC/12.2.0 OpenBLAS/0.3.21 GSL/2.7
-
 OUTNAME=$1
 
 cd $root
@@ -33,7 +31,7 @@ mkdir -p ${tmpoutdir}/$OUTNAME
 
 mkdir -p ${outdir}/$OUTNAME/${OUTNAME}_permution/
 
-export GEMMA_COMMAND="singularity exec --bind $PWD:$PWD ${gwas_tools_image} /gemma/GEMMA/bin/gemma" 
+export GEMMA_COMMAND="singularity exec ${gwas_tools_image} /gemma/GEMMA/bin/gemma" 
 
 echo "making relmat..."
 ~/gemma-wrapper-0.99.1/bin/gemma-wrapper \
