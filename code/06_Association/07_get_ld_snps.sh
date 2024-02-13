@@ -12,7 +12,7 @@ mkdir -p ${outdir}
 
 ## First Make the PLINK Compatible Files
 echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools_image} /plink/plink \
---vcf /out_dir/$OUTNAME/${OUTNAME}_merge_ID.vcf.gz \
+--gzvcf /out_dir/$OUTNAME/${OUTNAME}_merge_ID.vcf.gz \
 --allow-extra-chr \
 --allow-no-sex \
 --chr-set 25 \
@@ -25,7 +25,7 @@ echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_
 --threads 4
 
 singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools_image} /plink/plink \
---vcf /out_dir/$OUTNAME/${OUTNAME}_merge_ID.vcf.gz \
+--gzvcf /out_dir/$OUTNAME/${OUTNAME}_merge_ID.vcf.gz \
 --allow-extra-chr \
 --allow-no-sex \
 --chr-set 25 \
