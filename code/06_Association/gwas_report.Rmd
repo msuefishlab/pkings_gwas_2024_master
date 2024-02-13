@@ -140,11 +140,11 @@ write.table(index_snps$rs,file.path(peak_data_path,paste0(params$data_path,"_ind
 ```{r}
 #output bed file of UNFILTERED peaks
 pk.lmm.bed %>% dplyr::select(chr,start,end, peak) %>% 
-  write.table(file.path(peak_data_path,paste0(params$keepfile,"_PEAKS_unfiltered.bed")), sep = "\t", quote = F, row.names = F, col.names = F)
+  write.table(file.path(peak_data_path,paste0(params$data_path,"_PEAKS_unfiltered.bed")), sep = "\t", quote = F, row.names = F, col.names = F)
 
 #output bed file of peaks
 pk.lmm.bed.f %>% dplyr::select(chr,start,end, peak) %>% 
-  write.table(file.path(peak_data_path,paste0(params$keepfile,"_PEAKS.bed")), sep = "\t", quote = F, row.names = F, col.names = F)
+  write.table(file.path(peak_data_path,paste0(params$data_path,"_PEAKS.bed")), sep = "\t", quote = F, row.names = F, col.names = F)
 
 ```
 
