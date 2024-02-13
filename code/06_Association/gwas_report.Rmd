@@ -12,14 +12,10 @@ knitr::opts_knit$set(root.dir = root)
 require(yaml)
 require(tidyverse)
 require(stringr)
-require(plotly)
-require(ggfortify)
-require(preprocessCore)
-require(qqman)
 require(GenomicRanges)
 require(rtracklayer)
 require(data.table)
-source("gemma_gwas_functions.R")
+source(file.path(root,"code","06_Association","gemma_gwas_functions.R"))
 ```
 
 ```{r}
