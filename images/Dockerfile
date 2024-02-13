@@ -19,6 +19,8 @@ RUN install2.r --error \
 
 RUN R -e 'BiocManager::install("gdsfmt")'
 RUN R -e 'BiocManager::install("SNPRelate")'
+RUN R -e 'BiocManager::install("GenomicRanges")'
+RUN R -e 'BiocManager::install("rtracklayer")'
 
 RUN mkdir -p /snphylo/bin
 
