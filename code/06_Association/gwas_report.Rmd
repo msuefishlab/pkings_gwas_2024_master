@@ -68,8 +68,9 @@ pk.lmm.bed.f <- pk.lmm.bed %>%
   ungroup() %>% 
   arrange(chr, start) %>% #arrange by chr order
   mutate(peak.original = peak, #new col for original peak name
-         peak.new = 1:n(), #new names for peaks
-         peak = peak.new) #reset original peak coloumn to the renumbered version
+       peak.new = row_number(), #new names for peaks using row_number()
+       peak = peak.new) #reset original peak column to the renumbered version
+
 
 
 
@@ -78,8 +79,9 @@ pk.lmm.ROW.bed.f <- pk.lmm.ROW.bed %>%
   filter(peak %in% pk.lmm.bed.f$peak.original) %>%
   arrange(chr, start) %>% #arrange by chr order
   mutate(peak.original = peak, #new col for original peak name
-         peak.new = 1:n(), #new names for peaks
-         peak = peak.new) #reset original peak coloumn to the renumbered version
+       peak.new = row_number(), #new names for peaks using row_number()
+       peak = peak.new) #reset original peak column to the renumbered version
+
 
 
 range.peaks_bed <- GRanges(pk.lmm.bed.f$chr, IRanges(as.numeric(pk.lmm.bed.f$start), as.numeric(pk.lmm.bed.f$end)))

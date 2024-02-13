@@ -15,7 +15,8 @@ RUN install2.r --error \
 	quadprog \
 	igraph \
 	fastmatch \
-	phangorn
+	phangorn \
+	zoo
 
 RUN R -e 'BiocManager::install("gdsfmt")'
 RUN R -e 'BiocManager::install("SNPRelate")'
@@ -25,7 +26,7 @@ RUN R -e 'BiocManager::install("rtracklayer")'
 RUN mkdir -p /snphylo/bin
 
 RUN apt-get update && \
-    apt-get install -y muscle phylip curl git python2 bcftools vcftools tabix wget build-essential libgsl-dev libblas-dev liblapack-dev zlib1g-dev ruby time parallel coreutils binutils ruby parallel time
+    apt-get install -y muscle phylip curl git python2 bcftools vcftools tabix wget build-essential libgsl-dev libblas-dev liblapack-dev zlib1g-dev ruby time parallel coreutils binutils
 
 RUN git clone https://github.com/jasongallant/SNPhylo.git
 
