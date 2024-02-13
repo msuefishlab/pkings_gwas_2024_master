@@ -62,6 +62,7 @@ pk.lmm.ROW.bed <- gemma.peak.ROW.bed(pk.lmm.peaks)
 
 ```{r}
 #create a filtered bed file by only peaks surpassing the permutation test 95% percentile
+pk.lmm.bed$chr<-as.numeric(pk.lmm.bed$chr)
 pk.lmm.bed.f <- pk.lmm.bed %>% 
   filter(max.log_p > significant ) %>% 
   filter(num.snps > 10) %>%
@@ -73,7 +74,7 @@ pk.lmm.bed.f <- pk.lmm.bed %>%
 
 
 
-
+pk.lmm.ROW.bed$chr<-as.numeric(pk.lmm.ROW.bed$chr)
 pk.lmm.ROW.bed.f <- pk.lmm.ROW.bed %>%
   ungroup() %>%
   filter(peak %in% pk.lmm.bed.f$peak.original) %>%
