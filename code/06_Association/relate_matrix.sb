@@ -16,7 +16,7 @@ MYNAME=$(whoami)
 
 indir=${root}/output_data/06_Association/
 outdir=${root}/output_data/06_Association/
-tmpoutdir=$SCRATCH/pkings_gwas_2024_scratch/output_data/06_Assoc/
+tmpoutdir=/mnt/local/${MYNAME}/${SLURM_JOB_ID}
 
 mkdir -p ${outdir}
 mkdir -p ${tmpoutdir}
