@@ -2,7 +2,7 @@
 
 gemma.order <- function(gemma.path, input.var){
   df.gemma <- fread(gemma.path)
-  df.gemma <- df.gemma %>% mutate(numeric_chr = as.numeric(str_replace_all(chr, "ups", "")))
+  df.gemma <- df.gemma %>% mutate(numeric_chr = as.numeric(str_replace_all(chr, "chr|ups", "")))
   df.gemma <- df.gemma %>% dplyr::arrange(numeric_chr, ps)
   df.gemma$chr <- factor(df.gemma$chr)
   df.gemma$row<-1:nrow(df.gemma)
