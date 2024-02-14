@@ -37,7 +37,7 @@ echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind 
 --allow-extra-chr \
 --allow-no-sex \
 --make-bed \
---pheno ${root}/input_data/06_Association/${OUTNAME}.pheno.txt \
+--pheno /project_root/input_data/06_Association/${OUTNAME}.pheno.txt \
 --out /tmp_dir/$OUTNAME/${OUTNAME}.prune.for_gemma \
 
 singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /plink/plink \
@@ -45,7 +45,7 @@ singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indi
 --allow-extra-chr \
 --allow-no-sex \
 --make-bed \
---pheno ${root}/input_data/06_Association/${OUTNAME}.pheno.txt \
+--pheno /project_root/input_data/06_Association/${OUTNAME}.pheno.txt \
 --out /tmp_dir/$OUTNAME/${OUTNAME}.prune.for_gemma \
 
 ##create relatedness matrix (centered is best reccomendation for starting off in the documentation)
