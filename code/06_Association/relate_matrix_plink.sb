@@ -1,0 +1,53 @@
+#!/bin/bash --login
+
+########## Define Resources Needed with SBATCH Lines ##########
+
+#SBATCH --time=04:00:00             # limit of wall clock time - how long the job will run (same as -t)
+#SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
+#SBATCH --cpus-per-task=2           # number of CPUs (or cores) per task (same as -c)
+#SBATCH --mem=12g                    # memory required per node - amount of memory (in bytes)
+#SBATCH -J relmatrix
+########## Command Lines to Run ##########
+cd $root
+
+source $root/pkings_gwas.env
+
+MYNAME=$(whoami)
+
+indir=${root}/output_data/06_Association/
+outdir=${root}/output_data/06_Association/
+tmpoutdir=/mnt/local/${MYNAME}/${SLURM_JOB_ID}
+
+mkdir -p ${outdir}
+mkdir -p ${tmpoutdir}
+
+mkdir -p ${outdir}/$OUTNAME
+mkdir -p ${tmpoutdir}/$OUTNAME
+
+
+#prune for rel matrix
+echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "bcftools +prune -n 1 -w 20000bp --nsites-per-win-mode rand --random-seed 42 -O z -o /tmp_dir/$OUTNAME/${OUTNAME}.prune.for_gemma.vcf.gz /out_dir/$OUTNAME/${OUTNAME}_merge_ID.vcf.gz"
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "bcftools +prune -n 1 -w 20000bp --nsites-per-win-mode rand --random-seed 42 -O z -o /tmp_dir/$OUTNAME/${OUTNAME}.prune.for_gemma.vcf.gz /out_dir/$OUTNAME/${OUTNAME}_merge_ID.vcf.gz"
+
+echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "bcftools index /tmp_dir/$OUTNAME/${OUTNAME}.prune.for_gemma.vcf.gz"
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "bcftools index /tmp_dir/$OUTNAME/${OUTNAME}.prune.for_gemma.vcf.gz"
+
+echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /plink/plink \
+--vcf /tmp_dir/$OUTNAME/${OUTNAME}.prune.for_gemma.vcf.gz \
+--allow-extra-chr \
+--allow-no-sex \
+--make-bed \
+--pheno ${root}/input_data/06_Association/${OUTNAME}.pheno.txt \
+--out /tmp_dir/$OUTNAME/${OUTNAME}.prune.for_gemma \
+
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /plink/plink \
+--vcf /tmp_dir/$OUTNAME/${OUTNAME}.prune.for_gemma.vcf.gz \
+--allow-extra-chr \
+--allow-no-sex \
+--make-bed \
+--pheno ${root}/input_data/06_Association/${OUTNAME}.pheno.txt \
+--out /tmp_dir/$OUTNAME/${OUTNAME}.prune.for_gemma \
+
+##create relatedness matrix (centered is best reccomendation for starting off in the documentation)
+echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /gemma/GEMMA/bin/gemma -bfile /tmp_dir/$OUTNAME/${OUTNAME}.prune.for_gemma -gk 1 -outdir /out_dir/$OUTNAME/ -o ${OUTNAME}.relate
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /gemma/GEMMA/bin/gemma -bfile /tmp_dir/$OUTNAME/${OUTNAME}.prune.for_gemma -gk 1 -outdir /out_dir/$OUTNAME/ -o ${OUTNAME}.relate
