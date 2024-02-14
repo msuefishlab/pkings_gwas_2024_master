@@ -34,6 +34,7 @@ singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpo
 
 echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /plink/plink \
 --vcf /tmp_dir/$OUTNAME/${OUTNAME}.prune.for_gemma.vcf.gz \
+--double-id \
 --allow-extra-chr \
 --allow-no-sex \
 --make-bed \
@@ -42,6 +43,7 @@ echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind 
 
 singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /plink/plink \
 --vcf /tmp_dir/$OUTNAME/${OUTNAME}.prune.for_gemma.vcf.gz \
+--double-id \
 --allow-extra-chr \
 --allow-no-sex \
 --make-bed \
