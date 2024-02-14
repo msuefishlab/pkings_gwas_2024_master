@@ -38,6 +38,9 @@ cat ${root}/input_data/06_Association/${OUTNAME}.pheno.txt | cut -f1 | tail -n+2
 # create phenotype file
 cat ${root}/input_data/06_Association/${OUTNAME}.pheno.txt | cut -f3 | tail -n+2 > ${outdir}/$OUTNAME/$OUTNAME.pheno
 
+# rename missing phenotypes to NA
+sed -i 's/-9/NA/g' ${outdir}/$OUTNAME/$OUTNAME.pheno
+
 echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /qctool/qctool -g /tmp_dir/$OUTNAME/${OUTNAME}.prune.for_gemma.vcf.gz -ofiletype bimbam_dosage -og /tmp_dir/$OUTNAME/${OUTNAME}.prune.for_gemma.geno -os  /out_dir/$OUTNAME/$OUTNAME.sample -reorder /out_dir/$OUTNAME/$OUTNAME.order
 singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /qctool/qctool -g /tmp_dir/$OUTNAME/${OUTNAME}.prune.for_gemma.vcf.gz -ofiletype bimbam_dosage -og /tmp_dir/$OUTNAME/${OUTNAME}.prune.for_gemma.geno -os  /out_dir/$OUTNAME/$OUTNAME.sample -reorder /out_dir/$OUTNAME/$OUTNAME.order
 
