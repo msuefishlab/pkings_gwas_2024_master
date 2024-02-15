@@ -38,7 +38,7 @@ echo "making relmat..."
 --no-parallel --cache-dir ${outdir}/$OUTNAME/${OUTNAME}_permution \
 --json -- \
 -a ${outdir}/$OUTNAME/${OUTNAME}_merge_map.txt \
--g ${tmpoutdir}/$OUTNAME/${OUTNAME}.prune.for_gemma.geno \
+-g ${outdir}/$OUTNAME/${OUTNAME}.prune.for_gemma.geno \
 -p ${outdir}/$OUTNAME/$OUTNAME.pheno \
 -gk 1 \
 -debug > ${outdir}/$OUTNAME/${OUTNAME}_permution/${OUTNAME}_K.json
