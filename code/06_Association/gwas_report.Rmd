@@ -64,7 +64,7 @@ pk.lmm.ROW.bed <- gemma.peak.ROW.bed(pk.lmm.peaks)
 #create a filtered bed file by only peaks surpassing the permutation test 95% percentile
 pk.lmm.bed$chr<-as.numeric(pk.lmm.bed$chr)
 pk.lmm.bed.f <- pk.lmm.bed %>% 
-  filter(max.log_p > significant ) %>% 
+  filter(max.log_p > suggestive ) %>% 
   filter(num.snps > 10) %>%
   ungroup() %>% 
   arrange(chr, start) %>% #arrange by chr order
@@ -129,9 +129,11 @@ index_snps <- pk.lmm.peaks.out %>%
   filter(log_p == max(log_p)) %>%
   # Sample one row randomly in case of ties
   slice_sample(n = 1) %>%
-  ungroup()  # Remove the grouping structure
+  ungroup() %>% # Remove the grouping structure
+  mutate(new_rs = str_split(rs, ":", simplify = TRUE)[, 1])
 
-write.table(index_snps$rs,file.path(peak_data_path,paste0(params$data_path,"_index_snps.txt")), sep = "\t", quote = F, row.names = F, col.names = F)
+
+write.table(index_snps$new_rs,file.path(peak_data_path,paste0(params$data_path,"_index_snps.txt")), sep = "\t", quote = F, row.names = F, col.names = F)
 
 ```
 
