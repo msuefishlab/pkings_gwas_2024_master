@@ -18,78 +18,52 @@ require(data.table)
 source(file.path(root,"code","06_Association","gemma_gwas_functions.R"))
 ```
 
+# Load Data
 ```{r}
 anno_file<-file.path(root,"input_data","00_Reference_Genome","MIC4273_HAP1_MSU618.liftoff.renamed.sorted.genes_only.gff")
 feat_table_file<-file.path(root,"input_data","00_Reference_Genome","GCF_002872115.1_PKINGS_0.1_feature_table.txt")
 gemma_file<-file.path(root,"output_data","06_Association",params$data_path,paste0(params$data_path,".lmm2.assoc.txt"))
 minpath<-file.path(root,"output_data","06_Association",params$data_path,paste0(params$data_path,"_permution"),"min.txt")
+```
 
-
-annotations<-import(anno_file)
-# First, create the new sequence names by removing "chr"
-new_seqnames <- sub("chr", "", seqnames(annotations))
-
-# Update the seqlevels of the GRanges object to reflect the new sequence names
-# This step ensures that the new sequence names are recognized as valid levels
-seqlevels(annotations) <- as.character(unique(new_seqnames))
-
-# Now, safely update the seqnames with the new values
-seqnames(annotations) <- as.character(new_seqnames)
-
-feat_table<-fread(feat_table_file)
+# Determine Thresholds for Significant and Suggestive SNPs
+```{r}
 pk.lmm<- gemma.order(gemma_file, "p_lrt")
 min_data<-read.csv(minpath,header=F,sep="\t")
 pvals<-sort(min_data$V10, decreasing = F)
 significant = -log10(pvals[length(pvals) - floor(length(pvals)*0.95)])
 suggestive = -log10(pvals[length(pvals) - floor(length(pvals)*0.67)])
-significant
-suggestive
+print(paste0("The threshold for signficant association is: ",significant))
+print(paste0("The threshold for suggestive association is: ",suggestive))
 ```
 
+# Define Peaks
 ```{r}
 #remove low log p to reduce memory footprint
-pk.lmm.filt <- pk.lmm %>% filter(log_p > 1) %>% filter((!grepl("ups", chr)) & !is.na(row) & !is.na(log_p))
+pk.lmm.filt <- pk.lmm %>% filter(log_p > 1) %>% filter((!grepl("ups", chr)) & !is.na(row) & !is.na(log_p)) %>% arrange(numeric_chr)
 
-#define peaks using an arbitrarily low threshold
-#internally, this merges windows within 75kb of each other and removes single snp regions
-pk.lmm.peaks <- peak_list_permutation(pk.lmm.filt, "log_p",3, 3,10)
+#define peaks using an arbitrarily low threshold, merging windows within 75kb and removing singleton SNP peaks
+pk.lmm.peaks <- peak_list_permutation(pk.lmm.filt, "log_p",3, 10) 
 
 #define intervals where the peaks are, keeping information on length and mean/max p values
 pk.lmm.bed <- gemma.peak.bed(pk.lmm.peaks)
-#use a genome-wide index ("row") for manhattan plotting
-pk.lmm.ROW.bed <- gemma.peak.ROW.bed(pk.lmm.peaks)
+
 ```
 
+# Refine Peaks
 ```{r}
-#create a filtered bed file by only peaks surpassing the permutation test 95% percentile
-pk.lmm.bed$chr<-as.numeric(pk.lmm.bed$chr)
+#create a filtered bed file that has peaks only with snps above the threshold
+
 pk.lmm.bed.f <- pk.lmm.bed %>% 
   filter(max.log_p > suggestive ) %>% 
-  filter(num.snps > 10) %>%
   ungroup() %>% 
-  arrange(chr, start) %>% #arrange by chr order
+  arrange(numeric_chr, start) %>% #arrange by chr order
   mutate(peak.original = peak, #new col for original peak name
        peak.new = row_number(), #new names for peaks using row_number()
        peak = peak.new) #reset original peak column to the renumbered version
 
-
-
-pk.lmm.ROW.bed$chr<-as.numeric(pk.lmm.ROW.bed$chr)
-pk.lmm.ROW.bed.f <- pk.lmm.ROW.bed %>%
-  ungroup() %>%
-  filter(peak %in% pk.lmm.bed.f$peak.original) %>%
-  arrange(chr, start) %>% #arrange by chr order
-  mutate(peak.original = peak, #new col for original peak name
-       peak.new = row_number(), #new names for peaks using row_number()
-       peak = peak.new) #reset original peak column to the renumbered version
-
-
-
-range.peaks_bed <- GRanges(pk.lmm.bed.f$chr, IRanges(as.numeric(pk.lmm.bed.f$start), as.numeric(pk.lmm.bed.f$end)))
-start(range.peaks_bed) <- start(range.peaks_bed) - 100000
-end(range.peaks_bed) <- end(range.peaks_bed) + 100000
-peaks.genes.overlap <- as.data.frame(annotations[queryHits(findOverlaps(annotations, range.peaks_bed)), ])
-ggplot(pk.lmm.bed.f,aes(x=num.snps)) + geom_histogram(bins=100) + scale_x_log10()
+# Plot how many snps are in each peak
+ggplot(pk.lmm.bed.f,aes(x=num.snps)) + geom_histogram(bins=10) + scale_x_log10()
 ```
 
 ```{r}
@@ -100,29 +74,26 @@ if (!dir.exists(peak_data_path)){
 }
 
 peak.name.simple <- pk.lmm.bed.f %>% dplyr::select(peak.new, peak.original)
-write_csv(peak.name.simple, file.path(peak_data_path,paste0(params$data_path,"_old_new_peak_names.csv")))
 
-#output datafiles
 #create a SNP file that is only the peaks after filtering
 pk.lmm.peaks.out <- pk.lmm.peaks %>% 
   filter(peak %in% pk.lmm.bed.f$peak.original)
-
 pk.lmm.peaks.out <- left_join(pk.lmm.peaks.out, peak.name.simple, by = c("peak" = "peak.original")) %>% 
-  dplyr::rename(peak.original = peak, peak= peak.new)
-
-write.table(pk.lmm.peaks.out,file.path(peak_data_path,paste0(params$data_path,"_OUTLIER_SNPs.txt")), sep = "\t", quote = F, row.names = F, col.names = T)
+  dplyr::rename(peak.original = peak, peak= peak.new) %>% arrange(peak)
+write.table(pk.lmm.peaks.out,file.path(peak_data_path,paste0(params$data_path,"_SNPS_IN_PEAKS.txt")), sep = "\t", quote = F, row.names = F, col.names = T)
 
 #create a file that is only the top 250 SNPs per peak
 pk.lmm.peaks.slice <- pk.lmm.peaks.out %>% group_by(peak) %>% 
   slice_max(log_p, n = 250) %>% 
   dplyr::select(chr, ps, log_p, peak)
-write.table(pk.lmm.peaks.slice,file.path(peak_data_path,paste0(params$data_path,"_OUTLIER_SNPs_TOP250.txt")), sep = "\t", quote = F, row.names = F, col.names = F)
+write.table(pk.lmm.peaks.slice,file.path(peak_data_path,paste0(params$data_path,"_SNPS_IN_PEAKS_TOP250.txt")), sep = "\t", quote = F, row.names = F, col.names = F)
 
 pk.lmm.peaks.slice %>% group_by(peak) %>% 
   summarise(n = n(),
             min = min(log_p),
             max = max(log_p))
 
+# write index SNPS
 index_snps <- pk.lmm.peaks.out %>%
   group_by(peak) %>%
   # Filter for rows with the maximum log_p value within each peak
@@ -135,17 +106,12 @@ index_snps <- pk.lmm.peaks.out %>%
 
 write.table(index_snps$new_rs,file.path(peak_data_path,paste0(params$data_path,"_index_snps.txt")), sep = "\t", quote = F, row.names = F, col.names = F)
 
-```
-
-
-
-```{r}
 #output bed file of UNFILTERED peaks
-pk.lmm.bed %>% dplyr::select(chr,start,end, peak) %>% 
+pk.lmm.bed %>% dplyr::select(numeric_chr,start,end, peak) %>% 
   write.table(file.path(peak_data_path,paste0(params$data_path,"_PEAKS_unfiltered.bed")), sep = "\t", quote = F, row.names = F, col.names = F)
 
 #output bed file of peaks
-pk.lmm.bed.f %>% dplyr::select(chr,start,end, peak) %>% 
+pk.lmm.bed.f %>% dplyr::select(numeric_chr,start,end, peak) %>% 
   write.table(file.path(peak_data_path,paste0(params$data_path,"_PEAKS.bed")), sep = "\t", quote = F, row.names = F, col.names = F)
 
 ```
