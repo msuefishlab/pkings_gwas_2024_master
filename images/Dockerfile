@@ -16,8 +16,11 @@ RUN install2.r --error \
 	igraph \
 	fastmatch \
 	phangorn \
-	zoo
-
+	zoo \
+	kableExtra \
+	gggenes \
+	rentrez
+	
 RUN R -e 'BiocManager::install("gdsfmt")'
 RUN R -e 'BiocManager::install("SNPRelate")'
 RUN R -e 'BiocManager::install("GenomicRanges")'
