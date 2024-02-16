@@ -16,8 +16,7 @@ gemma.order <- function(gemma.path, input.var){
 
 ## USED##
 peak_list_permutation <- function(input.df, input.var, thresholdA, num_snps){
-  input.df <- as.data.frame(input.df)
-  autosome_peaks <- autosome_data %>% filter(!!sym(input.var) > thresholdA)
+  autosome_peaks <- input.df %>% filter(!!sym(input.var) > thresholdA)
   
   #create granges object for individual SNPs that are above the threshold
   range.autosome_peaks <- GRanges(autosome_peaks$chr, IRanges(as.numeric(autosome_peaks$ps), as.numeric(autosome_peaks$ps)))
