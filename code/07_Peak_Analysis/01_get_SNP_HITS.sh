@@ -21,7 +21,7 @@ TOP_SNPS=${root}/output_data/06_Association/${OUTNAME}/${OUTNAME}"_SNPS_IN_PEAKS
 
 cut -f 1,2 $TOP_SNPS > ${outdir}/${OUTNAME}_snps.txt
 
-singularity exec ${gwas_tools_image} bcftools view -R ${outdir}/${OUTNAME}_snps.txt $snps_only_vcf -O z -o ${outdir}/${OUTNAME}_OUTLIER_SNPs_TOP250.vcf.gz
+singularity exec ${gwas_tools_image} bcftools view -R ${outdir}/${OUTNAME}_snps.txt ${root}/output_data/03_QC/$snps_only_vcf -O z -o ${outdir}/${OUTNAME}_OUTLIER_SNPs_TOP250.vcf.gz
 
 singularity exec ${gwas_tools_image} bash -c "bcftools query -l ${outdir}/${OUTNAME}_OUTLIER_SNPs_TOP250.vcf.gz | tr "\n" "\t" >${outdir}/${OUTNAME}_header.txt"
 
