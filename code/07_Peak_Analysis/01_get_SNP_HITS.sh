@@ -42,7 +42,7 @@ sed ${outdir}/${OUTNAME}.pos.genos \
   -e "s:0|0:0:g" \
   -e "s:1|1:2:g" > ${outdir}/${OUTNAME}.bin.pos.genos
 
-rm ${outdir}/${OUTNAME}.genos
-rm ${outdir}/${OUTNAME}.pos
-rm ${outdir}/${OUTNAME}_header.txt
-rm ${outdir}/${OUTNAME}/*_raw*
+#rm ${outdir}/${OUTNAME}.genos
+#rm ${outdir}/${OUTNAME}.pos
+#rm ${outdir}/${OUTNAME}_header.txt
+#rm ${outdir}/${OUTNAME}/*_raw*
