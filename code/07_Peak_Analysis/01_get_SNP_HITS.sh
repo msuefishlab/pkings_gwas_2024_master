@@ -23,7 +23,7 @@ cut -f 1,2 $TOP_SNPS > ${outdir}/${OUTNAME}_snps.txt
 
 singularity exec ${gwas_tools_image} bcftools view -R ${outdir}/${OUTNAME}_snps.txt ${root}/output_data/03_QC/$snps_only_vcf -O z -o ${outdir}/${OUTNAME}_OUTLIER_SNPs_TOP250.vcf.gz
 
-singularity exec ${gwas_tools_image} bash -c 'bcftools query -l ${outdir}/${OUTNAME}_OUTLIER_SNPs_TOP250.vcf.gz | tr "\n" "\t" > ${outdir}/${OUTNAME}_header.txt'
+singularity exec ${gwas_tools_image} bash -c "bcftools query -l ${outdir}/${OUTNAME}_OUTLIER_SNPs_TOP250.vcf.gz | tr \"\\n\" \"\\t\" > ${outdir}/${OUTNAME}_header.txt"
 
 echo "" >>  ${outdir}/${OUTNAME}_header.txt #add new line at end of header
 
@@ -40,9 +40,15 @@ sed ${outdir}/${OUTNAME}.pos.genos \
   -e "s:0|1:1:g" \
   -e "s:1|0:1:g" \
   -e "s:0|0:0:g" \
-  -e "s:1|1:2:g" > ${outdir}/${OUTNAME}.bin.pos.genos
+  -e "s:1|1:2:g" \
+  -e "s:0/1:1:g" \
+  -e "s:1/0:1:g" \
+  -e "s:0/0:0:g" \
+  -e "s:1/1:2:g" \
+  -e "s:./.:NA:g" \
+  -e "s:.|.:NA:g" > ${outdir}/${OUTNAME}.bin.pos.genos
 
-#rm ${outdir}/${OUTNAME}.genos
-#rm ${outdir}/${OUTNAME}.pos
-#rm ${outdir}/${OUTNAME}_header.txt
-#rm ${outdir}/${OUTNAME}/*_raw*
+rm ${outdir}/${OUTNAME}.genos
+rm ${outdir}/${OUTNAME}.pos
+rm ${outdir}/${OUTNAME}_header.txt
+rm ${outdir}/${OUTNAME}*_raw*
