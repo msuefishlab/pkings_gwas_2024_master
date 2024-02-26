@@ -55,15 +55,17 @@ reduce.range.autosome_peaks <- reduce.range.autosome_peaks[valid_peaks]
 }
 
 ###USED###
-gemma.peak.bed <- function(peaks.named){
-  #create a bed file that has a summary of each of these regions
-  peak.bed <- peaks.named %>% group_by(numeric_chr,peak) %>% 
+gemma.peak.bed <- function(peaks.named, log_p_threshold){
+  # Create a bed file that has a summary of each of these regions
+  peak.bed <- peaks.named %>% 
+    group_by(numeric_chr, peak) %>% 
     summarise(start = min(ps),
               end = max(ps),
               length = end - start,
               num.snps = n(),
               mean.log_p = mean(log_p),
               max.log_p = max(log_p),
+              num.snps.above.threshold = sum(log_p > log_p_threshold),
               .groups = "keep")
   return(peak.bed)
 }

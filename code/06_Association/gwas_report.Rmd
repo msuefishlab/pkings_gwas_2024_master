@@ -2,7 +2,7 @@
 title: "GWAS Report"
 output: html_notebook
 params:
-  data_path: APA_BAM_ONLY_BP1_TP0_WOBBLE9
+  data_path: DOV_DOG_BEN_APA_BAM_TP1_BP2_WOB9
   output_file: NULL
 ---
 
@@ -46,7 +46,7 @@ pk.lmm.filt <- pk.lmm %>% filter(log_p > 1) %>% filter((!grepl("ups", chr)) & !i
 pk.lmm.peaks <- peak_list_permutation(pk.lmm.filt, "log_p",3, 10) 
 
 #define intervals where the peaks are, keeping information on length and mean/max p values
-pk.lmm.bed <- gemma.peak.bed(pk.lmm.peaks)
+pk.lmm.bed <- gemma.peak.bed(pk.lmm.peaks,suggestive)
 
 ```
 
@@ -56,6 +56,7 @@ pk.lmm.bed <- gemma.peak.bed(pk.lmm.peaks)
 
 pk.lmm.bed.f <- pk.lmm.bed %>% 
   filter(max.log_p > suggestive ) %>% 
+  filter(num.snps.above.threshold > 10 ) %>% 
   ungroup() %>% 
   arrange(numeric_chr, start) %>% #arrange by chr order
   mutate(peak.original = peak, #new col for original peak name
