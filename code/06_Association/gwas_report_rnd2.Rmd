@@ -2,7 +2,7 @@
 title: "GWAS Report"
 output: html_notebook
 params:
-  data_path: APA_BAM_ONLY_BP1_TP0_WOBBLE9
+  data_path: DOV_DOG_BEN_APA_BIK_BAVA_BIR_TP1_BP2_WOB9
   output_file: NULL
 ---
 
