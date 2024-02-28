@@ -1,0 +1,123 @@
+---
+title: "Peak Report"
+output: html_notebook
+params:
+  data_path: APA_BAM_ONLY_BP1_TP0_WOBBLE9
+  output_file: NULL
+---
+
+```{r setup, include=FALSE}
+root<-rprojroot::find_root(".git/index")
+knitr::opts_knit$set(root.dir = root)
+require(yaml)
+require(tidyverse)
+library(patchwork)
+library(data.table)
+library(cluster)
+library(reshape2)
+library(ggplot2)
+library(stringr)
+```
+
+
+```{r}
+geno_path<-file.path(root,"output_data","07_Peak_Analysis",paste0(params$data_path,".bin.pos.genos"))
+peaks_path<-file.path(root,"output_data","06_Association",params$data_path,paste0(params$data_path,"_PEAKS.bed"))
+logp_path<-file.path(root,"output_data","06_Association",params$data_path,paste0(params$data_path,"_OUTLIER_SNPs_TOP250.txt"))
+
+df.genos<-read.table(geno_path)
+
+df.genos<-read.table(geno_path,header=T)
+
+long_genotype <- df.genos %>%
+  pivot_longer(
+    cols = -c(CHROM, POS, REF, ALT), # Exclude the first four columns
+    names_to = "name",          # Column for the new 'name' variable
+    values_to = "geno"          # Column for the new 'geno' variable
+  ) %>%
+  select(name, chr = CHROM, pos = POS, geno) # Rename and select columns
+
+long_genotype<-as.data.frame(long_genotype)
+
+long_genotype<-long_genotype %>% mutate(chr=str_replace(chr,"chr",""))
+
+df.bed <- read.table(peaks_path)
+names(df.bed) <- c("chr", "start","end", "peak")
+
+#remove positions if there is only one SNP
+df.bed <- df.bed %>% 
+  mutate(lg = end- start) %>% 
+  filter(lg > 0)
+
+#df.cluster<-read.table('./pkings.pheno.info.txt',header=T)
+
+#load the top p values (filtered > 0.1) to plot the signal with the other plots I generate below
+df.logp <- read.table(logp_path)
+
+```
+
+```{r}
+mormyrid_time_tree_file<-file.path(root,"input_data/04_Phylogenetics/ssAll_iqtree_timtree.nex")
+treefile<-file.path(root,"output_data/04_Phylogeny_And_Admixture/MIC4273_HAP1_MSU618_all_fish_all_sites.FILTERED_BIALLELIC_SNPS_ONLY.renamed.renamed.maf5.miss20.dp5.autosomes_only.set_ids.pruned.min4.phy.treefile")
+fish_data_file<-file.path(root,"input_data/01_Terra/data_model/fish_data_2023.txt")
+snp_tree<-read.tree(treefile)
+fish_data<-read.csv(fish_data_file,sep="\t")
+
+pheno_discrete <- fish_data %>% 
+  mutate(Phenotype = factor(Phenotype)) %>%
+  mutate(id=entity.participant_id) %>%
+  select(id,Phenotype)
+
+pheno_discrete$Phenotype <- gsub("TYPE_II", "TP", pheno_discrete$Phenotype)
+pheno_discrete$Phenotype <- gsub("TYPE_I", "TP", pheno_discrete$Phenotype)
+
+new_root_node <- getMRCA(snp_tree,c("PSZA_454","IVI_4834"))
+rooted_snp_tree<-root(snp_tree,node=new_root_node)
+mycalibration=makeChronosCalib(rooted_snp_tree,node="root",age.max=1)
+ultrametric_rooted_tree <- chronos(rooted_snp_tree, lambda = 1, model = "correlated", calibration = mycalibration, control = chronos.control(dual.iter.max=100) )
+
+write.tree(ultrametric_rooted_tree,file.path(root,"output_data","07_Peak_Analysis",paste0(params$data_path,".tree")))
+
+ultrametric_rooted_tree <- ape::read.tree(file.path(root,"output_data","07_Peak_Analysis",paste0(params$data_path,".tree")))
+
+```
+
+```{r}
+for (peak.idx in unique(df.bed$peak)){
+  
+  #take bed file, pull out peak of interest then filter by it
+  df.bed.idx <- df.bed  %>% filter(peak == peak.idx)
+  chr.idx <- unique(df.bed.idx$chr)
+  print(paste0("running ", peak.idx, " on ", chr.idx))
+  
+  #subset geno df by the peak region 
+  df.genos.sub <- long_genotype %>% filter(chr == chr.idx & pos > min(df.bed.idx$start) & pos < max(df.bed.idx$end))
+  
+  df.genos.sub <- df.genos.sub %>%
+  arrange(name, pos) %>%  # Sort by name and then by position
+  group_by(name) %>%
+  mutate(snp_order_within_individual = row_number()) %>%  # Create sequence number
+  ungroup()  # Remove the grouping
+  
+  df.genos.sub$geno <- factor(ifelse(is.na(df.genos.sub$geno), "NA", as.character(df.genos.sub$geno)),
+                     levels = c("NA", "0", "1", "2"))
+
+  ## visualize the tree 
+  p <- ggtree(ultrametric_rooted_tree) 
+  
+  p <- p %<+% pheno_discrete + geom_tippoint(aes(color=Phenotype)) +
+    scale_color_manual(values= c("Wobble"="purple","BP"="blue","TP"="red"))
+
+  ## attach the sampling information data set 
+  ## and add symbols colored by location
+
+  ## visualize SNP and Trait data using dot and bar charts,
+  ## and align them based on tree structure
+  p + geom_facet(panel = paste0("Peak ",peak.idx," on Chr ",chr.idx ), data = df.genos.sub, geom = geom_tile, 
+          mapping=aes(x = snp_order_within_individual, fill = geno)) +
+          scale_fill_manual(values = c("NA" = "white", "0" = "grey", "1" = "blue", "2" = "orange"))
+    
+  ggsave(file.path("output_data","07_Peak_Analysis",params$data_path,paste0(params$data_path,"_PEAK",peak.idx,"_CHR",chr.idx, ".png")), width = 8.5, height = 17)
+    
+}
+```
