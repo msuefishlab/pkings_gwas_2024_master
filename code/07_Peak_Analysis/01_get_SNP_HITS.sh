@@ -10,10 +10,11 @@
 root="$(git rev-parse --show-toplevel)"
 source ${root}/"pkings_gwas.env"
 
+OUTNAME=$1
+
 outdir=${root}/output_data/07_Peak_Analysis/${OUTNAME}
 mkdir -p ${outdir}
 
-OUTNAME=$1
 
 
 TOP_SNPS=${root}/output_data/06_Association/${OUTNAME}/${OUTNAME}"_SNPS_IN_PEAKS_TOP250.txt"
