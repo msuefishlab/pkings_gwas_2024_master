@@ -23,7 +23,7 @@ library(stringr)
 ```{r}
 geno_path<-file.path(root,"output_data","07_Peak_Analysis",paste0(params$data_path,".bin.pos.genos"))
 peaks_path<-file.path(root,"output_data","06_Association",params$data_path,paste0(params$data_path,"_PEAKS.bed"))
-logp_path<-file.path(root,"output_data","06_Association",params$data_path,paste0(params$data_path,"_OUTLIER_SNPs_TOP250.txt"))
+logp_path<-file.path(root,"output_data","06_Association",params$data_path,paste0(params$data_path,"_SNPS_IN_PEAKS_TOP250.txt"))
 
 df.genos<-read.table(geno_path)
 
