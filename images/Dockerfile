@@ -25,6 +25,7 @@ RUN R -e 'BiocManager::install("gdsfmt")'
 RUN R -e 'BiocManager::install("SNPRelate")'
 RUN R -e 'BiocManager::install("GenomicRanges")'
 RUN R -e 'BiocManager::install("rtracklayer")'
+RUN R -e 'BiocManager::install("ggtree")'
 
 RUN mkdir -p /snphylo/bin
 
