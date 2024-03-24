@@ -10,10 +10,10 @@ def replace_s3_path(s3_path):
     return f"gs://{bucket_name}/reads/" + s3_path.split('/')[-1]
 
 # Load the CSV file
-df = pd.read_csv('./data_model/Deduplicated Inventory-GWAS_Set.csv')
+df = pd.read_csv('./data_model/Deduplicated Inventory-GWAS_Set-2.csv')
 
 # Load the TSV file
-fish_data = pd.read_csv('./data_model/fish_data_2023.txt', sep='\t')
+fish_data = pd.read_csv('./data_model/fish_data_2024.txt', sep='\t')
 
 # Filter out rows where 'file_readno' or 'S3 Path' is missing
 df = df.dropna(subset=['file_readno', 'S3 Path'])
@@ -56,4 +56,4 @@ final_columns = ['entity:sample_id', 'ID', 'Individual_ID', 'LB', 'lane', 'PL', 
 final_df = merged_df[final_columns]
 
 # Save the result to a new TSV file
-final_df.to_csv('./data_model/samples_2023.tsv', sep='\t', index=False)
+final_df.to_csv('./data_model/samples_2024.tsv', sep='\t', index=False)

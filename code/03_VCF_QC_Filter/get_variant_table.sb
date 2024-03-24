@@ -50,6 +50,6 @@ singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gatk_image
 
 
 awk 'NR<=3 || $3 == "SNP"' ${outdir}/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.tab > ${outdir}/${vcf_file%.vcf.gz}.snp.${SLURM_ARRAY_TASK_ID}.tab
-awk 'NR<=3 || $3 == "INDEL"' ${outdir}/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.tab > ${outdir}/output_data/03_QC/${vcf_file%.vcf.gz}.indel.${SLURM_ARRAY_TASK_ID}.tab
+awk 'NR<=3 || $3 == "INDEL"' ${outdir}/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.tab > ${outdir}/${vcf_file%.vcf.gz}.indel.${SLURM_ARRAY_TASK_ID}.tab
 
 rm ${outdir}/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.tab
