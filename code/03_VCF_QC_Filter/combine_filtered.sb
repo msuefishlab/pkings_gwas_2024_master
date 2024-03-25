@@ -28,4 +28,4 @@ out_name_part=${shard_file%".list"}
 
 echo "Working on ${out_name_part}..."
 singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools_image} bash -c "bcftools concat --threads 12 --allow-overlaps --rm-dups all -f ${shard_list[$SLURM_ARRAY_TASK_ID]} -O z -o /out_dir/${OUTROOT}.${out_name_part}.vcf.gz"
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools_image} bash -c "tabix ${OUTROOT}.${out_name_part}.vcf.gz"
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools_image} bash -c "tabix /out_dir/${OUTROOT}.${out_name_part}.vcf.gz"
