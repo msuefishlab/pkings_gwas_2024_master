@@ -119,4 +119,14 @@ RUN git clone -b slurm_patched --single-branch https://github.com/jasongallant/g
 
 ENV GEMMA_COMMAND=/gemma/GEMMA/bin/gemma
 
+RUN mkdir -p iqtree
+
+WORKDIR /iqtree/
+
+RUN wget https://github.com/iqtree/iqtree2/releases/download/v2.3.1/iqtree-2.3.1-Linux.tar.gz
+
+RUN tar -zxvf iqtree-2.3.1-Linux.tar.gz
+
+RUN mv iqtree*/bin/iqtree2 .
+
 CMD ["/bin/bash"]
