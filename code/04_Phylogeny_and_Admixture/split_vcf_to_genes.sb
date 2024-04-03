@@ -43,6 +43,7 @@ echo python3 ~/vcf2fasta/vcf2fasta.py \
 --fasta ${refdir}/MIC4273_HAP1_MSU618.fa.renamed.fa \
 -e gene \
 --out ${outdir}/gene_alignments/$SLURM_ARRAY_TASK_ID \
+-b \
 -r
 
 python3 ~/vcf2fasta/vcf2fasta.py \
@@ -51,4 +52,5 @@ python3 ~/vcf2fasta/vcf2fasta.py \
 --fasta ${refdir}/MIC4273_HAP1_MSU618.fa.renamed.fa \
 -e gene \
 --out ${outdir}/gene_alignments/$SLURM_ARRAY_TASK_ID \
+-b \
 -r
