@@ -24,6 +24,8 @@ OUTROOT=${snps_only_vcf%".vcf.gz"}
 
 gff_files=($(find ${refdir}/split_gffs -type f -name "*.gff" -exec realpath {} \;))
 
+module purge
+
 which mamba
 
 mamba activate vcf2msa
