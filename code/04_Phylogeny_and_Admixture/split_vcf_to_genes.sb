@@ -35,9 +35,7 @@ mamba info --envs
 which python3
 
 
-mkdir -p ${outdir}/gene_alignments
-
-cd ${outdir}/gene_alignments
+mkdir -p ${outdir}/gene_alignments/
 
 echo python3 ~/vcf2fasta/vcf2fasta.py \
 --vcf ${indir}/${snps_only_vcf} \
