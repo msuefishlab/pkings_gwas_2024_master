@@ -24,6 +24,8 @@ OUTROOT=${snps_only_vcf%".vcf.gz"}
 
 gff_files=($(find ${refdir}/split_gffs -type f -name "*.gff" -exec realpath {} \;))
 
+mamba info --envs
+
 mamba activate vcf2msa
 
 mkdir -p ${outdir}/gene_alignments
