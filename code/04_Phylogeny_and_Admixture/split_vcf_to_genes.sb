@@ -32,6 +32,8 @@ mamba activate vcf2msa
 
 mamba info --envs
 
+which python3
+
 
 mkdir -p ${outdir}/gene_alignments
 
