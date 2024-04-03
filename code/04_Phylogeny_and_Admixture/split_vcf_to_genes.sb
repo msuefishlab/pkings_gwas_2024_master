@@ -1,0 +1,43 @@
+#!/bin/bash --login
+
+########## Define Resources Needed with SBATCH Lines ##########
+
+#SBATCH --time=8:00:00             # limit of wall clock time - how long the job will run (same as -t)
+#SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
+#SBATCH --cpus-per-task=1           # number of CPUs (or cores) per task (same as -c)
+#SBATCH --mem=12G                    # memory required per node - amount of memory (in bytes)
+#SBATCH --job-name SPLIT_VCF_TO_GENES      # you can give your job a name for easier identification (same as -J)
+########## Command Lines to Run ##########
+cd $root
+
+source $root/pkings_gwas.env
+
+MYNAME=$(whoami)
+
+indir=${root}/output_data/03_QC/
+outdir=${root}/output_data/04_Phylogeny_And_Admixture/
+refdir=${root}/input_data/00_Reference_Genome/
+
+mkdir -p ${outdir}
+
+OUTROOT=${snps_only_vcf%".vcf.gz"}
+
+mamba activate vcf2msa
+
+mkdir -p ${outdir}/gene_alignments
+
+echo python3 ~/vcf2fasta/vcf2fasta.py \
+--vcf ${indir}/${OUTROOT}.FILTERED_BIALLELIC_SNPS_ONLY.renamed.vcf.gz \
+--gff ${gff_files[$SLURM_ARRAY_TASK_ID]} \
+--fasta ${refdir}/MIC4273_HAP1_MSU618.fa.renamed.fa \
+-e gene \
+--out ${outdir}/gene_alignments \
+-r
+
+python3 ~/vcf2fasta/vcf2fasta.py \
+--vcf ${indir}/${OUTROOT}.FILTERED_BIALLELIC_SNPS_ONLY.renamed.vcf.gz \
+--gff ${gff_files[$SLURM_ARRAY_TASK_ID]} \
+--fasta ${refdir}/MIC4273_HAP1_MSU618.fa.renamed.fa \
+-e gene \
+--out ${outdir}/gene_alignments \
+-r
