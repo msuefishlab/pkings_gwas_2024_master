@@ -22,35 +22,25 @@ mkdir -p ${outdir}
 
 OUTROOT=${snps_only_vcf%".vcf.gz"}
 
-gff_files=($(find ${refdir}/split_gffs -type f -name "*.gff" -exec realpath {} \;))
-
 module purge
-
-which mamba
 
 mamba activate vcf2msa
 
-mamba info --envs
-
-which python3
-
-
 mkdir -p ${outdir}/gene_alignments/
 
-echo python3 ~/vcf2fasta/vcf2fasta.py \
---vcf ${indir}/${snps_only_vcf} \
---gff ${gff_files[$SLURM_ARRAY_TASK_ID]} \
---fasta ${refdir}/MIC4273_HAP1_MSU618.fa.renamed.fa \
--e gene \
---out ${outdir}/gene_alignments/$SLURM_ARRAY_TASK_ID \
--b \
--r
+cd ${outdir}/gene_alignments/
 
-python3 ~/vcf2fasta/vcf2fasta.py \
---vcf ${indir}/${snps_only_vcf} \
---gff ${gff_files[$SLURM_ARRAY_TASK_ID]} \
---fasta ${refdir}/MIC4273_HAP1_MSU618.fa.renamed.fa \
--e gene \
---out ${outdir}/gene_alignments/$SLURM_ARRAY_TASK_ID \
--b \
--r
+# Calculate file suffix for this task, ensuring it matches the split file naming
+file_suffix=$(printf "chunk_%03d" "${SLURM_ARRAY_TASK_ID}")
+
+regionfile=${refdir}/split_regions/${file_suffix}
+
+# Loop over lines in the file
+while IFS= read -r line; do
+    # Run your command with "$line" as the input
+    python3 ~/vcf2msa.py/vcf2msa.py \
+	-f ${refdir}/MIC4273_HAP1_MSU618.fa.renamed.fa \
+	-v ${indir}/${snps_only_vcf} \
+	-r $line
+done < ${regionfile}
+
