@@ -38,7 +38,7 @@ which python3
 mkdir -p ${outdir}/gene_alignments
 
 echo python3 ~/vcf2fasta/vcf2fasta.py \
---vcf ${indir}/${OUTROOT}.FILTERED_BIALLELIC_SNPS_ONLY.renamed.vcf.gz \
+--vcf ${indir}/${snps_only_vcf} \
 --gff ${gff_files[$SLURM_ARRAY_TASK_ID]} \
 --fasta ${refdir}/MIC4273_HAP1_MSU618.fa.renamed.fa \
 -e gene \
@@ -46,7 +46,7 @@ echo python3 ~/vcf2fasta/vcf2fasta.py \
 -r
 
 python3 ~/vcf2fasta/vcf2fasta.py \
---vcf ${indir}/${OUTROOT}.FILTERED_BIALLELIC_SNPS_ONLY.renamed.vcf.gz \
+--vcf ${indir}/${snps_only_vcf} \
 --gff ${gff_files[$SLURM_ARRAY_TASK_ID]} \
 --fasta ${refdir}/MIC4273_HAP1_MSU618.fa.renamed.fa \
 -e gene \
