@@ -66,6 +66,12 @@ eval $bcftools_command
 
 module purge
 
+module load tabix
+
+tabix ${tmpoutdir}/${snps_only_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz
+
+module purge
+
 mamba activate vcf2msa
 
 mkdir -p ${outdir}/gene_alignments/
