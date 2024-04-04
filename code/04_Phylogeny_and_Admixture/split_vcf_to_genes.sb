@@ -35,12 +35,7 @@ file_suffix=$(printf "chunk_%03d" "${SLURM_ARRAY_TASK_ID}")
 
 regionfile=${refdir}/split_regions/${file_suffix}
 
-# Loop over lines in the file
-while IFS= read -r line; do
-    # Run your command with "$line" as the input
-    python3 ~/vcf2msa.py/vcf2msa.py \
-	-f ${refdir}/MIC4273_HAP1_MSU618.fa.renamed.fa \
-	-v ${indir}/${snps_only_vcf} \
-	-r $line
-done < ${regionfile}
-
+python3 ~/vcf2msa/vcf2msa.py \
+-f ${refdir}/MIC4273_HAP1_MSU618.fa.renamed.fa \
+-v ${indir}/${snps_only_vcf} \
+-R ${regionfile}
