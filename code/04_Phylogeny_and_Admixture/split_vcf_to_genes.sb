@@ -30,7 +30,7 @@ module load bcftools
 bcftools_command=(bcftools view)
 
 # Add ranges to the command array
-IFS=' ' read -r -a ranges_array <<< "$(awk -F '[@:-]' '
+bcftools_command+=($(awk -F '[@:-]' '
     {
         if (!min[$2] || $3 < min[$2]) min[$2] = $3;
         if (!max[$2] || $4 > max[$2]) max[$2] = $4;
@@ -40,10 +40,9 @@ IFS=' ' read -r -a ranges_array <<< "$(awk -F '[@:-]' '
             printf("-r %s:%d-%d ", chr, min[chr], max[chr]);
         }
     }
-' "$regions_file")"
+' "$regions_file"))
 
-# Append ranges and other options to the bcftools command array
-bcftools_command+=("${ranges_array[@]}" "${indir}/${snps_only_vcf}" -Oz -o "${tmpoutdir}/${snps_only_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz")
+bcftools_command+=("-Oz" "-o" "${tmpoutdir}/${snps_only_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz")
 
 # Use the command array with eval
 echo "${bcftools_command[@]}"
