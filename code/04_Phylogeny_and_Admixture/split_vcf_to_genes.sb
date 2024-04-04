@@ -24,6 +24,11 @@ mkdir -p ${tmpoutdir}
 
 OUTROOT=${snps_only_vcf%".vcf.gz"}
 
+# Calculate file suffix for this task, ensuring it matches the split file naming
+file_suffix=$(printf "chunk_%03d" "${SLURM_ARRAY_TASK_ID}")
+
+regionfile=${refdir}/split_regions/${file_suffix}
+
 module load bcftools
 
 # Initialize an array for the command
@@ -40,7 +45,7 @@ bcftools_command+=($(awk -F '[@:-]' '
             printf("-r %s:%d-%d ", chr, min[chr], max[chr]);
         }
     }
-' "$regions_file"))
+' "$regionfile"))
 
 bcftools_command+=("-Oz" "-o" "${tmpoutdir}/${snps_only_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz")
 
@@ -59,11 +64,6 @@ mamba activate vcf2msa
 mkdir -p ${outdir}/gene_alignments/
 
 cd ${outdir}/gene_alignments/
-
-# Calculate file suffix for this task, ensuring it matches the split file naming
-file_suffix=$(printf "chunk_%03d" "${SLURM_ARRAY_TASK_ID}")
-
-regionfile=${refdir}/split_regions/${file_suffix}
 
 python3 ~/vcf2msa/vcf2msa.py \
 -f ${refdir}/MIC4273_HAP1_MSU618.fa.renamed.fa \
