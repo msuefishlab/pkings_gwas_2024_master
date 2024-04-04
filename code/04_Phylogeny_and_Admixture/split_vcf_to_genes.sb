@@ -62,13 +62,15 @@ echo "$bcftools_command"
 
 eval $bcftools_command
 
-
-
 module purge
 
 module load GCC/4.9.3-2.25  OpenMPI/1.10.2 tabix/0.2.6
 
 tabix ${tmpoutdir}/${snps_only_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz
+
+cp ${refdir}/MIC4273_HAP1_MSU618.fa.renamed.fa ${tmpoutdir}
+cp ${refdir}/MIC4273_HAP1_MSU618.fa.renamed.fa.fai ${tmpoutdir}
+
 
 module purge
 
@@ -78,7 +80,14 @@ mkdir -p ${outdir}/gene_alignments/
 
 cd ${outdir}/gene_alignments/
 
+echo "Now running VCF2MSA on ${snps_only_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz!!"
+
+echo python3 ~/vcf2msa/vcf2msa.py \
+-f ${tmpoutdir}/MIC4273_HAP1_MSU618.fa.renamed.fa \
+-v ${tmpoutdir}/${snps_only_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz \
+-R ${regionfile}
+
 python3 ~/vcf2msa/vcf2msa.py \
--f ${refdir}/MIC4273_HAP1_MSU618.fa.renamed.fa \
+-f ${tmpoutdir}/MIC4273_HAP1_MSU618.fa.renamed.fa \
 -v ${tmpoutdir}/${snps_only_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz \
 -R ${regionfile}
