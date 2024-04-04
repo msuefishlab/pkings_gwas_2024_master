@@ -17,10 +17,47 @@ MYNAME=$(whoami)
 indir=${root}/output_data/03_QC/
 outdir=${root}/output_data/04_Phylogeny_And_Admixture/
 refdir=${root}/input_data/00_Reference_Genome/
+tmpoutdir=/mnt/local/${MYNAME}/${SLURM_JOB_ID}/
 
 mkdir -p ${outdir}
 
 OUTROOT=${snps_only_vcf%".vcf.gz"}
+
+module load bcftools
+
+#!/bin/bash
+
+# Path to your regions file
+regions_file="path_to_your_regions_file.txt"
+
+# Initialize the command with bcftools view but without specifying the VCF file yet
+bcftools_command="bcftools view"
+
+# Read regions, sort, and find min/max per chromosome
+awk -F '[@:-]' '
+    {
+        # Chromosome is $2, start is $3, end is $4
+        if (!min[$2] || $3 < min[$2]) min[$2] = $3;
+        if (!max[$2] || $4 > max[$2]) max[$2] = $4;
+    }
+    END {
+        for (chr in min) {
+            printf("-r %s:%d-%d ", chr, min[chr], max[chr]);
+        }
+    }
+' "$regions_file" | while read -r range; do
+    bcftools_command="$bcftools_command $range"
+done
+
+# Finish constructing the bcftools command
+bcftools_command="$bcftools_command ${indir}/${snps_only_vcf} -Oz -o ${tmpoutdir}/${snps_only_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz"
+
+# Now you can echo or use the command
+echo "$bcftools_command"
+
+eval $bcftools_command
+
+
 
 module purge
 
@@ -37,5 +74,5 @@ regionfile=${refdir}/split_regions/${file_suffix}
 
 python3 ~/vcf2msa/vcf2msa.py \
 -f ${refdir}/MIC4273_HAP1_MSU618.fa.renamed.fa \
--v ${indir}/${snps_only_vcf} \
+-v ${tmpoutdir}/${snps_only_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz \
 -R ${regionfile}
