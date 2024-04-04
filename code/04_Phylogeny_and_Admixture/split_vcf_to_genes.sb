@@ -66,7 +66,7 @@ eval $bcftools_command
 
 module purge
 
-module load tabix
+module load GCC/4.9.3-2.25  OpenMPI/1.10.2 tabix/0.2.6
 
 tabix ${tmpoutdir}/${snps_only_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz
 
