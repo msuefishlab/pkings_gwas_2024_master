@@ -20,6 +20,7 @@ refdir=${root}/input_data/00_Reference_Genome/
 tmpoutdir=/mnt/local/${MYNAME}/${SLURM_JOB_ID}/
 
 mkdir -p ${outdir}
+mkdir -p ${tmpoutdir}
 
 OUTROOT=${snps_only_vcf%".vcf.gz"}
 
