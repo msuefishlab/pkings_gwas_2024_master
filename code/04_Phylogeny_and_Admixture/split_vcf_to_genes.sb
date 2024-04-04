@@ -44,12 +44,12 @@ ranges=$(awk -F '[@:-]' '
 ' "$regions_file")
 
 # Finish constructing the bcftools command
-bcftools_command="$bcftools_command $ranges ${indir}/${snps_only_vcf} -Oz -o ${tmpoutdir}/${snps_only_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz"
+bcftools_final_command=${bcftools_command} ${ranges} ${indir}/${snps_only_vcf} -Oz -o ${tmpoutdir}/${snps_only_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz
 
 # Now you can echo or use the command
-echo "$bcftools_command"
+echo ${bcftools_final_command}
 
-eval $bcftools_command
+eval ${bcftools_final_command}
 
 
 
