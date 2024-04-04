@@ -46,7 +46,7 @@ ranges=$(awk -F '[@:-]' '
             printf("-r %s:%d-%d ", chr, min[chr], max[chr]);
         }
     }
-' "$regions_file")
+' "$regionfile")
 
 # Complete the bcftools command
 bcftools_command="$bcftools_command $ranges ${indir}/${snps_only_vcf} -Oz -o ${tmpoutdir}/${snps_only_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz"
