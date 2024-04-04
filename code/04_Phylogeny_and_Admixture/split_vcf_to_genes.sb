@@ -25,11 +25,6 @@ OUTROOT=${snps_only_vcf%".vcf.gz"}
 
 module load bcftools
 
-#!/bin/bash
-
-# Path to your regions file
-regions_file="path_to_your_regions_file.txt"
-
 # Initialize the command with bcftools view but without specifying the VCF file yet
 bcftools_command="bcftools view"
 
@@ -45,7 +40,7 @@ awk -F '[@:-]' '
             printf("-r %s:%d-%d ", chr, min[chr], max[chr]);
         }
     }
-' "$regions_file" | while read -r range; do
+' "$regionfile" | while read -r range; do
     bcftools_command="$bcftools_command $range"
 done
 
