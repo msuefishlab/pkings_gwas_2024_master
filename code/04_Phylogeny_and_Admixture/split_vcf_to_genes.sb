@@ -35,11 +35,16 @@ module load bcftools
 bcftools_command="bcftools view"
 
 # Generate the -r options using awk and append them directly to the bcftools command
-ranges=$(awk -F '[@:-]' '
+ranges=$(awk '
+    BEGIN {FS="@"} # Use "@" as the field separator for initial split
     {
-        # Chromosome is $2, start is $3, end is $4
-        if (!min[$2] || $3 < min[$2]) min[$2] = $3;
-        if (!max[$2] || $4 > max[$2]) max[$2] = $4;
+        split($2, pos, /[:-]/); # Split the second part based on "-", ":", to get chr, start, end
+        chr = pos[1]; # Chromosome is the first element
+        start = pos[2]; # Start position is the second element
+        end = pos[3]; # End position is the third element
+
+        if (!min[chr] || start < min[chr]) min[chr] = start;
+        if (!max[chr] || end > max[chr]) max[chr] = end;
     }
     END {
         for (chr in min) {
@@ -47,6 +52,7 @@ ranges=$(awk -F '[@:-]' '
         }
     }
 ' "$regionfile")
+
 
 # Complete the bcftools command
 bcftools_command="$bcftools_command $ranges ${indir}/${snps_only_vcf} -Oz -o ${tmpoutdir}/${snps_only_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz"
