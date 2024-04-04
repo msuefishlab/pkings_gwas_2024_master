@@ -48,10 +48,12 @@ ranges=$(awk '
     }
     END {
         for (chr in min) {
-            printf("-r %s:%d-%d ", chr, min[chr], max[chr]);
+            # Subtract 100 from min[chr] and add 100 to max[chr], also ensure that min[chr] does not go below 1
+            printf("-r %s:%d-%d ", chr, (min[chr] > 100 ? min[chr] - 100 : 1), max[chr] + 100);
         }
     }
 ' "$regionfile")
+
 
 
 # Complete the bcftools command
