@@ -31,12 +31,13 @@ regionfile=${refdir}/split_regions/${file_suffix}
 
 module load bcftools
 
-# Initialize an array for the command
-bcftools_command=(bcftools view)
+# Initialize the command with bcftools view but without specifying the VCF file yet
+bcftools_command="bcftools view"
 
-# Add ranges to the command array
-bcftools_command+=($(awk -F '[@:-]' '
+# Read regions, sort, and find min/max per chromosome
+awk -F '[@:-]' '
     {
+        # Chromosome is $2, start is $3, end is $4
         if (!min[$2] || $3 < min[$2]) min[$2] = $3;
         if (!max[$2] || $4 > max[$2]) max[$2] = $4;
     }
@@ -45,15 +46,17 @@ bcftools_command+=($(awk -F '[@:-]' '
             printf("-r %s:%d-%d ", chr, min[chr], max[chr]);
         }
     }
-' "$regionfile"))
+' "$regionfile" | while read -r range; do
+    bcftools_command="$bcftools_command $range"
+done
 
-bcftools_command+=("-Oz" "-o" "${tmpoutdir}/${snps_only_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz")
+# Finish constructing the bcftools command
+bcftools_command="$bcftools_command ${indir}/${snps_only_vcf} -Oz -o ${tmpoutdir}/${snps_only_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz"
 
-# Use the command array with eval
-echo "${bcftools_command[@]}"
+# Now you can echo or use the command
+echo "$bcftools_command"
 
-# Use the command array with eval
-eval "${bcftools_command[@]}"
+eval $bcftools_command
 
 
 
