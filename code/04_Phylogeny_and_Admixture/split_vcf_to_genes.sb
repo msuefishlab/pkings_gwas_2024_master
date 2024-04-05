@@ -22,7 +22,7 @@ tmpoutdir=/mnt/local/${MYNAME}/${SLURM_JOB_ID}/
 mkdir -p ${outdir}
 mkdir -p ${tmpoutdir}
 
-OUTROOT=${snps_only_vcf%".vcf.gz"}
+OUTROOT=${invariant_and_snps_vcf%".vcf.gz"}
 
 # Calculate file suffix for this task, ensuring it matches the split file naming
 file_suffix=$(printf "chunk_%03d" "${SLURM_ARRAY_TASK_ID}")
@@ -57,7 +57,7 @@ ranges=$(awk '
 
 
 # Complete the bcftools command
-bcftools_command="$bcftools_command $ranges ${indir}/${snps_only_vcf} -Oz -o ${tmpoutdir}/${snps_only_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz"
+bcftools_command="$bcftools_command $ranges ${indir}/${invariant_and_snps_vcf} -Oz -o ${tmpoutdir}/${invariant_and_snps_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz"
 
 # Now you can echo or use the command
 echo "$bcftools_command"
@@ -66,30 +66,18 @@ eval $bcftools_command
 
 module purge
 
-module load GCC/4.9.3-2.25  OpenMPI/1.10.2 tabix/0.2.6
-
-tabix ${tmpoutdir}/${snps_only_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz
-
-cp ${refdir}/MIC4273_HAP1_MSU618.fa.renamed.fa ${tmpoutdir}
-cp ${refdir}/MIC4273_HAP1_MSU618.fa.renamed.fa.fai ${tmpoutdir}
-
-
-module purge
-
-mamba activate vcf2msa
+mamba activate vcfparser
 
 mkdir -p ${outdir}/gene_alignments/
 
-cd ${outdir}/gene_alignments/
+echo "Now running Create Fasta Alignment on ${file_suffix}..."
 
-echo "Now running VCF2MSA on ${snps_only_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz!!"
+echo python3 ${root}/code/04_Phylogeny_and_Admixture/create_fasta_alignment.py \
+${indir}/${invariant_and_snps_vcf} \
+${regionfile} \
+${outdir}/gene_alignments/
 
-echo python3 ~/vcf2msa/vcf2msa.py \
--f ${tmpoutdir}/MIC4273_HAP1_MSU618.fa.renamed.fa \
--v ${tmpoutdir}/${snps_only_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz \
--R ${regionfile}
-
-python3 ~/vcf2msa/vcf2msa.py \
--f ${tmpoutdir}/MIC4273_HAP1_MSU618.fa.renamed.fa \
--v ${tmpoutdir}/${snps_only_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz \
--R ${regionfile}
+python3 ${root}/code/04_Phylogeny_and_Admixture/create_fasta_alignment.py \
+${indir}/${invariant_and_snps_vcf} \
+${regionfile} \
+${outdir}/gene_alignments/
