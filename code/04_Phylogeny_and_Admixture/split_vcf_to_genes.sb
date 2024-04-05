@@ -73,11 +73,11 @@ mkdir -p ${outdir}/gene_alignments/
 echo "Now running Create Fasta Alignment on ${file_suffix}..."
 
 echo python3 ${root}/code/04_Phylogeny_and_Admixture/create_fasta_alignment.py \
-${indir}/${invariant_and_snps_vcf} \
+${tmpoutdir}/${invariant_and_snps_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz \
 ${regionfile} \
 ${outdir}/gene_alignments/
 
 python3 ${root}/code/04_Phylogeny_and_Admixture/create_fasta_alignment.py \
-${indir}/${invariant_and_snps_vcf} \
+${tmpoutdir}/${invariant_and_snps_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz \
 ${regionfile} \
 ${outdir}/gene_alignments/
