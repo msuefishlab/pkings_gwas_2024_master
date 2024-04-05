@@ -66,6 +66,12 @@ eval $bcftools_command
 
 module purge
 
+module load GCC/4.9.3-2.25  OpenMPI/1.10.2 tabix/0.2.6
+
+tabix ${tmpoutdir}/${invariant_and_snps_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz
+
+module purge
+
 mamba activate vcfparser
 
 mkdir -p ${outdir}/gene_alignments/
