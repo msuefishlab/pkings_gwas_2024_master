@@ -1,0 +1,30 @@
+#!/bin/bash --login
+
+########## Define Resources Needed with SBATCH Lines ##########
+
+#SBATCH --time=24:00:00             # limit of wall clock time - how long the job will run (same as -t)
+#SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
+#SBATCH --cpus-per-task=40           # number of CPUs (or cores) per task (same as -c)
+#SBATCH --mem=200G                    # memory required per node - amount of memory (in bytes)
+#SBATCH --job-name RUN_SNPHYLO      # you can give your job a name for easier identification (same as -J)
+########## Command Lines to Run ##########
+cd $root
+
+source $root/pkings_gwas.env
+
+MYNAME=$(whoami)
+
+indir=${root}/output_data/03_QC/
+outdir=${root}/output_data/04_Phylogeny_And_Admixture/
+tmpoutdir=/mnt/local/${MYNAME}/${SLURM_JOB_ID}/
+
+mkdir -p ${outdir}
+mkdir -p ${tmpoutdir}
+
+OUTROOT=${snps_only_vcf%".vcf.gz"}
+
+
+cd ${outdir}
+
+echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /iqtree/iqtree2 -T AUTO -ntmax 40 --mem 190G -S /out_dir/filtered_gene_alignments --prefix loci
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /iqtree/iqtree2 -T AUTO -ntmax 40 --mem 190G -S /out_dir/filtered_gene_alignments --prefix loci
