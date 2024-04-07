@@ -26,5 +26,5 @@ OUTROOT=${snps_only_vcf%".vcf.gz"}
 
 cd ${outdir}
 
-echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /iqtree/iqtree2 -T AUTO -ntmax 40 --mem 190G -S /out_dir/filtered_gene_alignments --prefix loci
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /iqtree/iqtree2 -T AUTO -ntmax 40 --mem 190G -S /out_dir/filtered_gene_alignments --prefix loci
+echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /iqtree/iqtree2 -T AUTO -ntmax 40 -S /out_dir/filtered_gene_alignments --prefix loci
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /iqtree/iqtree2 -T AUTO -ntmax 40 -S /out_dir/filtered_gene_alignments --prefix loci
