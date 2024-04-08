@@ -1,0 +1,7 @@
+#nexus
+
+begin paup;
+ execute MIC4273_HAP1_MSU618_all_fish_new_paramormyrops_all_sites.FILTERED_BIALLELIC_SNPS_ONLY.renamed.renamed.maf5.miss20.dp5.autosomes_only.set_ids.r2.20.pruned.nex;
+ SVDQuartets evalQuartets=random nquartets=500000 nthreads=24 seed=0 bootstrap=standard nrep=500;
+ SaveTrees file=MIC4273_HAP1_MSU618_all_fish_new_paramormyrops_all_sites.FILTERED_BIALLELIC_SNPS_ONLY.renamed.renamed.maf5.miss20.dp5.autosomes_only.set_ids.r2.20.pruned.tre;
+end;

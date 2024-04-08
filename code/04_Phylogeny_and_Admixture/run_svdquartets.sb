@@ -1,0 +1,30 @@
+#!/bin/bash --login
+
+########## Define Resources Needed with SBATCH Lines ##########
+
+#SBATCH --time=24:00:00             # limit of wall clock time - how long the job will run (same as -t)
+#SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
+#SBATCH --cpus-per-task=24           # number of CPUs (or cores) per task (same as -c)
+#SBATCH --mem=120                    # memory required per node - amount of memory (in bytes)
+#SBATCH --job-name RUN_SNPHYLO      # you can give your job a name for easier identification (same as -J)
+########## Command Lines to Run ##########
+cd $root
+
+source $root/pkings_gwas.env
+
+MYNAME=$(whoami)
+
+indir=${root}/output_data/03_QC/
+outdir=${root}/output_data/04_Phylogeny_And_Admixture/
+tmpoutdir=/mnt/local/${MYNAME}/${SLURM_JOB_ID}/
+
+mkdir -p ${outdir}
+mkdir -p ${tmpoutdir}
+
+OUTROOT=${snps_only_vcf%".vcf.gz"}
+
+PAUP="/mnt/home/jgallant/paup4a168_centos64"
+
+cd ${outdir}
+
+${PAUP} -n ${root}/code/04_Phylogeny_and_Admixture/commands.nex
