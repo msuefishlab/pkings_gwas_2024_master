@@ -19,8 +19,8 @@ outdir=${root}/output_data/04_Phylogeny_And_Admixture/gene_trees
 
 mkdir -p ${outdir}
 
-alignments=($(find "${root}/output_data/04_Phylogeny_And_Admixture/1000_rand_filtered_gene_alignments/*.fasta" -type f))
-filename=$(basename "${alignments[1]}")
+alignments=("${root}/output_data/04_Phylogeny_And_Admixture/1000_rand_filtered_gene_alignments/"*.fasta)
+filename=$(basename "${alignments[$SLURM_ARRAY_TASK_ID]}")
 gene="${filename%.*}"
 
 cd ${outdir}
