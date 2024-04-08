@@ -1,11 +1,10 @@
 import os
-import pandas as pd
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio import SeqIO
 import vcf
 from collections import defaultdict
-import argparse  # Import argparse
+import argparse
 
 # Mapping from nucleotide pairs to IUPAC codes
 iupac_codes = {
@@ -36,16 +35,17 @@ def read_ranges(file_path):
     return ranges
 
 def fasta_alignment_from_vcf_for_ranges(vcf_file, ranges_file, output_dir):
-    """Generate FASTA files for specified ranges from a VCF file."""
+    """Generate FASTA files for specified ranges from a VCF file using fetch method."""
     ranges = read_ranges(ranges_file)
-    vcf_reader = vcf.Reader(open(vcf_file, 'rb'))
+    vcf_reader = vcf.Reader(filename=vcf_file)  # Adjusted for clarity
 
     for gene_name, chrom, start, end in ranges:
+        print(f"Processing {gene_name}...")
         result = defaultdict(list)
         sites = []
 
-        for record in vcf_reader:
-            if record.CHROM == chrom and start <= record.POS <= end:
+        try:
+            for record in vcf_reader.fetch(chrom, start, end):
                 ref = record.REF
                 result['ref'].append(ref)
                 sites.append(record.POS)
@@ -60,12 +60,16 @@ def fasta_alignment_from_vcf_for_ranges(vcf_file, ranges_file, output_dir):
                             result[name].append(iupac_code)
                     else:
                         result[name].append('N')
+        except ValueError as e:
+            print(f"Error fetching range {chrom}:{start}-{end} for {gene_name}: {e}")
+            continue
 
         recs = [SeqRecord(Seq(''.join(result[sample])), id=sample) for sample in result]
 
         fasta_output = os.path.join(output_dir, f"{gene_name}.fasta")
         with open(fasta_output, 'w') as output_handle:
             SeqIO.write(recs, output_handle, "fasta")
+        print(f"Finished writing {fasta_output}")
 
 # Setup argparse
 parser = argparse.ArgumentParser(description='Generate FASTA files from VCF for specified ranges.')
@@ -80,5 +84,6 @@ args = parser.parse_args()
 if not os.path.exists(args.output_dir):
     os.makedirs(args.output_dir)
 
-# Example usage: python script.py path/to/your/vcf_file.vcf path/to/your/ranges.txt path/to/output_dir
+# Run the function with command line arguments
 fasta_alignment_from_vcf_for_ranges(args.vcf_file, args.ranges_file, args.output_dir)
+
