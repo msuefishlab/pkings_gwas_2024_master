@@ -22,4 +22,4 @@ OUTROOT=${snps_only_vcf%".vcf.gz"}
 
 
 cd ${outdir}
-java -D"java.library.path=/mnt/home/jgallant/Astral/lib" -jar /mnt/home/jgallant/Astral/astral.5.7.8.jar -i loci.treefile -t 3 -o ASTRAL_tree_out
+java -D"java.library.path=/mnt/home/jgallant/Astral/lib" -jar /mnt/home/jgallant/Astral/astral.5.15.5.jar -i loci.treefile -t 3 -o ASTRAL_tree_out
