@@ -17,7 +17,7 @@ source $root/pkings_gwas.env
 n=${SLURM_ARRAY_TASK_ID}
 
 # build a list of file names
-alignments=("${root}/output_data/04_Phylogeny_And_Admixture/1000_rand_filtered_gene_alignments/"*.fasta)
+alignments=("${root}/output_data/04_Phylogeny_And_Admixture/gene_alignments/"*.fasta)
 nalignments=${#alignments[@]}
 
 # Set maximum number of jobs for this run
@@ -28,7 +28,7 @@ outdir=${root}/output_data/04_Phylogeny_And_Admixture/gene_trees
 
 mkdir -p ${outdir}
 
-alignments=("${root}/output_data/04_Phylogeny_And_Admixture/1000_rand_filtered_gene_alignments/"*.fasta)
+alignments=("${root}/output_data/04_Phylogeny_And_Admixture/gene_alignments/"*.fasta)
 filename=$(basename "${alignments[$SLURM_ARRAY_TASK_ID]}")
 gene="${filename%.*}"
 
