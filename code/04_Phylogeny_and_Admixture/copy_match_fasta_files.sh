@@ -1,16 +1,20 @@
 #!/bin/bash
 
+root="$(git rev-parse --show-toplevel)"
+source ${root}/"pkings_gwas.env"
+
+
 # Directory containing tree files
-tree_dir=${root}/
+tree_dir=${root}/output_data/04_Phylogeny_And_Admixture/5000_rand_gene_trees
 
 # Directory containing fasta files
-fasta_dir="/path/to/fasta_files/"
+fasta_dir=${root}/output_data/04_Phylogeny_And_Admixture/gene_alignments/
 
 # Target directory for fasta files
-target_dir="/path/to/target_directory/"
+target_dir=${root}/output_data/04_Phylogeny_And_Admixture/5000_rand_gene_alignments
 
 # Ensure the target directory exists
-mkdir -p "$target_dir"
+mkdir -p $target_dir
 
 # Loop through each treefile in the tree file directory
 for treefile in "${tree_dir}"*.treefile; do
