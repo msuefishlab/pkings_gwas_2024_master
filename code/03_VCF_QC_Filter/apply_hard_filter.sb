@@ -51,8 +51,6 @@ if [[ "${vartype}" == "SNP" ]]; then
     -G-filter-name "gtDP2" \
     -G-filter "vc.isSNP() && DP > 100" \
     -G-filter-name "gtDP100" \
-    -G-filter "vc.isSNP() && GQ < 10" \
-    -G-filter-name "gtGQ10" \
     -O /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.SNP.and.inv.filtered.vcf.gz
 
 #set filtered GT to no call
