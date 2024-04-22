@@ -5,13 +5,13 @@ source ${root}/"pkings_gwas.env"
 
 
 # Directory containing tree files
-tree_dir=${root}/output_data/04_Phylogeny_And_Admixture/5000_rand_gene_trees
+tree_dir=${root}/output_data/04_Phylogeny_And_Admixture/5000_rand_gene_trees/
 
 # Directory containing fasta files
 fasta_dir=${root}/output_data/04_Phylogeny_And_Admixture/gene_alignments/
 
 # Target directory for fasta files
-target_dir=${root}/output_data/04_Phylogeny_And_Admixture/5000_rand_gene_alignments
+target_dir=${root}/output_data/04_Phylogeny_And_Admixture/5000_rand_gene_alignments/
 
 # Ensure the target directory exists
 mkdir -p $target_dir
