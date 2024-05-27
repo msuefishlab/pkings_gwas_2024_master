@@ -20,8 +20,8 @@ library(phytools)
 Specify the paths for the various input phylogenetic trees and phenotypic data
 ```{r}
 mormyrid_time_tree_file<-file.path(root,"input_data/04_Phylogenetics/ssAll_iqtree_timtree.nex")
-treefile<-file.path(root,"output_data/04_Phylogeny_And_Admixture/MIC4273_HAP1_MSU618_all_fish_all_sites.FILTERED_BIALLELIC_SNPS_ONLY.renamed.renamed.maf5.miss20.dp5.autosomes_only.set_ids.pruned.min4.phy.treefile")
-fish_data_file<-file.path(root,"input_data/01_Terra/data_model/fish_data_2023.txt")
+treefile<-file.path(root,"output_data/04_Phylogeny_And_Admixture/MIC4273_HAP1_MSU618_all_fish_new_paramormyrops_all_sites.FILTERED_BIALLELIC_SNPS_ONLY.renamed.renamed.maf5.miss20.dp5.autosomes_only.set_ids.pruned.min4.phy.treefile")
+fish_data_file<-file.path(root,"input_data/01_Terra/data_model/fish_data_2024a.txt")
 ```
 
 ```{r}
@@ -68,7 +68,7 @@ plotTree(rooted_snp_tree,lwd=1,fsize=0.8)
 
 ```{r}
 # Define nodes for coloring later on
-id <- c("APA", "BAM", "BAV","BIK","BIR","BEN","MOV","DOV","DOG","IVI","PMAG_","PHOP_","PGAB_","PPAR_","COB","PCUR_")
+id <- c("APA", "BAM", "BAV","BIK","BIR","BEN","MOV","DOV","DOG","IVI","PMAG_","PHOP_","PGAB_","PPAR_","COB","PCUR_","PSN2_","PNTO_")
 parent_nodes <- sapply(id, function(x) ape::getMRCA(ultrametric_rooted_tree, ultrametric_rooted_tree$tip.label[str_detect(ultrametric_rooted_tree$tip.label, x)]))
 parent_nodes
 ```

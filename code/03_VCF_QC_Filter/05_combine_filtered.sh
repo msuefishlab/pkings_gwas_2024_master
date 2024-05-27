@@ -12,9 +12,9 @@ source ${root}/"pkings_gwas.env"
 scratchdir=${scratch_store}/output_data/03_QC/
 outdir=${root}/output_data/03_QC/
 
-ls -1 ${scratchdir}*.SNP.ONLY.BIALLELIC.ONLY.filtered.setGT.PASS.vcf.gz > ${outdir}/biallelic_only_shards.txt
-ls -1 ${scratchdir}*.SNP.BIALLELIC.ONLY.AND.INV.TOGETHER.filtered.setGT.PASS.vcf.gz > ${outdir}/biallelic_and_invariant_shards.txt
-ls -1 ${scratchdir}*.INDEL.filtered.setGT.vcf.gz > ${outdir}/indel_shards.txt
+ls -1 ${scratchdir}${vcf_file%.vcf.gz}*.SNP.ONLY.BIALLELIC.ONLY.filtered.setGT.PASS.vcf.gz > ${outdir}/biallelic_only_shards.txt
+ls -1 ${scratchdir}${vcf_file%.vcf.gz}*.SNP.BIALLELIC.ONLY.AND.INV.TOGETHER.filtered.setGT.PASS.vcf.gz > ${outdir}/biallelic_and_invariant_shards.txt
+ls -1 ${scratchdir}${vcf_file%.vcf.gz}*.INDEL.filtered.setGT.vcf.gz > ${outdir}/indel_shards.txt
 
 cat ${outdir}/biallelic_only_shards.txt > ${outdir}/FILTERED_BIALLELIC_SNPS_ONLY.list
 cat ${outdir}/biallelic_only_shards.txt ${outdir}/indel_shards.txt > ${outdir}/FILTERED_BIALLELIC_AND_INDEL.list
