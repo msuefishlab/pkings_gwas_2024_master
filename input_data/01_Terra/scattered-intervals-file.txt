@@ -14,6 +14,3 @@ gs://fc-secure-439dbe80-8f90-415e-8c76-ab83f6ecf9d3/interval-files/0012-scattere
 gs://fc-secure-439dbe80-8f90-415e-8c76-ab83f6ecf9d3/interval-files/0013-scattered.interval_list
 gs://fc-secure-439dbe80-8f90-415e-8c76-ab83f6ecf9d3/interval-files/0014-scattered.interval_list
 gs://fc-secure-439dbe80-8f90-415e-8c76-ab83f6ecf9d3/interval-files/0015-scattered.interval_list
-gs://fc-secure-439dbe80-8f90-415e-8c76-ab83f6ecf9d3/interval-files/0016-scattered.interval_list
-gs://fc-secure-439dbe80-8f90-415e-8c76-ab83f6ecf9d3/interval-files/0017-scattered.interval_list
-gs://fc-secure-439dbe80-8f90-415e-8c76-ab83f6ecf9d3/interval-files/0018-scattered.interval_list

@@ -1,2 +1,1 @@
-gs://fc-secure-439dbe80-8f90-415e-8c76-ab83f6ecf9d3/submissions/8e978b12-a361-4719-b767-1186ed728ffa/generateunalignedBAM/7b98ac97-8400-49d1-b3da-9da4ab9cce02/call-FastqtoSam/BAM_6553_HLN32BBXX.4.NTTCAGAA+CTTNGCCT_fastqtosam.bam
-gs://fc-secure-439dbe80-8f90-415e-8c76-ab83f6ecf9d3/submissions/8e978b12-a361-4719-b767-1186ed728ffa/generateunalignedBAM/269dda2c-c004-4090-8d89-178a035cd5fa/call-FastqtoSam/cacheCopy/BAM_6553_HM52CBBXX.7.ATTCAGAA+CTTCGCCG_fastqtosam.bam
+gs://fc-secure-439dbe80-8f90-415e-8c76-ab83f6ecf9d3/submissions/b5daf881-3dfc-4cd1-a5a8-e193e6039845/generateunalignedBAM/4698800c-c5ba-4993-be0f-a056ec119feb/call-FastqtoSam/cacheCopy/BAM_6553_HM52CBBXX.7.ATTCAGAA+CTTCGCCG_fastqtosam.bam
