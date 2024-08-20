@@ -24,7 +24,7 @@ interval_files=($(find "${root}/input_data/01_Terra/chrom-interval-files/" "${ro
 
 if [[ "${vartype}" == "SNP" ]]; then
   singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gatk_image} /gatk/gatk \
-       --java-options "-Xms8000m -Xmx25000m" SelectVariants \
+      SelectVariants \
       -R /project_root/input_data/00_Reference_Genome/${reference} \
       -V /project_root/output_data/01_Terra/${vcf_file} \
       -L ${interval_files[$SLURM_ARRAY_TASK_ID]} \
@@ -32,7 +32,7 @@ if [[ "${vartype}" == "SNP" ]]; then
       -select-type NO_VARIATION \
       -O /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.SNP.and.inv.vcf.gz
 
-  singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gatk_image} /gatk/gatk --java-options "-Xms8000m -Xmx25000m" VariantFiltration \
+  singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gatk_image} /gatk/gatk VariantFiltration \
     -V /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.SNP.and.inv.vcf.gz \
     -R /project_root/input_data/00_Reference_Genome/${reference} \
     --filter-expression "(vc.isSNP() && (vc.hasAttribute('QD') && QD < 5.0))" \
@@ -54,7 +54,7 @@ if [[ "${vartype}" == "SNP" ]]; then
     -O /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.SNP.and.inv.filtered.vcf.gz
 
 #set filtered GT to no call
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gatk_image} /gatk/gatk --java-options "-Xms8000m -Xmx25000m" SelectVariants  \
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gatk_image} /gatk/gatk SelectVariants  \
   -R /project_root/input_data/00_Reference_Genome/${reference} \
   -V /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.SNP.and.inv.filtered.vcf.gz \
   --set-filtered-gt-to-nocall \
@@ -102,14 +102,14 @@ fi
 
 if [[ "${vartype}" == "INDEL" ]]; then
   singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gatk_image} /gatk/gatk \
-       --java-options "-Xms8000m -Xmx25000m" SelectVariants \
+      SelectVariants \
       -R /project_root/input_data/00_Reference_Genome/${reference} \
       -V /project_root/output_data/01_Terra/${vcf_file} \
       -L ${interval_files[$SLURM_ARRAY_TASK_ID]} \
       -select-type INDEL \
       -O /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.INDEL.vcf.gz
 
-  singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gatk_image} /gatk/gatk --java-options "-Xms8000m -Xmx25000m" VariantFiltration \
+  singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gatk_image} /gatk/gatk VariantFiltration \
     -R /project_root/input_data/00_Reference_Genome/${reference} \
     -V /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.INDEL.vcf.gz \
     -filter-expression "(vc.isIndel() && (vc.hasAttribute('QD') && QD < 5.0))" \
@@ -126,7 +126,7 @@ if [[ "${vartype}" == "INDEL" ]]; then
     -G-filter-name "gtGQ10" \
     -O /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.INDEL.filtered.vcf.gz
 
-  singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gatk_image} /gatk/gatk --java-options "-Xms8000m -Xmx25000m" SelectVariants  \
+  singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gatk_image} /gatk/gatk SelectVariants  \
   -R /project_root/input_data/00_Reference_Genome/${reference} \
   -V /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.INDEL.filtered.vcf.gz \
   --set-filtered-gt-to-nocall \

@@ -21,8 +21,10 @@ mkdir -p ${outdir}
 
 interval_files=($(find "${root}/input_data/01_Terra/chrom-interval-files/" "${root}/input_data/01_Terra/remaining-interval-files/" -type f))
 
+export JAVA_OPTS="-Xms8000m -Xmx25000m"
+
 singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gatk_image} /gatk/gatk \
---java-options "-Xms8000m -Xmx25000m"   VariantsToTable \
+VariantsToTable \
     -R /project_root/input_data/00_Reference_Genome/${reference} \
     -V /project_root/output_data/01_Terra/${vcf_file} \
     -L ${interval_files[$SLURM_ARRAY_TASK_ID]} \

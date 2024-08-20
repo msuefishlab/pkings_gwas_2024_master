@@ -29,7 +29,7 @@ file_suffix=$(printf "chunk_%03d" "${SLURM_ARRAY_TASK_ID}")
 
 regionfile=${refdir}/split_regions/${file_suffix}
 
-module load bcftools
+module load BCFtools
 
 # Initialize the command with bcftools view but without specifying the VCF file yet
 bcftools_command="bcftools view"
@@ -63,10 +63,6 @@ bcftools_command="$bcftools_command $ranges ${indir}/${invariant_and_snps_vcf} -
 echo "$bcftools_command"
 
 eval $bcftools_command
-
-module purge
-
-module load GCC/4.9.3-2.25  OpenMPI/1.10.2 tabix/0.2.6
 
 tabix ${tmpoutdir}/${invariant_and_snps_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz
 
