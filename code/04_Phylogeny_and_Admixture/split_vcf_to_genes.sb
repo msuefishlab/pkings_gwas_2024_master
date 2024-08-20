@@ -29,10 +29,7 @@ file_suffix=$(printf "chunk_%03d" "${SLURM_ARRAY_TASK_ID}")
 
 regionfile=${refdir}/split_regions/${file_suffix}
 
-module load BCFtools
-
 # Initialize the command with bcftools view but without specifying the VCF file yet
-bcftools_command="bcftools view"
 
 # Generate the -r options using awk and append them directly to the bcftools command
 ranges=$(awk '
@@ -56,30 +53,26 @@ ranges=$(awk '
 
 
 
-# Complete the bcftools command
-bcftools_command="$bcftools_command $ranges ${indir}/${invariant_and_snps_vcf} -Oz -o ${tmpoutdir}/${invariant_and_snps_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz"
+
+bcftools_command="singularity exec ${gwas_tools_image} bcftools view $ranges ${indir}/${invariant_and_snps_vcf} -Oz -o ${tmpoutdir}/${invariant_and_snps_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz"
 
 # Now you can echo or use the command
 echo "$bcftools_command"
 
 eval $bcftools_command
 
-tabix ${tmpoutdir}/${invariant_and_snps_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz
-
-module purge
-
-mamba activate vcfparser
+singularity exec ${gwas_tools_image} tabix ${tmpoutdir}/${invariant_and_snps_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz
 
 mkdir -p ${outdir}/gene_alignments/
 
 echo "Now running Create Fasta Alignment on ${file_suffix}..."
 
-echo python3 ${root}/code/04_Phylogeny_and_Admixture/create_fasta_alignment.py \
+echo singularity exec ${gwas_tools_image} python3 ${root}/code/04_Phylogeny_and_Admixture/create_fasta_alignment.py \
 ${tmpoutdir}/${invariant_and_snps_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz \
 ${regionfile} \
 ${outdir}/gene_alignments/
 
-python3 ${root}/code/04_Phylogeny_and_Admixture/create_fasta_alignment.py \
+singularity exec ${gwas_tools_image} python3 ${root}/code/04_Phylogeny_and_Admixture/create_fasta_alignment.py \
 ${tmpoutdir}/${invariant_and_snps_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz \
 ${regionfile} \
 ${outdir}/gene_alignments/

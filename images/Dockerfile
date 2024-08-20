@@ -2,7 +2,7 @@ FROM bioconductor/bioconductor_docker:3.17
 
 # Install R packages
 RUN install2.r --error \
-    tidyverse \
+	tidyverse \
 	ggthemes \
 	patchwork \
 	getopt \
@@ -20,7 +20,7 @@ RUN install2.r --error \
 	kableExtra \
 	gggenes \
 	rentrez
-	
+
 RUN R -e 'BiocManager::install("gdsfmt")'
 RUN R -e 'BiocManager::install("SNPRelate")'
 RUN R -e 'BiocManager::install("GenomicRanges")'
@@ -30,7 +30,7 @@ RUN R -e 'BiocManager::install("ggtree")'
 RUN mkdir -p /snphylo/bin
 
 RUN apt-get update && \
-    apt-get install -y muscle phylip curl git python2 bcftools vcftools tabix wget build-essential libgsl-dev libblas-dev liblapack-dev zlib1g-dev ruby time parallel coreutils binutils
+	apt-get install -y muscle phylip curl git python2 bcftools vcftools tabix wget build-essential libgsl-dev libblas-dev liblapack-dev zlib1g-dev ruby time parallel coreutils binutils 
 
 RUN git clone https://github.com/jasongallant/SNPhylo.git
 
@@ -128,5 +128,14 @@ RUN wget https://github.com/iqtree/iqtree2/releases/download/v2.3.1/iqtree-2.3.1
 RUN tar -zxvf iqtree-2.3.1-Linux.tar.gz
 
 RUN mv iqtree*/bin/iqtree2 .
+
+RUN mkdir -p /gff3sort
+
+WORKDIR /gff3sort
+
+RUN git clone https://github.com/billzt/gff3sort.git
+
+RUN pip3 install setuptools==57.5.0
+RUN pip3 install biopython pyvcf argparse
 
 CMD ["/bin/bash"]
