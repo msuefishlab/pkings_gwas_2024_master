@@ -136,6 +136,6 @@ WORKDIR /gff3sort
 RUN git clone https://github.com/billzt/gff3sort.git
 
 RUN pip3 install setuptools==57.5.0
-RUN pip3 install biopython pyvcf argparse
+RUN pip3 install biopython pyvcf argparse pysam
 
 CMD ["/bin/bash"]
