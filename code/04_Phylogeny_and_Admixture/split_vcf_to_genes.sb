@@ -54,14 +54,11 @@ ranges=$(awk '
 
 
 
-bcftools_command="singularity exec ${gwas_tools_image} bcftools view $ranges ${indir}/${invariant_and_snps_vcf} -Oz -o ${tmpoutdir}/${invariant_and_snps_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz"
+echo singularity exec --bind $indir:/in_dir --bind ${tmpoutdir}:/out_dir ${gwas_tools_image} bcftools view $ranges /in_dir/${invariant_and_snps_vcf} -Oz -o /out_dir/${invariant_and_snps_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz
+singularity exec --bind $indir:/in_dir --bind ${tmpoutdir}:/out_dir ${gwas_tools_image} bcftools view $ranges /in_dir/${invariant_and_snps_vcf} -Oz -o /out_dir/${invariant_and_snps_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz
 
-# Now you can echo or use the command
-echo "$bcftools_command"
-
-eval $bcftools_command
-
-singularity exec ${gwas_tools_image} tabix ${tmpoutdir}/${invariant_and_snps_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz
+echo singularity exec --bind $indir:/in_dir --bind ${tmpoutdir}:/out_dir ${gwas_tools_image} tabix /out_dir/${invariant_and_snps_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz
+singularity exec --bind $indir:/in_dir --bind ${tmpoutdir}:/out_dir ${gwas_tools_image} tabix /out_dir/${invariant_and_snps_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz
 
 mkdir -p ${outdir}/gene_alignments/
 
