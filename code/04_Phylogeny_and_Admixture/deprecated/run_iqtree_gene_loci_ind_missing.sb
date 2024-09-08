@@ -1,0 +1,50 @@
+#!/bin/bash --login
+
+########## Define Resources Needed with SBATCH Lines ##########
+
+#SBATCH --time=14:00:00             # limit of wall clock time - how long the job will run (same as -t)
+#SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
+#SBATCH --cpus-per-task=2           # number of CPUs (or cores) per task (same as -c)
+#SBATCH --mem=4G                    # memory required per node - amount of memory (in bytes)
+#SBATCH --job-name RUN_SNPHYLO      # you can give your job a name for easier identification (same as -J)
+########## Command Lines to Run ##########
+
+cd $root
+
+source $root/pkings_gwas.env
+
+# Current job number
+n=${SLURM_ARRAY_TASK_ID}
+
+# build a list of file names
+alignments=()
+while IFS= read -r line; do
+    alignments+=("$line")
+done < "${root}/code/04_Phylogeny_and_Admixture/missing_genes.txt"
+
+nalignments=${#alignments[@]}
+
+# Set maximum number of jobs for this run
+MAXJOBID=$( expr `echo ${#alignments[@]}` - 1 )
+
+outdir=${root}/output_data/04_Phylogeny_And_Admixture/gene_trees
+
+mkdir -p ${outdir}
+
+filename=$(basename "${alignments[$SLURM_ARRAY_TASK_ID]}")
+gene="${filename%.*}"
+
+cd ${outdir}
+echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools_image} /iqtree/iqtree2 -T 2 -s ${alignments[$SLURM_ARRAY_TASK_ID]} --prefix ${gene}
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools_image} /iqtree/iqtree2 -T 2 -s ${alignments[$SLURM_ARRAY_TASK_ID]} --prefix ${gene}
+
+# Calculate next job to run
+NEXT=$(( ${n} + 500 ))
+
+#Check to see if next job is past the maximum job id
+if [ ${NEXT} -le ${MAXJOBID} ]
+then
+  cd ${root}
+	echo sbatch --job-name "PHYLO_IQTREE_LOCI" --output ${root}"/output_data/slurm_logs/04_Phylogeny_And_Admixture/missing_genes/phylo_run_iqtree_loci_%a.log" -a ${NEXT} --export=root=${root} ${root}/code/04_Phylogeny_and_Admixture/run_iqtree_gene_loci_ind_missing.sb
+	sbatch --job-name "PHYLO_IQTREE_LOCI" --output ${root}"/output_data/slurm_logs/04_Phylogeny_And_Admixture/missing_genes/phylo_run_iqtree_loci_%a.log" -a ${NEXT} --export=root=${root} ${root}/code/04_Phylogeny_and_Admixture/run_iqtree_gene_loci_ind_missing.sb
+fi
