@@ -2,11 +2,11 @@
 
 ########## Define Resources Needed with SBATCH Lines ##########
 
-#SBATCH --time=8:00:00             # limit of wall clock time - how long the job will run (same as -t)
+#SBATCH --time=24:00:00             # limit of wall clock time - how long the job will run (same as -t)
 #SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
-#SBATCH --cpus-per-task=19           # number of CPUs (or cores) per task (same as -c)
+#SBATCH --cpus-per-task=2           # number of CPUs (or cores) per task (same as -c)
 #SBATCH --mem=30G                    # memory required per node - amount of memory (in bytes)
-#SBATCH --job-name PREP_FOR_PHYLO_ADMIX      # you can give your job a name for easier identification (same as -J)
+#SBATCH --job-name PREP_FOR_SVD_QUARTETS      # you can give your job a name for easier identification (same as -J)
 ########## Command Lines to Run ##########
 cd $root
 
@@ -14,109 +14,9 @@ source $root/pkings_gwas.env
 
 MYNAME=$(whoami)
 
-indir=${root}/output_data/03_QC/
 outdir=${root}/output_data/04_Phylogeny_And_Admixture/
-tmpoutdir=/mnt/local/${MYNAME}/${SLURM_JOB_ID}/
-
-mkdir -p ${outdir}
-mkdir -p ${tmpoutdir}
+indir=${root}/output_data/03_QC/
 
 OUTROOT=${snps_only_vcf%".vcf.gz"}
 
-# convert VCF to numbered chromosomes & filter for <20% missing MAF > 5%, compressing output
-cat ${root}/input_data/00_Reference_Genome/${chr_name_map} | cut -f2,3 > ${root}/input_data/00_Reference_Genome/${chr_name_map}.chromosome_number_map.txt
-
-echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "bcftools view -Ou /in_dir/${snps_only_vcf} | bcftools annotate --rename-chrs /project_root/input_data/00_Reference_Genome/${chr_name_map}.chromosome_number_map.txt -Ou | bcftools filter -e \"F_MISSING > 0.05 || MAF < 0.05 || INFO/DP < 5\" -Ou | bcftools view --threads 16 -Oz -o /tmp_dir/${OUTROOT}.renamed.maf5.miss5.dp5.vcf.gz"
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "bcftools view -Ou /in_dir/${snps_only_vcf} | bcftools annotate --rename-chrs /project_root/input_data/00_Reference_Genome/${chr_name_map}.chromosome_number_map.txt -Ou | bcftools filter -e \"F_MISSING > 0.05 || MAF < 0.05 || INFO/DP < 5\" -Ou | bcftools view --threads 16 -Oz -o /tmp_dir/${OUTROOT}.renamed.maf5.miss5.dp5.vcf.gz"
-
-# index resulting VCF
-echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bcftools index /tmp_dir/${OUTROOT}.renamed.maf5.miss5.dp5.vcf.gz
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bcftools index /tmp_dir/${OUTROOT}.renamed.maf5.miss5.dp5.vcf.gz
-
-# extract autosomes & set SNP IDs
-echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "bcftools view --threads 18  /tmp_dir/${OUTROOT}.renamed.maf5.miss5.dp5.vcf.gz -r 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25 -Ou | bcftools annotate --set-id '%CHROM\\_%POS\\_%REF\\_%FIRST_ALT' -Ou | bcftools view --threads 18 -Oz -o /out_dir/${OUTROOT}.renamed.maf5.miss5.dp5.autosomes_only.set_ids.vcf.gz"
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "bcftools view --threads 18  /tmp_dir/${OUTROOT}.renamed.maf5.miss5.dp5.vcf.gz -r 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25 -Ou | bcftools annotate --set-id '%CHROM\\_%POS\\_%REF\\_%FIRST_ALT' -Ou | bcftools view --threads 18 -Oz -o /out_dir/${OUTROOT}.renamed.maf5.miss5.dp5.autosomes_only.set_ids.vcf.gz"
-
-#convert to PLINK (for efficient LD pruning)
-## First Make the PLINK Compatible Files
-echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /plink/plink \
---vcf /out_dir/${OUTROOT}.renamed.maf5.miss5.dp5.autosomes_only.set_ids.vcf.gz \
---allow-extra-chr \
---allow-no-sex \
---make-bed \
---out /tmp_dir/${OUTROOT}.renamed.maf5.miss5.dp5.autosomes_only.set_ids \
---chr-set 25
-
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /plink/plink \
---vcf /out_dir/${OUTROOT}.renamed.maf5.miss5.dp5.autosomes_only.set_ids.vcf.gz \
---allow-extra-chr \
---allow-no-sex \
---make-bed \
---out /tmp_dir/${OUTROOT}.renamed.maf5.miss5.dp5.autosomes_only.set_ids \
---chr-set 25
-
-## Set Up Pruning.
-echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /plink/plink \
---bfile /tmp_dir/${OUTROOT}.renamed.maf5.miss5.dp5.autosomes_only.set_ids \
---allow-extra-chr \
---allow-no-sex \
---out /tmp_dir/${OUTROOT}.renamed.maf5.miss5.dp5.autosomes_only.set_ids.r2.20 \
---autosome-num 25 \
---indep-pairwise 50kb 1 0.2 
-
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /plink/plink \
---bfile /tmp_dir/${OUTROOT}.renamed.maf5.miss5.dp5.autosomes_only.set_ids \
---allow-extra-chr \
---allow-no-sex \
---out /tmp_dir/${OUTROOT}.renamed.maf5.miss5.dp5.autosomes_only.set_ids.r2.20 \
---autosome-num 25 \
---indep-pairwise 50kb 1 0.2
-
-## Apply Pruning
-echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /plink/plink \
---bfile /tmp_dir/${OUTROOT}.renamed.maf5.miss5.dp5.autosomes_only.set_ids \
---allow-extra-chr \
---allow-no-sex \
---make-bed \
---extract /tmp_dir/${OUTROOT}.renamed.maf5.miss5.dp5.autosomes_only.set_ids.r2.20.prune.in \
---out /out_dir/${OUTROOT}.renamed.maf5.miss5.dp5.autosomes_only.set_ids.r2.20.pruned \
---autosome-num 25
-
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /plink/plink \
---bfile /tmp_dir/${OUTROOT}.renamed.maf5.miss5.dp5.autosomes_only.set_ids \
---allow-extra-chr \
---allow-no-sex \
---make-bed \
---extract /tmp_dir/${OUTROOT}.renamed.maf5.miss5.dp5.autosomes_only.set_ids.r2.20.prune.in \
---out /out_dir/${OUTROOT}.renamed.maf5.miss5.dp5.autosomes_only.set_ids.r2.20.pruned \
---autosome-num 25
-
-## Convert to VCF
-echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /plink/plink \
---bfile /out_dir/${OUTROOT}.renamed.maf5.miss5.dp5.autosomes_only.set_ids.r2.20.pruned \
---recode vcf \
---allow-extra-chr \
---allow-no-sex \
---out /out_dir/${OUTROOT}.renamed.maf5.miss5.dp5.autosomes_only.set_ids.r2.20.pruned \
---autosome-num 25
-
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /plink/plink \
---bfile /out_dir/${OUTROOT}.renamed.maf5.miss5.dp5.autosomes_only.set_ids.r2.20.pruned \
---recode vcf \
---allow-extra-chr \
---allow-no-sex \
---out /out_dir/${OUTROOT}.renamed.maf5.miss5.dp5.autosomes_only.set_ids.r2.20.pruned \
---autosome-num 25
-
-# ## Convert to FASTA for IQTree
-# echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} python3 \
-# /vcf2phylip/vcf2phylip/vcf2phylip.py -i /out_dir/${OUTROOT}.renamed.maf5.miss20.dp5.autosomes_only.set_ids.pruned.vcf \
-# -r -n \
-# --output-folder /out_dir/ \
-# --output-prefix ${OUTROOT}.renamed.maf5.miss20.dp5.autosomes_only.set_ids.pruned
-
-# singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} python3 \
-# /vcf2phylip/vcf2phylip/vcf2phylip.py -i /out_dir/${OUTROOT}.renamed.maf5.miss20.dp5.autosomes_only.set_ids.pruned.vcf \
-# -r -n \
-# --output-folder /out_dir/ \
-# --output-prefix ${OUTROOT}.renamed.maf5.miss20.dp5.autosomes_only.set_ids.pruned
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir  ${gwas_tools_image} python3 /vcf2phylip/vcf2phylip/vcf2phylip.py -i /in_dir/${snps_only_vcf} --output-folder /out_dir  --output-prefix ${OUTROOT} -p -n -r

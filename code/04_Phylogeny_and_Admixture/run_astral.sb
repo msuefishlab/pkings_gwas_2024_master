@@ -2,7 +2,7 @@
 
 ########## Define Resources Needed with SBATCH Lines ##########
 
-#SBATCH --time=08:00:00             # limit of wall clock time - how long the job will run (same as -t)
+#SBATCH --time=04:00:00             # limit of wall clock time - how long the job will run (same as -t)
 #SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
 #SBATCH --cpus-per-task=24           # number of CPUs (or cores) per task (same as -c)
 #SBATCH --mem=120G                    # memory required per node - amount of memory (in bytes)
@@ -25,8 +25,4 @@ OUTROOT=${snps_only_vcf%".vcf.gz"}
 cd ${outdir}
 module load GCC/12.3.0
 
-<<<<<<< Updated upstream
-~/ASTER/bin/astral4 -i loci.treefile -t 24 -a map.txt -o ASTRAL_tree_out
-=======
-~/ASTER/bin/astral4 -i all_gene_trees.treefile -a map.txt -t 24 -o ASTRAL_allgenes_mapped
->>>>>>> Stashed changes
+~/ASTER/bin/astral4 -i ${root}/output_data/04_Phylogeny_And_Admixture/all_genes_extracted.treefile -t 24 -o ${root}/output_data/04_Phylogeny_And_Admixture/ASTRAL_all_genes_extracted

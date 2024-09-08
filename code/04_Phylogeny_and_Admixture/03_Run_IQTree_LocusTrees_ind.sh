@@ -10,9 +10,6 @@ source "${root}/pkings_gwas.env"
 
 mkdir -p "${root}/output_data/slurm_logs/04_Phylogeny_And_Admixture/"
 
-alignments=("${root}/output_data/04_Phylogeny_And_Admixture/1000_rand_filtered_gene_alignments/"*.fasta)
-nalignments=${#alignments[@]}
-
 # Default array jobs range
 default_range="0-500"
 
@@ -20,5 +17,5 @@ default_range="0-500"
 # Otherwise, use the default range
 array_jobs=${1:-$default_range}
 
-echo "sbatch --job-name \"PHYLO_IQTREE_LOCI\" --output ${root}/output_data/slurm_logs/04_Phylogeny_And_Admixture/phylo_run_iqtree_loci_%a.log -a ${array_jobs} --export=root=${root} ${root}/code/04_Phylogeny_and_Admixture/run_iqtree_gene_loci_ind.sb"
-sbatch --job-name "PHYLO_IQTREE_LOCI" --output "${root}/output_data/slurm_logs/04_Phylogeny_And_Admixture/phylo_run_iqtree_loci_%a.log" -a "${array_jobs}" --export=root=${root} "${root}/code/04_Phylogeny_and_Admixture/run_iqtree_gene_loci_ind.sb"
+echo "sbatch --job-name \"PHYLO_IQTREE_LOCI\" --output ${root}/output_data/slurm_logs/04_Phylogeny_And_Admixture/phylo_run_iqtree_loci_extracted_%a.log -a ${array_jobs} --export=root=${root} ${root}/code/04_Phylogeny_and_Admixture/run_iqtree_gene_loci_ind.sb"
+sbatch --job-name "PHYLO_IQTREE_LOCI" --output "${root}/output_data/slurm_logs/04_Phylogeny_And_Admixture/phylo_run_iqtree_loci_extracted_%a.log" -a "${array_jobs}" --export=root=${root} "${root}/code/04_Phylogeny_and_Admixture/run_iqtree_gene_loci_ind.sb"

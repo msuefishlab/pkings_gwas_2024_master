@@ -123,7 +123,7 @@ RUN mkdir -p iqtree
 
 WORKDIR /iqtree/
 
-RUN wget https://github.com/iqtree/iqtree2/releases/download/v2.3.1/iqtree-2.3.1-Linux.tar.gz
+RUN wget https://github.com/iqtree/iqtree2/releases/download/v2.3.6/iqtree-2.3.6-Linux-intel.tar.gz
 
 RUN tar -zxvf iqtree-2.3.1-Linux.tar.gz
 
