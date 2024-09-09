@@ -135,7 +135,11 @@ WORKDIR /gff3sort
 
 RUN git clone https://github.com/billzt/gff3sort.git
 
+WORKDIR /cflib
+
+RUN git clone https://github.com/pomo-dev/cflib.git
+
 RUN pip3 install setuptools==57.5.0
-RUN pip3 install biopython pyvcf argparse pysam
+RUN pip3 install biopython pyvcf argparse pysam cflib-pomo
 
 CMD ["/bin/bash"]
