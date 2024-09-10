@@ -135,6 +135,9 @@ RUN tar -zxvf  v2.3.6.tar.gz
 
 RUN cd iqtree2-2.3.6
 
+RUN cmake -DIQTREE_FLAGS=mpi ..
+RUN make -j4
+
 RUN mkdir -p /gff3sort
 
 WORKDIR /gff3sort
