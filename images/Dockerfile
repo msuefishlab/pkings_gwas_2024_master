@@ -131,7 +131,7 @@ RUN mv iqtree*/bin/iqtree2 .
 
 RUN wget https://github.com/iqtree/iqtree2/archive/refs/tags/v2.3.6.tar.gz
 
-RUN tar -zxvf  iqtree-2.3.6.tar.gz
+RUN tar -zxvf  v2.3.6.tar.gz
 
 RUN cd iqtree2-2.3.6
 
