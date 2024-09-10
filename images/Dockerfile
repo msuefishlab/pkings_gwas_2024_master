@@ -139,7 +139,7 @@ RUN mkdir -p /iqtreesrc/iqtree2/build
 
 WORKDIR /iqtreesrc/iqtree2/build
 
-RUN cmake -DIQTREE_FLAGS=mpi ..
+RUN cmake -DCMAKE_C_COMPILER=mpicc -DCMAKE_CXX_COMPILER=mpicxx ..
 RUN make -j4
 
 RUN mkdir -p /gff3sort
