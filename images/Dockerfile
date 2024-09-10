@@ -30,7 +30,7 @@ RUN R -e 'BiocManager::install("ggtree")'
 RUN mkdir -p /snphylo/bin
 
 RUN apt-get update && \
-	apt-get install -y muscle phylip curl git python2 bcftools vcftools tabix wget build-essential libgsl-dev libblas-dev liblapack-dev zlib1g-dev ruby time parallel coreutils binutils 
+	apt-get install -y muscle phylip curl git python2 bcftools vcftools tabix wget build-essential libgsl-dev libblas-dev liblapack-dev zlib1g-dev ruby time parallel coreutils binutils openmpi-bin openmpi-doc libopenmpi-dev
 
 RUN git clone https://github.com/jasongallant/SNPhylo.git
 
@@ -128,6 +128,12 @@ RUN wget https://github.com/iqtree/iqtree2/releases/download/v2.3.6/iqtree-2.3.6
 RUN tar -zxvf iqtree-2.3.6-Linux-intel.tar.gz
 
 RUN mv iqtree*/bin/iqtree2 .
+
+RUN wget https://github.com/iqtree/iqtree2/archive/refs/tags/v2.3.6.tar.gz
+
+RUN tar -zxvf  iqtree-2.3.6.tar.gz
+
+RUN cd iqtree2-2.3.6
 
 RUN mkdir -p /gff3sort
 
