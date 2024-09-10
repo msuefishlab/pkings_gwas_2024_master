@@ -30,7 +30,7 @@ RUN R -e 'BiocManager::install("ggtree")'
 RUN mkdir -p /snphylo/bin
 
 RUN apt-get update && \
-	apt-get install -y muscle phylip curl git python2 bcftools vcftools tabix wget build-essential libgsl-dev libblas-dev liblapack-dev zlib1g-dev ruby time parallel coreutils binutils openmpi-bin openmpi-doc libopenmpi-dev
+	apt-get install -y muscle phylip curl git python2 bcftools vcftools tabix wget build-essential libgsl-dev libblas-dev liblapack-dev zlib1g-dev ruby time parallel coreutils binutils openmpi-bin openmpi-doc libopenmpi-dev libeigen3-dev
 
 RUN git clone https://github.com/jasongallant/SNPhylo.git
 
@@ -133,7 +133,9 @@ RUN wget https://github.com/iqtree/iqtree2/archive/refs/tags/v2.3.6.tar.gz
 
 RUN tar -zxvf  v2.3.6.tar.gz
 
-WORKDIR /iqtree/iqtree2-2.3.6/
+RUN mkdir -p /iqtree/iqtree2-2.3.6/build
+
+WORKDIR /iqtree/iqtree2-2.3.6/build
 
 RUN cmake -DIQTREE_FLAGS=mpi ..
 RUN make -j4
