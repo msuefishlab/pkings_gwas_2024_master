@@ -123,9 +123,9 @@ RUN mkdir -p iqtree
 
 WORKDIR /iqtree/
 
-RUN wget https://github.com/iqtree/iqtree2/releases/download/v2.3.6/iqtree-2.3.6-Linux-intel.tar.gz
+RUN wget https://github.com/iqtree/iqtree2/releases/download/v2.3.1/iqtree-2.3.1-Linux.tar.gz
 
-RUN tar -zxvf iqtree-2.3.6-Linux-intel.tar.gz
+RUN tar -zxvf iqtree-2.3.1-Linux.tar.gz
 
 RUN mv iqtree*/bin/iqtree2 .
 
@@ -139,7 +139,7 @@ RUN mkdir -p /iqtreesrc/iqtree2/build
 
 WORKDIR /iqtreesrc/iqtree2/build
 
-RUN cmake -DCMAKE_C_COMPILER=mpicc -DCMAKE_CXX_COMPILER=mpicxx ..
+RUN cmake -DCMAKE_C_COMPILER=mpicc -DCMAKE_CXX_COMPILER=mpicxx -DIQTREE_FLAGS=omp-mpi ..
 RUN make -j4
 
 RUN mkdir -p /gff3sort
