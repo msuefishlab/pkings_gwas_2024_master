@@ -2,11 +2,12 @@
 
 ########## Define Resources Needed with SBATCH Lines ##########
 
-#SBATCH --time=04:00:00             # limit of wall clock time - how long the job will run (same as -t)
+#SBATCH --time=24:00:00             # limit of wall clock time - how long the job will run (same as -t)
 #SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
-#SBATCH --cpus-per-task=24           # number of CPUs (or cores) per task (same as -c)
-#SBATCH --mem=256G                    # memory required per node - amount of memory (in bytes)
+#SBATCH --cpus-per-task=128           # number of CPUs (or cores) per task (same as -c)
+#SBATCH --mem=2000GB                    # memory required per node - amount of memory (in bytes)
 #SBATCH --job-name RUN_IQTREE_GCF_CONCORD      # you can give your job a name for easier identification (same as -J)
+#SBATCH -A data-machine
 ########## Command Lines to Run ##########
 cd $root
 
@@ -20,10 +21,11 @@ mkdir -p ${outdir}
 
 OUTROOT=${snps_only_vcf%".vcf.gz"}
 
-#singularity exec ${root}/images/gwas_tools.sif /iqtree/iqtree2 -t ${root}/output_data/04_Phylogeny_And_Admixture/ASTRAL_all_genes_extracted --gcf ${root}/output_data/04_Phylogeny_And_Admixture/all_genes_extracted.treefile --prefix ${root}/output_data/04_Phylogeny_And_Admixture/${OUTROOT}_extracted_gcf_tree -T 24
+indir=${root}/output_data/04_Phylogeny_And_Admixture/extracted_seqs/actual_data/
+outdir=${root}/output_data/04_Phylogeny_And_Admixture/
 
-#mkdir -p ${root}/output_data/04_Phylogeny_And_Admixture/extracted_seqs/actual_data/
+echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir ${gwas_tools_image} /iqtree/iqtree2 -t /out_dir/pkings_iqtree_genes_astral --gcf /out_dir/pkings_iqtree_genes.treefile --prefix /out_dir/pkings_iqtree_genes_astral_gcf_tree -T 128
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir ${gwas_tools_image} /iqtree/iqtree2 -t /out_dir/pkings_iqtree_genes_astral --gcf /out_dir/pkings_iqtree_genes.treefile --prefix /out_dir/pkings_iqtree_genes_astral_gcf_tree -T 128
 
-#find ${root}/output_data/04_Phylogeny_And_Admixture/extracted_seqs/ -type f -size +0c ! -path "${root}/output_data/04_Phylogeny_And_Admixture/extracted_seqs/actual_data/*" -exec cp {} ${root}/output_data/04_Phylogeny_And_Admixture/extracted_seqs/actual_data/ \;
-
-singularity exec ${root}/images/gwas_tools.sif /iqtree/iqtree2 -te ${root}/output_data/04_Phylogeny_And_Admixture/ASTRAL_all_genes_extracted -p ${root}/output_data/04_Phylogeny_And_Admixture/loci.best_model.nex --scfl 100 --prefix ${root}/output_data/04_Phylogeny_And_Admixture/${OUTROOT}_extracted_gcf_scf_tree -T 24
+echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir ${gwas_tools_image} /iqtree/iqtree2 -t /out_dir/pkings_iqtree_genes_astral -S /in_dir --scfl 100 --prefix /out_dir/pkings_iqtree_genes_astral_scf_tree -T 128
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir ${gwas_tools_image} /iqtree/iqtree2 -t /out_dir/pkings_iqtree_genes_astral -S /in_dir --scfl 100 --prefix /out_dir/pkings_iqtree_genes_astral_scf_tree -T 128

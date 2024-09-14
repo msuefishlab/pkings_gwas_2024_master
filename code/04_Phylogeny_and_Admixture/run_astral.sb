@@ -2,12 +2,13 @@
 
 ########## Define Resources Needed with SBATCH Lines ##########
 
-#SBATCH --time=04:00:00             # limit of wall clock time - how long the job will run (same as -t)
+#SBATCH --time=12:00:00             # limit of wall clock time - how long the job will run (same as -t)
 #SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
-#SBATCH --cpus-per-task=24           # number of CPUs (or cores) per task (same as -c)
-#SBATCH --mem=120G                    # memory required per node - amount of memory (in bytes)
+#SBATCH --cpus-per-task=128           # number of CPUs (or cores) per task (same as -c)
+#SBATCH --mem=0                    # memory required per node - amount of memory (in bytes)
 #SBATCH --job-name RUN_ASTRAL      # you can give your job a name for easier identification (same as -J)
 #SBATCH --constraint=[intel16|intel18|amd20|amd22]
+#SBATCH -A data-machine
 ########## Command Lines to Run ##########
 cd $root
 
@@ -25,4 +26,4 @@ OUTROOT=${snps_only_vcf%".vcf.gz"}
 cd ${outdir}
 module load GCC/12.3.0
 
-~/ASTER/bin/astral4 -i ${root}/output_data/04_Phylogeny_And_Admixture/all_genes_extracted.treefile -t 24 -o ${root}/output_data/04_Phylogeny_And_Admixture/ASTRAL_all_genes_extracted
+~/ASTER/bin/astral4 -i ${root}/output_data/04_Phylogeny_And_Admixture/pkings_iqtree_genes.treefile -r 16 -s 16 -t 128 --root PSZA_454 -o ${root}/output_data/04_Phylogeny_And_Admixture/pkings_iqtree_genes_astral
