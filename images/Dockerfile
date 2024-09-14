@@ -129,19 +129,6 @@ RUN tar -zxvf iqtree-2.3.1-Linux.tar.gz
 
 RUN mv iqtree*/bin/iqtree2 .
 
-RUN mkdir -p /iqtreesrc/
-
-WORKDIR /iqtreesrc
-
-RUN git clone --recursive https://github.com/iqtree/iqtree2.git
-
-RUN mkdir -p /iqtreesrc/iqtree2/build
-
-WORKDIR /iqtreesrc/iqtree2/build
-
-RUN cmake -DCMAKE_C_COMPILER=mpicc -DCMAKE_CXX_COMPILER=mpicxx -DIQTREE_FLAGS=omp-mpi ..
-RUN make -j4
-
 RUN mkdir -p /gff3sort
 
 WORKDIR /gff3sort
