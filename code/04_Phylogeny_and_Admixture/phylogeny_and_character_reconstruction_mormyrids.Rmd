@@ -1,0 +1,192 @@
+---
+title: "Phylogenetic Reconstruction of BP, TP in Mormyrids"
+output: html_notebook
+params:
+  data_path: NULL
+  output_file: NULL
+---
+```{r setup, include=FALSE}
+root <- rprojroot::find_root(".git/index")
+knitr::opts_knit$set(root.dir = root)
+library(tidyverse)  # Includes ggplot2 and other data manipulation packages
+library(data.table)
+library(ape)
+library(phytools)
+library(castor)
+library(plotrix)
+```
+
+## Custom Functions
+```{r}
+arctree <- function(tree,arc_height){
+h<-max(nodeHeights(tree))
+plotTree(tree, ftype = "i", lwd = 1, fsize = 0.6, type = "arc",arc_height=arc_height,ylim=c(-0.1*h,1.1*(1+arc_height)*h), offset=4)
+labs<-seq(0,h,by=5)
+a1<-axis(1,pos=-0.02*h,at=h-labs+arc_height*h,
+  labels=labs,cex.axis=0.8,lwd=2,lend=2)
+text(mean(a1),-0.23*h,"million years bp",font=3)
+a2<-axis(1,pos=-0.02*h,at=-h+labs-arc_height*h,
+  labels=labs,cex.axis=0.8,lwd=2,lend=2)
+text(mean(a2),-0.23*h,"million years bp",font=3)
+draw.arc(0,0,radius=h-labs[2:length(labs)]+arc_height*h,
+  angle1=,angle2=pi,col=make.transparent("black",0.4),
+  lty="dotted")
+}
+
+rename_labels <- function(tree, vec) {
+ tree$tip.label <- vec
+ return(tree)
+}
+
+```
+
+## Loading Data
+
+Phylogenetic data comes from Peterson et al. (2022) *Phylogenomics of Bony-Tongue Fishes (Osteoglossomorpha) Shed Light on the Craniofacial Evolution and Biogeography of the Weakly Electric Clade (Mormyridae)* Systematic Biology, Volume 71, Issue 5, September 2022, Pages 1032–1044, https://doi.org/10.1093/sysbio/syac001.  Specifically, this is the "master tree" referred to in the paper, which is based on the concatenated full data matrix of exomes.  This is time-calibrated putting the mormyrids at 51.6 Ma (HPD 58.9–44.7 Ma).
+
+```{r, fig.height=12}
+treefile<-file.path(root,"input_data/04_Phylogeny_And_Admixture/ssAll_iqtree_timtree.tree")
+osteotree<-read.tree(treefile)
+osteotree<-osteotree$`UTREE1=`
+
+mormyrotree<-extract.clade(osteotree,220,root.edge=0,collapse.singles=TRUE)
+```
+
+Next we load the data that I gleaned from literature review, our own EOD collections (a very small number), and numerous accessions from the Macaulay Library.  EODs were visually inspected for a P0 phase and assigned as MMP (multiphasic), MP (monophasic), biphasic (BP) triphasic or unknown ??.  Here I am also assigining a more user-friendly display of the tip labels.
+
+```{r}
+fishdata_name<-file.path(root,'input_data/04_Phylogeny_And_Admixture/mormyrid_specimens_with_phenotypes.csv')
+fish_data<-read.csv2(fishdata_name,row.names=1,header=T,sep=",")
+rownames(fish_data)<-fish_data$Tip.Name
+
+original_labels<-mormyrotree$tip.label
+
+new_labels<-fish_data[original_labels,"Corrected.Species.Name"]
+
+mormyrotree$tip.label<-new_labels
+```
+
+Next, I'm assigning colors to visualize the taxanomic distribution of the assigned phenotypes
+```{r}
+phenos<-setNames(as.character(fish_data$Phenotype), fish_data$Corrected.Species.Name)
+phenos<-as.factor(phenos)
+## set colors for plotting 
+cols<-setNames(c("gray","blue","orange","black","red"),levels(phenos)) 
+
+```
+Let's take a look at that phylogeny.
+```{r, fig.height=12}
+# Plot the tree
+arctree(mormyrotree,0.4)
+tiplabels(pie=to.matrix(phenos[mormyrotree$tip.label], levels(phenos)), piecol=cols, cex=0.2)
+```
+Phylogeny looks pretty good, and we can see some clear clustering of BP and TP waveforms, with a lot of unknowns that don't seem to be particularly overepresented in any particular genus.
+
+Next, in order to do ancesteral state reconstruction, i'm going to drop all of the tips that are unknown, as well as any MMP as we can't infer directly from the EOD what the underlying anatomy is.
+
+```{r}
+tips_to_drop<-names(phenos[phenos=="??"])
+multiphasic_tips<-names(phenos[phenos=="MMP"])
+mormyrotree_pruned<-drop.tip(mormyrotree,tips_to_drop)
+mormyrotree_pruned<-drop.tip(mormyrotree_pruned,multiphasic_tips)
+
+new_phenos<-phenos[mormyrotree_pruned$tip.label]
+new_phenos<-droplevels(new_phenos)
+cols<-setNames(c("blue","black","red"),levels(new_phenos)) 
+```
+
+Let's have a look at that "pruned" phylogeny.
+```{r, fig.height=12}
+# Plot the tree
+arctree(mormyrotree_pruned, 0.4)
+tiplabels(pie=to.matrix(new_phenos[mormyrotree_pruned$tip.label], levels(new_phenos)), piecol=cols, cex=0.2)
+```
+## Ancesteral State Reconstruction
+
+In the past, EOD character evolution was reconstructed using parsimony.  This is inherently problematic because it naturally assumes the rate of EOD evolution is slow (we seek to minimize the number of phenotypic transitions).  Instead of this approach, we essentially *use the data* and the phylogeny we have to fit a variety of models to the data, and select the one that explains the data best.  This family of models is the 'MK' (Lewis, 2001) where we allow rates between the three phenotypes to all be equal, all different, or different but symmetric (e.g. BP->TP and TP->BP are the same transition rate)
+```{r}
+## fit ER model 
+fitER<-fitMk(mormyrotree_pruned,new_phenos,model="ER") 
+## fit ARD model 
+fitARD<-fitMk(mormyrotree_pruned,new_phenos,model="ARD") 
+## fit SYM model
+fitSYM<-fitMk(mormyrotree_pruned,new_phenos,model="SYM")
+```
+
+```{r}
+## extract AIC values for each model 
+aic<-c(AIC(fitER),AIC(fitARD),AIC(fitSYM)) 
+## print summary table 
+
+model_summary<-data.frame(
+  model=c("ER","ARD","Symmetric"), 
+  logL=c(logLik(fitER),logLik(fitARD),logLik(fitSYM)), 
+  AIC=aic,delta.AIC=aic-min(aic),
+  weight=unclass(aic.w(aic)))
+
+model_summary
+```
+
+Evaluating the fits of these models, there is a "virtual tie" between the symmetric and ARD models, suggesting that the rates are far from equal among phenotype classes (which intuitively makes sense).  Of these, I slightly prefer the ARD model on the basis of biology in that the model doesn't allow for transitions back to MP, whereas the SYM model does (albeit at a low frequency)
+
+
+```{r, fig.width=4, fig.height=4}
+  plot(fitARD, width=TRUE, color=TRUE, cex.rates=0.9, main="ARD Model") # Add a main title with the tree name
+```
+
+## Perform Stochastic Character Mapping
+
+
+The idea here is now that we've decided on a model, we are going to "simulate" evolution (1000 times) and determine the proportion of phenotypic outcomes at each node over those 1000 trees (this is called Stochastic character mapping). See Revell & Harmon (2022) "Comparative Phylogenetic Comparative Methods in R", page 245.
+
+
+```{r}
+mle.Q<-as.Qmatrix(fitARD)
+mle.Q
+```
+```{r}
+system.time(mtrees.sc<-make.simmap(mormyrotree_pruned,new_phenos,Q=mle.Q, nsim=1000))
+```
+Here is what we see over the 1000 simulations:
+
+```{r}
+pd<-summary(mtrees.sc)
+pd
+```
+
+Let's examine the distribution of changes that we see.
+
+Interestingly, about 12 transitions directly from TP->BP, and 9 changes from BP->TP (on average) (see http://blog.phytools.org/2022/07/understanding-number-of-changes-of.html)
+```{r}
+dd<-density(mtrees.sc)
+dd
+```
+
+We can look at these densities graphically as well...
+```{r, fig.height=12}
+plot(dd,colors=c("orange","lightgreen","lightblue"),alpha=0.5)
+
+```
+Okay-- the last step is to consolidate all of this information over our runs to look at the "certainty" at each node and present that graphically as pie charts:
+```{r, fig.height=12}
+## create a plot showing PP at all nodes of the tree 
+#plot(pd,colors=cols,fsize=0.5,
+#offset=5,cex=c(0.3,0.1),ftype = "i", lwd = 1, fsize = 0.6, direction="upwards",pts=FALSE) 
+
+arctree(mormyrotree_pruned,0.4)
+tiplabels(pie=to.matrix(new_phenos[mormyrotree_pruned$tip.label], levels(new_phenos)), piecol=cols, cex=0.2)
+nodelabels(node=1:mormyrotree_pruned$Nnode+Ntip(mormyrotree_pruned),
+           pie=pd$ace,piecol=cols,cex=0.2)
+```
+What we see is pretty striking, but not terribly different than what we'd get using maximum parsimony:
+
+```{r,fig.height=12}
+gp.int<-as.numeric(new_phenos);
+names(gp.int)<-names(new_phenos)  
+gp.int <- gp.int[match(mormyrotree_pruned$tip.label,names(gp.int))]
+anc.mp <- asr_max_parsimony(mormyrotree_pruned,gp.int)
+arctree(mormyrotree_pruned,0.4)
+tiplabels(pie=model.matrix(~as.factor(gp.int)-1),piecol=cols,cex=0.2)
+nodelabels(node=1:mormyrotree_pruned$Nnode+Ntip(mormyrotree_pruned),
+           pie=anc.mp$ancestral_likelihoods,piecol=cols,cex=0.2)
+```
