@@ -24,8 +24,8 @@ OUTROOT=${snps_only_vcf%".vcf.gz"}
 indir=${root}/output_data/04_Phylogeny_And_Admixture/extracted_seqs/actual_data/
 outdir=${root}/output_data/04_Phylogeny_And_Admixture/
 
-echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir ${gwas_tools_image} /iqtree/iqtree2 -t /out_dir/pkings_iqtree_genes_astral --gcf /out_dir/pkings_iqtree_genes.treefile --prefix /out_dir/pkings_iqtree_genes_astral_gcf_tree -T 128
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir ${gwas_tools_image} /iqtree/iqtree2 -t /out_dir/pkings_iqtree_genes_astral --gcf /out_dir/pkings_iqtree_genes.treefile --prefix /out_dir/pkings_iqtree_genes_astral_gcf_tree -T 128
+echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir ${gwas_tools_image} /iqtree/iqtree2 -te /out_dir/pkings_iqtree_genes_astral --gcf /out_dir/pkings_iqtree_genes.treefile --scf 100 -S /in_dir --prefix /out_dir/pkings_iqtree_genes_astral_gcf_scf_tree -T 128
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir ${gwas_tools_image} /iqtree/iqtree2 -te /out_dir/pkings_iqtree_genes_astral --gcf /out_dir/pkings_iqtree_genes.treefile --scf 100 -S /in_dir --prefix /out_dir/pkings_iqtree_genes_astral_gcf_scf_tree -T 128
 
-echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir ${gwas_tools_image} /iqtree/iqtree2 -t /out_dir/pkings_iqtree_genes_astral -S /in_dir --scfl 100 --prefix /out_dir/pkings_iqtree_genes_astral_scf_tree -T 128
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir ${gwas_tools_image} /iqtree/iqtree2 -t /out_dir/pkings_iqtree_genes_astral -S /in_dir --scfl 100 --prefix /out_dir/pkings_iqtree_genes_astral_scf_tree -T 128
+#echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir ${gwas_tools_image} /iqtree/iqtree2 -te /out_dir/pkings_iqtree_genes_astral -S /in_dir --scfl 100 --prefix /out_dir/pkings_iqtree_genes_astral_scf_tree -T 128
+#singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir ${gwas_tools_image} /iqtree/iqtree2 -te /out_dir/pkings_iqtree_genes_astral -S /in_dir --scfl 100 --prefix /out_dir/pkings_iqtree_genes_astral_scf_tree -T 128
