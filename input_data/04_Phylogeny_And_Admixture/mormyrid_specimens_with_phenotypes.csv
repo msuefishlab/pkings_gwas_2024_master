@@ -1,170 +1,170 @@
-Tip Number,Tip Name,Genus,Species,,Phenotype,Source
-74,Marcusenius_krameri_67_B10,Marcusenius,krameri,Marcusenius krameri,BP,http://doi.org/10.11646/zootaxa.4200.3.2
-20,Petrocephalus_okavangensis_67_E04,Petrocephalus,okavangensis,Petrocephalus okavangensis,BP,http://dx.doi.org/10.1080/00222933.2012.708452 
-37,Mormyrops_breviceps_58_G06,Mormyrops,breviceps,Mormyrops breviceps,BP,https://core.ac.uk/download/pdf/16688725.pdf
-4,Petrocephalus_catostoma_58_G05,Petrocephalus,catostoma,Petrocephalus catostoma,BP,https://epub.uni-regensburg.de/1035/1/kramer2_.pdf
-23,Petrocephalus_longicapitis_67_D01,Petrocephalus,longicapitis,Petrocephalus longicapitis,BP,https://epub.uni-regensburg.de/1035/1/kramer2_.pdf
-112,Campylomormyrus_cassaicus_58_D08,Campylomormyrus,cassaicus,Campylomormyrus cassaicus,??,
-107,Campylomormyrus_christyi_64_C08,Campylomormyrus,christyi,Campylomormyrus christyi,??,
-57,Mormyrus_lacerda_SRR9215603,Mormyrus,lacerda,Mormyrus lacerda,BP,https://epub.uni-regensburg.de/27753/4/Kramer_2013_Mormyrus_final.pdf
-58,Mormyrus_longirostris_58_E02,Mormyrus,longirostris,Mormyrus longirostris,BP,https://epub.uni-regensburg.de/27753/4/Kramer_2013_Mormyrus_final.pdf
-14,Petrocephalus_pallidomaculatus_58_E04,Petrocephalus,pallidomaculatus,Petrocephalus pallidomaculatus,BP,https://mormyrids.myspecies.info/sites/mormyrids.myspecies.info/files/j_fish_biology_2009_moritz.pdf
-115,Campylomormyrus_luapulaensis_64_D05,Campylomormyrus,luapulaensis,Campylomormyrus luapulaensis,??,
-104,Campylomormyrus_mirus_58_E01,Campylomormyrus,mirus,Campylomormyrus mirus,??,
-116,hyperopisus_bebe_SRR8893253,hyperopisus,bebe,Hyperopisus bebe,TP,https://onlinelibrary.wiley.com/doi/epdf/10.1002/neu.480170303
-60,Mormyrus_caschive_58_C05,Mormyrus,caschive,Mormyrus caschive,BP,https://sfi-cybium.fr/en/node/117
-138,Pollimyrus_castelnaui_67_F10,Pollimyrus,castelnaui,Pollimyrus castelnaui,MMP,https://www.jstor.org/stable/4536545?seq=3
-12,Petrocephalus_tenuicauda_58_G01,Petrocephalus,tenuicauda,Petrocephalus tenuicauda,BP,https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4522468/
-77,Hippopotamyrus_longilateralis_SRR9215643,Hippopotamyrus,longilateralis,Hippopotamyrus longilateralis,TP,https://www.tandfonline.com/doi/abs/10.1080/00222931003764089
-73,Marcusenius_altisambesi_67_B05,Marcusenius,altisambesi,Marcusenius altisambesi,BP,https://www.tandfonline.com/doi/full/10.1080/00222930701250987?casa_token=pj3BW7U-6WQAAAAA%3ADx7vim6oQiNCKil87m10wTedvTaRSRI4UPW4WvKOqATwnzcxDBLBISDLI9bgmwTx9nzcTf0oL70#d1e667
-89,Marcusenius_sanagaensis_58_A05,Marcusenius,sanagaensis,Marcusenius sanagaensis,BP,https://www.tandfonline.com/doi/full/10.1080/00222930701250987?casa_token=pj3BW7U-6WQAAAAA%3ADx7vim6oQiNCKil87m10wTedvTaRSRI4UPW4WvKOqATwnzcxDBLBISDLI9bgmwTx9nzcTf0oL70#d1e667
-70,Marcusenius_senegalensis_58_A01,Marcusenius,senegalensis,Marcusenius senegalensis,TP,https://www.tandfonline.com/doi/full/10.1080/10236244.2013.796161#d1e455
-99,Cyphomyrus_macrops_64_B03,Cyphomyrus,macrops,Cyphomyrus macrops,??,
-69,Marcusenius_ussheri_SRR8893554,Marcusenius,ussheri,Marcusenius ussheri,BP,https://www.tandfonline.com/doi/full/10.1080/10236244.2013.796161#d1e656
-72,Cyphomyrus_sp_1_58_A10,Cyphomyrus,sp,Cyphomyrus sp,??,
-95,Cyphomyrus_sp1_JPS_1000,Cyphomyrus,sp1,Cyphomyrus sp1,??,
-100,Cyphomyrus_wilverthi_SRR8717167,Cyphomyrus,wilverthi,Cyphomyrus wilverthi,??,
-141,Cryptomyrus_ogoouensis_SRR8717184,Cryptomyrus,ogoouensis,Cryptomyrus ogoouensis,TP,https://zookeys.pensoft.net/articles.php?id=7137
-142,Boulengeromyrus_knoepffleri_SRR8717394,Boulengeromyrus,knoepffleri,Boulengeromyrus knoepffleri,BP,Macaulay Library
-101,Gnathonemus_longibarbis_SRR8892979,Gnathonemus,longibarbis,Gnathonemus longibarbis,??,
-140,Brevimyrus_niger_SRR8885151,Brevimyrus,niger,Brevimyrus niger,TP,Macaulay Library
-52,Brienomyrus_brachyistius_SRR8885730,Brienomyrus,brachyistius,Brienomyrus brachyistius,TP,Macaulay Library
-53,Brienomyrus_longianalis_SRR8885729,Brienomyrus,longianalis,Brienomyrus longianalis,TP,Macaulay Library
-76,Hippopotamyrus_pappenheimi_58_A07,Hippopotamyrus,pappenheimi,Hippopotamyrus pappenheimi,??,Ask John?
-64,Hippopotamyrus_paugyi_58_B05,Hippopotamyrus,paugyi,Hippopotamyrus paugyi,??,Ask John?
-78,Hippopotamyrus_szaboi_67_A08,Hippopotamyrus,szaboi,Hippopotamyrus szaboi,??,Ask John?
-106,Campylomormyrus_alces_56_B07,Campylomormyrus,alces,Campylomormyrus alces,BP,Macaulay Library
-114,Campylomormyrus_curvirostris_56_A09,Campylomormyrus,curvirostris,Campylomormyrus curvirostris,BP,Macaulay Library
-51,Isicthys_henryi_SRR8893254,Isicthys,henryi,Isicthys henryi,??,I HAVE THIS
-105,Campylomormyrus_elephas_58_B03,Campylomormyrus,elephas,Campylomormyrus elephas,TP,Macaulay Library
-113,Campylomormyrus_numenius_SRR8717166,Campylomormyrus,numenius,Campylomormyrus numenius,TP,Macaulay Library
-108,Campylomormyrus_phantasticus_56_G01,Campylomormyrus,phantasticus,Campylomormyrus phantasticus,TP,Macaulay Library
-71,Marcusenius_cyprinoides_58_A12,Marcusenius,cyprinoides,Marcusenius cyprinoides,??,
-67,Marcusenius_friteli_64_G12,Marcusenius,friteli,Marcusenius friteli,??,
-111,Campylomormyrus_rhynchophorus_58_F05,Campylomormyrus,rhynchophorus,Campylomormyrus rhynchophorus,BP,Macaulay Library
-91,Marcusenius_intermedius_64_C02,Marcusenius,intermedius,Marcusenius intermedius,??,
-92,Marcusenius_kaninginii_JPS_25,Marcusenius,kaninginii,Marcusenius kaninginii,??,https://www.researchgate.net/publication/305541567_Marcusenius_kaninginii_a_new_species_of_elephantfish_from_the_lowa_river_basin_democratic_republic_of_the_congo_Osteoglossiformes_Mormyridae
-103,Campylomormyrus_tamandua_SRR8717220,Campylomormyrus,tamandua,Campylomormyrus tamandua,TP,Macaulay Library
-110,Campylomormyrus_compressirostris_SRR1662225,Campylomormyrus,compressirostris,Campylomormyrus compressirostris,BP,"Reproduction and development in some species of the weakly electric genus Campylomormyrus (Mormyridae, Teleostei). Env Biol Fish 100:49–68. doi:10.1007/s10641-016-0554-1"
-109,Campylomormyrus_tshokwe_SRR1662282,Campylomormyrus,tshokwe,Campylomormyrus tshokwe,BP,"Reproduction and development in some species of the weakly electric genus Campylomormyrus (Mormyridae, Teleostei). Env Biol Fish 100:49–68. doi:10.1007/s10641-016-0554-1"
-80,Marcusenius_livingstonii_58_D04,Marcusenius,livingstonii,Marcusenius livingstonii,??,
-68,Marcusenius_mento_58_A08,Marcusenius,mento,Marcusenius mento,??,
-98,Cyphomyrus_cubangoensis_58_C06,Cyphomyrus,cubangoensis,Cyphomyrus cubangoensis,TP,Macaulay Library
-96,Cyphomyrus_discorhynchus_SRR8717165,Cyphomyrus,discorhynchus,Cyphomyrus discorhynchus,TP,Macaulay Library
-97,Cyphomyrus_psittacus_56_C05,Cyphomyrus,psittacus,Cyphomyrus psittacus,TP,Macaulay Library
-75,Marcusenius_pongolensis_64_B07,Marcusenius,pongolensis,Marcusenius pongolensis,??,
-83,Genyomyrus_donnyi_SRR8892965,Genyomyrus,donnyi,Genyomyrus donnyi,TP,Macaulay Library
-85,Gnathonemus_echidnorhynchus_SRR8892972,Gnathonemus,echidnorhynchus,Gnathonemus echidnorhynchus,TP,Macaulay Library
-1,Gymnarchidae_Gymnarchus_niloticus_SRR6398557,Gymnarchus,niloticus,Gymnarchus niloticus,MP,Macaulay Library
-88,Marcusenius_sp_ruiki_ms_56_B11,Marcusenius,sp,Marcusenius sp,??,
-66,Hippopotamyrus_castor_56_G05,Hippopotamyrus,castor,Hippopotamyrus castor,TP,Macaulay Library
-63,Marcusenius_thomasi_64_G06,Marcusenius,thomasi,Marcusenius thomasi,??,
-94,Hippopotamyrus_weeksii_56_C09,Hippopotamyrus,weeksii,Hippopotamyrus weeksii,BP,Macaulay Library
-143,Ivindomyrus_marchei_SRR8893272,Ivindomyrus,marchei,Ivindomyrus marchei,BP,Macaulay Library
-144,Ivindomyrus_opdenboschi_SRR8893535,Ivindomyrus,opdenboschi,Ivindomyrus opdenboschi,BP,Macaulay Library
-49,Mormyrops_attenuatus_SRR8895278,Mormyrops,attenuatus,Mormyrops attenuatus,??,
-84,Marcusenius_greshoffii_58_F09,Marcusenius,greshoffii,Marcusenius greshoffii,TP,Macaulay Library
-87,Marcusenius_kutuensis_64_D03,Marcusenius,kutuensis,Marcusenius kutuensis,TP,Macaulay Library
-86,Marcusenius_leopoldianus_58_C02,Marcusenius,leopoldianus,Marcusenius leopoldianus,TP,Macaulay Library
-43,Mormyrops_curtus_58_A09,Mormyrops,curtus,Mormyrops curtus,??,
-46,Mormyrops_engystoma_64_D07,Mormyrops,engystoma,Mormyrops engystoma,??,
-81,Marcusenius_monteiri_58_F11,Marcusenius,monteiri,Marcusenius monteiri,TP,Macaulay Library
-93,Marcusenius_moorii_58_F03,Marcusenius,moorii,Marcusenius moorii,BP,Macaulay Library
-40,Mormyrops_mariae_58_D11,Mormyrops,mariae,Mormyrops mariae,??,
-50,Mormyrops_masuianus_58_E03,Mormyrops,masuianus,Mormyrops masuianus,??,
-39,Mormyrops_microstoma_58_G12,Mormyrops,microstoma,Mormyrops microstoma,??,
-145,Marcusenius_ntemensis_58_H06,Marcusenius,ntemensis,Marcusenius ntemensis,TP,Macaulay Library
-47,Mormyrops_parvus_64_B05,Mormyrops,parvus,Mormyrops parvus,??,
-48,Mormyrops_sirenoides_67_H11,Mormyrops,sirenoides,Mormyrops sirenoides,??,
-90,Marcusenius_schilthuisiae_SRR8893553,Marcusenius,schilthuisiae,Marcusenius schilthuisiae,TP,Macaulay Library
-82,Marcusenius_stanleyanus_58_F07,Marcusenius,stanleyanus,Marcusenius stanleyanus,TP,Macaulay Library
-65,Mormryidae_Hippopotamyrus_pictus_SRR8893248,Hippopotamyrus,pictus,Hippopotamyrus pictus,TP,Macaulay Library
-36,Mormyrops_anguilloides_64_D01,Mormyrops,anguilloides,Mormyrops anguilloides,TP,Macaulay Library
-44,Mormyrops_boulengeri_SRR8896925,Mormyrops,boulengeri,Mormyrops boulengeri,TP,Macaulay Library
-35,Mormyrops_caballus_58_G04,Mormyrops,caballus,Mormyrops caballus,BP,Macaulay Library
-41,Mormyrops_furcidens_56_D11,Mormyrops,furcidens,Mormyrops furcidens,BP,Macaulay Library
-59,Mormyrus_proboscirostris_SRR8885055,Mormyrus,proboscirostris,Mormyrus proboscirostris,??,
-42,Mormyrops_lineolatus_58_G08,Mormyrops,lineolatus,Mormyrops lineolatus,BP,Macaulay Library
-38,Mormyrops_nigricans_58_E07,Mormyrops,nigricans,Mormyrops nigricans,BP,Macaulay Library
-45,Mormyrops_zanclirostris_SRR8896924,Mormyrops,zanclirostris,Mormyrops zanclirostris,TP,Macaulay Library
-33,Myomyrus_macrodon_CU808102423,Myomyrus,macrodon,Myomyrus macrodon,??,
-54,Mormyrus_caballus_58_A04,Mormyrus,caballus,Mormyrus caballus,BP,Macaulay Library
-31,Myomyrus_pharao_SRR9056052,Myomyrus,pharao,Myomyrus pharao,??,
-32,Myomyrus_pharao_JPS_13,Myomyrus,pharao,Myomyrus pharao,??,
-34,Myomyrus_pharao_SRR9214507,Myomyrus,pharao,Myomyrus pharao,??,
-56,Mormyrus_hasselquistii_SRR9055927,Mormyrus,hasselquistii,Mormyrus hasselquistii,BP,Macaulay Library
-55,Mormyrus_ovis_58_A06,Mormyrus,ovis,Mormyrus ovis,BP,Macaulay Library
-61,Mormyrus_rume_58_H08,Mormyrus,rume,Mormyrus rume,BP,Macaulay Library
-62,Mormyrus_tapirus,Mormyrus,tapirus,Mormyrus tapirus,BP,Macaulay Library
-102,Morymridae_Gnathonemus_petersii,Gnathonemus,petersii,Gnathonemus petersii,TP,Macaulay Library
-30,Myomyrus_macrops_SRR8893573,Myomyrus,macrops,Myomyrus macrops,??,Macaulay Library
-146,Paramormyrops_batesii_CU79740B,Paramormyrops,batesii,Paramormyrops batesii,TP,Macaulay Library
-149,Paramormyrops_BON_58_B06,Paramormyrops,BON,Paramormyrops BON,TP,Macaulay Library
-161,Paramormyrops_curvifrons_58_C01,Paramormyrops,curvifrons,Paramormyrops curvifrons,BP,Macaulay Library
-152,Paramormyrops_gabonensis_64_C06,Paramormyrops,gabonensis,Paramormyrops gabonensis,BP,Macaulay Library
-153,Paramormyrops_hopkinsi_SRR9214432,Paramormyrops,hopkinsi,Paramormyrops hopkinsi,BP,Macaulay Library
-158,Paramormyrops_kingsleyae_SRR6507961,Paramormyrops,kingsleyae,Paramormyrops kingsleyae,TP,Macaulay Library
-148,Paramormyrops_lissmanni_ms_56_C01,Paramormyrops,lissmanni,Paramormyrops lissmanni,TP,Macaulay Library
-160,Paramormyrops_longicaudatus_64_D10,Paramormyrops,longicaudatus,Paramormyrops longicaudatus,BP,Macaulay Library
-151,Paramormyrops_mag_SRR9214510,Paramormyrops,mag,Paramormyrops mag,TP,Macaulay Library
-168,Paramormyrops_NGO_58_H09,Paramormyrops,NGO,Paramormyrops NGO,BP,Macaulay Library
-162,Paramormyrops_ntotom_64_B01,Paramormyrops,ntotom,Paramormyrops ntotom,BP,Macaulay Library
-154,Paramormyrops_sp1_58_D12,Paramormyrops,sp1,Paramormyrops sp1,??,
-155,Paramormyrops_sp2_64_G04,Paramormyrops,sp2,Paramormyrops sp2,??,
-157,Paramormyrops_sp3_64_G07,Paramormyrops,sp3,Paramormyrops sp3,??,
-159,Paramormyrops_OFF_58_C04,Paramormyrops,OFF,Paramormyrops OFF,BP,Macaulay Library
-156,Paramormyrops_PAR_58_H07,Paramormyrops,PAR,Paramormyrops PAR,BP,Macaulay Library
-79,Paramormyrops_taverneii_JPS_1008,Paramormyrops,taverneii,Paramormyrops taverneii,??,ASK JOHN
-169,Paramormyrops_SN2_58_E05,Paramormyrops,SN2,Paramormyrops SN2,BP,Macaulay Library
-163,Paramormyrops_SN3_58_A03,Paramormyrops,SN3,Paramormyrops SN3,BP,Macaulay Library
-167,Paramormyrops_SN7_56_D07,Paramormyrops,SN7,Paramormyrops SN7,BP,Macaulay Library
-165,Paramormyrops_SN9_64_C04,Paramormyrops,SN9,Paramormyrops SN9,BP,Macaulay Library
-164,Paramormyrops_sphekodes_58_C10,Paramormyrops,sphekodes,Paramormyrops sphekodes,BP,Macaulay Library
-147,Paramormyrops_SZA_58_H11,Paramormyrops,SZA,Paramormyrops SZA,TP,Macaulay Library
-150,Paramormyrops_TEN_58_H02,Paramormyrops,TEN,Paramormyrops TEN,BP,Macaulay Library
-166,Paramormyrops_TEU_58_C12,Paramormyrops,TEU,Paramormyrops TEU,BP,Macaulay Library
-8,Petrocephalus_arnegardi_56_H11,Petrocephalus,arnegardi,Petrocephalus arnegardi,BP,Macaulay Library
-7,Petrocephalus_balayi_58_D06,Petrocephalus,balayi,Petrocephalus balayi,BP,Macaulay Library
-11,Petrocephalus_levequei_64_G05,Petrocephalus,levequei,Petrocephalus levequei,??,
-6,Petrocephalus_binotatus_64_E02,Petrocephalus,binotatus,Petrocephalus binotatus,BP,Macaulay Library
-21,Petrocephalus_magnitrunci_67_D07,Petrocephalus,magnitrunci,Petrocephalus magnitrunci,??,
-19,Petrocephalus_magnoculis_67_D09,Petrocephalus,magnoculis,Petrocephalus magnoculis,??,
-5,Petrocephalus_boboto_58_B12,Petrocephalus,boboto,Petrocephalus boboto,BP,Macaulay Library
-10,Petrocephalus_bovei_58_G11,Petrocephalus,bovei,Petrocephalus bovei,BP,Macaulay Library
-26,Petrocephalus_christyi_58_B02,Petrocephalus,christyi,Petrocephalus christyi,BP,Macaulay Library
-25,Petrocephalus_grandoculis_58_B08,Petrocephalus,grandoculis,Petrocephalus grandoculis,BP,Macaulay Library
-15,Petrocephalus_pellegrini_58_G07,Petrocephalus,pellegrini,Petrocephalus pellegrini,??,
-2,Petrocephalus_microphthalmus_SRR6399355,Petrocephalus,microphthalmus,Petrocephalus microphthalmus,BP,Macaulay Library
-9,Petrocephalus_odzalaensis_58_H03,Petrocephalus,odzalaensis,Petrocephalus odzalaensis,BP,Macaulay Library
-29,Petrocephalus_pulsivertens_64_A04,Petrocephalus,pulsivertens,Petrocephalus pulsivertens,BP,Macaulay Library
-16,Petrocephalus_sp_1,Petrocephalus,sp,Petrocephalus sp,??,
-28,Petrocephalus_sp_2_64_G10,Petrocephalus,sp,Petrocephalus sp,??,
-13,Petrocephalus_sp1_58_G09,Petrocephalus,sp1,Petrocephalus sp1,??,
-22,Petrocephalus_squalostoma_58_B10,Petrocephalus,squalostoma,Petrocephalus squalostoma,??,
-27,Petrocephalus_sauvagii_64_D12,Petrocephalus,sauvagii,Petrocephalus sauvagii,BP,Macaulay Library
-3,Petrocephalus_schoutedeni_SRR9214420,Petrocephalus,schoutedeni,Petrocephalus schoutedeni,BP,Macaulay Library
-24,Petrocephalus_sullivani_SRR6410432,Petrocephalus,sullivani,Petrocephalus sullivani,BP,Macaulay Library
-17,Petrocephalus_valentini_64_C03,Petrocephalus,valentini,Petrocephalus valentini,BP,Macaulay Library
-18,Petrocephalus_zakoni_SRR9214598,Petrocephalus,zakoni,Petrocephalus zakoni,BP,Macaulay Library
-134,Pollimyrus_isidori_SRR9215378,Pollimyrus,isidori,Pollimyrus isidori,TP,Macaulay Library
-125,Pollimyrus_maculipinnis_58_B11,Pollimyrus,maculipinnis,Pollimyrus maculipinnis,??,
-132,Pollimyrus_nigricans_58_G02,Pollimyrus,nigricans,Pollimyrus nigricans,TP,Macaulay Library
-129,Pollimyrus_nigripinnis_58_B07,Pollimyrus,nigripinnis,Pollimyrus nigripinnis,TP,Macaulay Library
-130,Pollimyrus_osborni_64_A02,Pollimyrus,osborni,Pollimyrus osborni,??,
-126,Pollimyrus_pedunculatus_58_D05,Pollimyrus,pedunculatus,Pollimyrus pedunculatus,??,
-135,Pollimyrus_petricolus_64_E04,Pollimyrus,petricolus,Pollimyrus petricolus,??,
-128,Pollimyrus_plagiostoma_SRR9214508,Pollimyrus,plagiostoma,Pollimyrus plagiostoma,TP,Macaulay Library
-131,Pollimyrus_pulverulentus_58_E08,Pollimyrus,pulverulentus,Pollimyrus pulverulentus,??,
-127,Pollimyrus_schreyeni_58_E12,Pollimyrus,schreyeni,Pollimyrus schreyeni,??,
-133,Pollimyrus_sp1_67_H03,Pollimyrus,sp1,Pollimyrus sp1,??,
-136,Pollimyrus_sp2_67_G06,Pollimyrus,sp2,Pollimyrus sp2,??,
-137,Pollimyrus_sp3_JPS_1031,Pollimyrus,sp3,Pollimyrus sp3,??,
-139,Pollimyrus_stappersii_JPS_1001,Pollimyrus,stappersii,Pollimyrus stappersii,??,
-121,Stomatorhinus_fuliginosus_58_H04,Stomatorhinus,fuliginosus,Stomatorhinus fuliginosus,??,
-123,Stomatorhinus_humilior_58_F12,Stomatorhinus,humilior,Stomatorhinus humilior,??,
-118,Stomatorhinus_ivindoensis_SRR9214431,Stomatorhinus,ivindoensis,Stomatorhinus ivindoensis,TP,Macaulay Library
-120,Stomatorhinus_kununguensis_58_F06,Stomatorhinus,kununguensis,Stomatorhinus kununguensis,??,
-122,Stomatorhinus_microps_58_C11,Stomatorhinus,microps,Stomatorhinus microps,??,
-117,Stomatorhinus_patrizii_58_F02,Stomatorhinus,patrizii,Stomatorhinus patrizii,MMP,Macaulay Library
-124,Stomatorhinus_polylepis_64_E06,Stomatorhinus,polylepis,Stomatorhinus polylepis,??,
-119,Stomatorhinus_walkeri_SRR9214424,Stomatorhinus,walkeri,Stomatorhinus walkeri,TP,Macaulay Library
+Tip Number,Tip Name,Genus,Species,Corrected Species Name,Phenotype,Accession Number,Source
+74,Marcusenius_krameri_67_B10,Marcusenius,krameri,Marcusenius krameri,BP,,http://doi.org/10.11646/zootaxa.4200.3.2
+20,Petrocephalus_okavangensis_67_E04,Petrocephalus,okavangensis,Petrocephalus okavangensis,BP,,http://dx.doi.org/10.1080/00222933.2012.708452 
+37,Mormyrops_breviceps_58_G06,Mormyrops,breviceps,Mormyrops breviceps,BP,,https://core.ac.uk/download/pdf/16688725.pdf
+4,Petrocephalus_catostoma_58_G05,Petrocephalus,catostoma,Petrocephalus catostoma,BP,,https://epub.uni-regensburg.de/1035/1/kramer2_.pdf
+23,Petrocephalus_longicapitis_67_D01,Petrocephalus,longicapitis,Petrocephalus longicapitis,BP,,https://epub.uni-regensburg.de/1035/1/kramer2_.pdf
+112,Campylomormyrus_cassaicus_58_D08,Campylomormyrus,cassaicus,Campylomormyrus cassaicus,??,,
+107,Campylomormyrus_christyi_64_C08,Campylomormyrus,christyi,Campylomormyrus christyi,??,,
+57,Mormyrus_lacerda_SRR9215603,Mormyrus,lacerda,Mormyrus lacerda,BP,,https://epub.uni-regensburg.de/27753/4/Kramer_2013_Mormyrus_final.pdf
+58,Mormyrus_longirostris_58_E02,Mormyrus,longirostris,Mormyrus longirostris,BP,,https://epub.uni-regensburg.de/27753/4/Kramer_2013_Mormyrus_final.pdf
+14,Petrocephalus_pallidomaculatus_58_E04,Petrocephalus,pallidomaculatus,Petrocephalus pallidomaculatus,BP,,https://mormyrids.myspecies.info/sites/mormyrids.myspecies.info/files/j_fish_biology_2009_moritz.pdf
+115,Campylomormyrus_luapulaensis_64_D05,Campylomormyrus,luapulaensis,Campylomormyrus luapulaensis,??,,
+104,Campylomormyrus_mirus_58_E01,Campylomormyrus,mirus,Campylomormyrus mirus,??,,
+116,hyperopisus_bebe_SRR8893253,hyperopisus,bebe,Hyperopisus bebe,TP,,https://onlinelibrary.wiley.com/doi/epdf/10.1002/neu.480170303
+60,Mormyrus_caschive_58_C05,Mormyrus,caschive,Mormyrus caschive,BP,,https://sfi-cybium.fr/en/node/117
+138,Pollimyrus_castelnaui_67_F10,Pollimyrus,castelnaui,Pollimyrus castelnaui,MMP,,https://www.jstor.org/stable/4536545?seq=3
+12,Petrocephalus_tenuicauda_58_G01,Petrocephalus,tenuicauda,Petrocephalus tenuicauda,BP,,https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4522468/
+77,Hippopotamyrus_longilateralis_SRR9215643,Hippopotamyrus,longilateralis,Hippopotamyrus longilateralis,TP,,https://www.tandfonline.com/doi/abs/10.1080/00222931003764089
+73,Marcusenius_altisambesi_67_B05,Marcusenius,altisambesi,Marcusenius altisambesi,BP,,https://www.tandfonline.com/doi/full/10.1080/00222930701250987?casa_token=pj3BW7U-6WQAAAAA%3ADx7vim6oQiNCKil87m10wTedvTaRSRI4UPW4WvKOqATwnzcxDBLBISDLI9bgmwTx9nzcTf0oL70#d1e667
+89,Marcusenius_sanagaensis_58_A05,Marcusenius,sanagaensis,Marcusenius sanagaensis,BP,,https://www.tandfonline.com/doi/full/10.1080/00222930701250987?casa_token=pj3BW7U-6WQAAAAA%3ADx7vim6oQiNCKil87m10wTedvTaRSRI4UPW4WvKOqATwnzcxDBLBISDLI9bgmwTx9nzcTf0oL70#d1e667
+70,Marcusenius_senegalensis_58_A01,Marcusenius,senegalensis,Marcusenius senegalensis,TP,,https://www.tandfonline.com/doi/full/10.1080/10236244.2013.796161#d1e455
+99,Cyphomyrus_macrops_64_B03,Cyphomyrus,macrops,Cyphomyrus macrops,??,,
+69,Marcusenius_ussheri_SRR8893554,Marcusenius,ussheri,Marcusenius ussheri,BP,,https://www.tandfonline.com/doi/full/10.1080/10236244.2013.796161#d1e656
+72,Cyphomyrus_sp_1_58_A10,Cyphomyrus,sp,Cyphomyrus sp,??,,
+95,Cyphomyrus_sp1_JPS_1000,Cyphomyrus,sp1,Cyphomyrus sp1,??,,
+100,Cyphomyrus_wilverthi_SRR8717167,Cyphomyrus,wilverthi,Cyphomyrus wilverthi,??,,
+141,Cryptomyrus_ogoouensis_SRR8717184,Cryptomyrus,ogoouensis,Cryptomyrus ogoouensis,TP,,https://zookeys.pensoft.net/articles.php?id=7137
+142,Boulengeromyrus_knoepffleri_SRR8717394,Boulengeromyrus,knoepffleri,Boulengeromyrus knoepffleri,BP,https://macaulaylibrary.org/asset/510698,Macaulay Library
+101,Gnathonemus_longibarbis_SRR8892979,Gnathonemus,longibarbis,Gnathonemus longibarbis,??,,
+140,Brevimyrus_niger_SRR8885151,Brevimyrus,niger,Brevimyrus niger,TP,https://macaulaylibrary.org/asset/528267,Macaulay Library
+52,Brienomyrus_brachyistius_SRR8885730,Brienomyrus,brachyistius,Brienomyrus brachyistius,TP,https://macaulaylibrary.org/asset/510709,Macaulay Library
+53,Brienomyrus_longianalis_SRR8885729,Brienomyrus,longianalis,Brienomyrus longianalis,??,,
+76,Hippopotamyrus_pappenheimi_58_A07,Hippopotamyrus,pappenheimi,Hippopotamyrus pappenheimi,??,,Ask John?
+64,Hippopotamyrus_paugyi_58_B05,Hippopotamyrus,paugyi,Hippopotamyrus paugyi,??,,Ask John?
+78,Hippopotamyrus_szaboi_67_A08,Hippopotamyrus,szaboi,Hippopotamyrus szaboi,??,,Ask John?
+106,Campylomormyrus_alces_56_B07,Campylomormyrus,alces,Campylomormyrus alces,BP,https://macaulaylibrary.org/asset/510469,Macaulay Library
+114,Campylomormyrus_curvirostris_56_A09,Campylomormyrus,curvirostris,Campylomormyrus curvirostris,BP,https://macaulaylibrary.org/asset/510427,Macaulay Library
+51,Isicthys_henryi_SRR8893254,Isicthys,henryi,Isicthys henryi,BP,,I HAVE THIS
+105,Campylomormyrus_elephas_58_B03,Campylomormyrus,elephas,Campylomormyrus elephas,TP,https://macaulaylibrary.org/asset/510426,Macaulay Library
+113,Campylomormyrus_numenius_SRR8717166,Campylomormyrus,numenius,Campylomormyrus numenius,BP,https://macaulaylibrary.org/asset/510412,Macaulay Library
+108,Campylomormyrus_phantasticus_56_G01,Campylomormyrus,phantasticus,Campylomormyrus phantasticus,TP,https://macaulaylibrary.org/asset/528716,Macaulay Library
+71,Marcusenius_cyprinoides_58_A12,Marcusenius,cyprinoides,Marcusenius cyprinoides,??,,
+67,Marcusenius_friteli_64_G12,Marcusenius,friteli,Marcusenius friteli,??,,
+111,Campylomormyrus_rhynchophorus_58_F05,Campylomormyrus,rhynchophorus,Campylomormyrus rhynchophorus,BP,https://macaulaylibrary.org/asset/510413,Macaulay Library
+91,Marcusenius_intermedius_64_C02,Marcusenius,intermedius,Marcusenius intermedius,??,,
+92,Marcusenius_kaninginii_JPS_25,Marcusenius,kaninginii,Marcusenius kaninginii,??,,https://www.researchgate.net/publication/305541567_Marcusenius_kaninginii_a_new_species_of_elephantfish_from_the_lowa_river_basin_democratic_republic_of_the_congo_Osteoglossiformes_Mormyridae
+103,Campylomormyrus_tamandua_SRR8717220,Campylomormyrus,tamandua,Campylomormyrus tamandua,TP,https://macaulaylibrary.org/asset/510414,Macaulay Library
+110,Campylomormyrus_compressirostris_SRR1662225,Campylomormyrus,compressirostris,Campylomormyrus compressirostris,BP,,https://link.springer.com/article/10.1007/s10641-016-0554-1
+109,Campylomormyrus_tshokwe_SRR1662282,Campylomormyrus,tshokwe,Campylomormyrus tshokwe,BP,,https://link.springer.com/article/10.1007/s10641-016-0554-1
+80,Marcusenius_livingstonii_58_D04,Marcusenius,livingstonii,Marcusenius livingstonii,??,,
+68,Marcusenius_mento_58_A08,Marcusenius,mento,Marcusenius mento,??,,
+98,Cyphomyrus_cubangoensis_58_C06,Cyphomyrus,cubangoensis,Cyphomyrus cubangoensis,TP,,https://www.tandfonline.com/doi/full/10.1080/00222933.2011.597945#d1e919
+96,Cyphomyrus_discorhynchus_SRR8717165,Cyphomyrus,discorhynchus,Cyphomyrus discorhynchus,TP,,https://www.tandfonline.com/doi/full/10.1080/00222933.2011.597945#d1e919
+97,Cyphomyrus_psittacus_56_C05,Cyphomyrus,psittacus,Cyphomyrus psittacus,TP,https://macaulaylibrary.org/asset/510385,Macaulay Library
+75,Marcusenius_pongolensis_64_B07,Marcusenius,pongolensis,Marcusenius pongolensis,??,,
+83,Genyomyrus_donnyi_SRR8892965,Genyomyrus,donnyi,Genyomyrus donnyi,TP,https://macaulaylibrary.org/asset/510329,Macaulay Library
+85,Gnathonemus_echidnorhynchus_SRR8892972,Gnathonemus,echidnorhynchus,Gnathonemus echidnorhynchus,TP,https://macaulaylibrary.org/asset/510346,Macaulay Library
+1,Gymnarchidae_Gymnarchus_niloticus_SRR6398557,Gymnarchus,niloticus,Gymnarchus niloticus,MP,,Own Collection
+88,Marcusenius_sp_ruiki_ms_56_B11,Marcusenius,sp,Marcusenius sp,??,,
+66,Hippopotamyrus_castor_56_G05,Hippopotamyrus,castor,Hippopotamyrus castor,TP,https://macaulaylibrary.org/asset/528728,Macaulay Library
+63,Marcusenius_thomasi_64_G06,Marcusenius,thomasi,Marcusenius thomasi,??,,
+94,Hippopotamyrus_weeksii_56_C09,Hippopotamyrus,weeksii,Hippopotamyrus weeksii,BP,Hippopotamyrus weeksii,Macaulay Library
+143,Ivindomyrus_marchei_SRR8893272,Ivindomyrus,marchei,Ivindomyrus marchei,BP,https://macaulaylibrary.org/asset/197313,Macaulay Library
+144,Ivindomyrus_opdenboschi_SRR8893535,Ivindomyrus,opdenboschi,Ivindomyrus opdenboschi,BP,https://macaulaylibrary.org/asset/197319,Macaulay Library
+49,Mormyrops_attenuatus_SRR8895278,Mormyrops,attenuatus,Mormyrops attenuatus,??,,
+84,Marcusenius_greshoffii_58_F09,Marcusenius,greshoffii,Marcusenius greshoffii,TP,https://macaulaylibrary.org/asset/510433,Macaulay Library
+87,Marcusenius_kutuensis_64_D03,Marcusenius,kutuensis,Marcusenius kutuensis,TP,https://macaulaylibrary.org/asset/528891,Macaulay Library
+86,Marcusenius_leopoldianus_58_C02,Marcusenius,leopoldianus,Marcusenius leopoldianus,TP,https://macaulaylibrary.org/asset/511309,Macaulay Library
+43,Mormyrops_curtus_58_A09,Mormyrops,curtus,Mormyrops curtus,??,,
+46,Mormyrops_engystoma_64_D07,Mormyrops,engystoma,Mormyrops engystoma,??,,
+81,Marcusenius_monteiri_58_F11,Marcusenius,monteiri,Marcusenius monteiri,TP,https://macaulaylibrary.org/asset/510336,Macaulay Library
+93,Marcusenius_moorii_58_F03,Marcusenius,moorii,Marcusenius moorii,BP,https://macaulaylibrary.org/asset/197417,Macaulay Library
+40,Mormyrops_mariae_58_D11,Mormyrops,mariae,Mormyrops mariae,??,,
+50,Mormyrops_masuianus_58_E03,Mormyrops,masuianus,Mormyrops masuianus,??,,
+39,Mormyrops_microstoma_58_G12,Mormyrops,microstoma,Mormyrops microstoma,??,,
+145,Marcusenius_ntemensis_58_H06,Marcusenius,ntemensis,Marcusenius ntemensis,TP,https://macaulaylibrary.org/asset/511258,Macaulay Library
+47,Mormyrops_parvus_64_B05,Mormyrops,parvus,Mormyrops parvus,??,,
+48,Mormyrops_sirenoides_67_H11,Mormyrops,sirenoides,Mormyrops sirenoides,??,,
+90,Marcusenius_schilthuisiae_SRR8893553,Marcusenius,schilthuisiae,Marcusenius schilthuisiae,TP,https://macaulaylibrary.org/asset/510387,Macaulay Library
+82,Marcusenius_stanleyanus_58_F07,Marcusenius,stanleyanus,Marcusenius stanleyanus,TP,https://macaulaylibrary.org/asset/510420,Macaulay Library
+65,Mormryidae_Hippopotamyrus_pictus_SRR8893248,Hippopotamyrus,pictus,Hippopotamyrus pictus,TP,https://macaulaylibrary.org/asset/528274,Macaulay Library
+36,Mormyrops_anguilloides_64_D01,Mormyrops,anguilloides,Mormyrops anguilloides,TP,https://macaulaylibrary.org/asset/510377,Macaulay Library
+44,Mormyrops_boulengeri_SRR8896925,Mormyrops,boulengeri,Mormyrops boulengeri,TP,,https://mormyrids.efishgenomics.com/en/file/482
+35,Mormyrops_caballus_58_G04,Mormyrops,caballus,Mormyrops caballus,TP,https://macaulaylibrary.org/asset/528748,Macaulay Library
+41,Mormyrops_furcidens_56_D11,Mormyrops,furcidens,Mormyrops furcidens,BP,https://macaulaylibrary.org/asset/511360,Macaulay Library
+59,Mormyrus_proboscirostris_SRR8885055,Mormyrus,proboscirostris,Mormyrus proboscirostris,??,,
+42,Mormyrops_lineolatus_58_G08,Mormyrops,lineolatus,Mormyrops lineolatus,BP,https://macaulaylibrary.org/asset/511397,Macaulay Library
+38,Mormyrops_nigricans_58_E07,Mormyrops,nigricans,Mormyrops nigricans,BP,https://macaulaylibrary.org/asset/197486,Macaulay Library
+45,Mormyrops_zanclirostris_SRR8896924,Mormyrops,zanclirostris,Mormyrops zanclirostris,TP,https://macaulaylibrary.org/asset/197332,Macaulay Library
+33,Myomyrus_macrodon_CU808102423,Myomyrus,macrodon,Myomyrus macrodon,??,,
+54,Mormyrus_caballus_58_A04,Mormyrus,caballus,Mormyrus caballus,BP,https://macaulaylibrary.org/asset/510636,Macaulay Library
+31,Myomyrus_pharao_SRR9056052,Myomyrus,pharao,Myomyrus pharao,??,,
+32,Myomyrus_pharao_JPS_13,Myomyrus,pharao,Myomyrus pharao,??,,
+34,Myomyrus_pharao_SRR9214507,Myomyrus,pharao,Myomyrus pharao,??,,
+56,Mormyrus_hasselquistii_SRR9055927,Mormyrus,hasselquistii,Mormyrus hasselquistii,BP,https://macaulaylibrary.org/asset/528275,Macaulay Library
+55,Mormyrus_ovis_58_A06,Mormyrus,ovis,Mormyrus ovis,BP,https://macaulaylibrary.org/asset/510661,Macaulay Library
+61,Mormyrus_rume_58_H08,Mormyrus,rume,Mormyrus rume,BP,https://macaulaylibrary.org/asset/510403,Macaulay Library
+62,Mormyrus_tapirus,Mormyrus,tapirus,Mormyrus tapirus,BP,https://macaulaylibrary.org/asset/528752,Macaulay Library
+102,Morymridae_Gnathonemus_petersii,Gnathonemus,petersii,Gnathonemus petersii,TP,https://macaulaylibrary.org/asset/510356,Macaulay Library
+30,Myomyrus_macrops_SRR8893573,Myomyrus,macrops,Myomyrus macrops,TP,https://macaulaylibrary.org/asset/510617,Macaulay Library
+146,Paramormyrops_batesii_CU79740B,Paramormyrops,batesii,Paramormyrops batesii,TP,https://macaulaylibrary.org/asset/197410,Macaulay Library
+149,Paramormyrops_BON_58_B06,Paramormyrops,BON,Paramormyrops BON,TP,,Own Collection
+161,Paramormyrops_curvifrons_58_C01,Paramormyrops,curvifrons,Paramormyrops curvifrons,BP,https://macaulaylibrary.org/asset/197349,Macaulay Library
+152,Paramormyrops_gabonensis_64_C06,Paramormyrops,gabonensis,Paramormyrops gabonensis,BP,https://macaulaylibrary.org/asset/511656,Macaulay Library
+153,Paramormyrops_hopkinsi_SRR9214432,Paramormyrops,hopkinsi,Paramormyrops hopkinsi,BP,https://macaulaylibrary.org/asset/511704,Macaulay Library
+158,Paramormyrops_kingsleyae_SRR6507961,Paramormyrops,kingsleyae,Paramormyrops kingsleyae,TP,https://macaulaylibrary.org/asset/197372,Macaulay Library
+148,Paramormyrops_lissmanni_ms_56_C01,Paramormyrops,lissmanni,Paramormyrops lissmanni,TP,,Pers Comm.
+160,Paramormyrops_longicaudatus_64_D10,Paramormyrops,longicaudatus,Paramormyrops longicaudatus,BP,https://macaulaylibrary.org/asset/197363,Macaulay Library
+151,Paramormyrops_mag_SRR9214510,Paramormyrops,mag,Paramormyrops mag,TP,,https://onlinelibrary.wiley.com/doi/abs/10.1111/j.0014-3820.2002.tb01370.x
+168,Paramormyrops_NGO_58_H09,Paramormyrops,NGO,Paramormyrops NGO,BP,,https://onlinelibrary.wiley.com/doi/abs/10.1111/j.0014-3820.2002.tb01370.x
+162,Paramormyrops_ntotom_64_B01,Paramormyrops,ntotom,Paramormyrops ntotom,BP,https://macaulaylibrary.org/asset/197305,Macaulay Library
+154,Paramormyrops_sp1_58_D12,Paramormyrops,sp1,Paramormyrops sp1,??,,
+155,Paramormyrops_sp2_64_G04,Paramormyrops,sp2,Paramormyrops sp2,??,,
+157,Paramormyrops_sp3_64_G07,Paramormyrops,sp3,Paramormyrops sp3,??,,
+159,Paramormyrops_OFF_58_C04,Paramormyrops,OFF,Paramormyrops OFF,BP,,https://onlinelibrary.wiley.com/doi/abs/10.1111/j.0014-3820.2002.tb01370.x
+156,Paramormyrops_PAR_58_H07,Paramormyrops,PAR,Paramormyrops PAR,BP,,https://onlinelibrary.wiley.com/doi/abs/10.1111/j.0014-3820.2002.tb01370.x
+79,Paramormyrops_taverneii_JPS_1008,Paramormyrops,taverneii,Paramormyrops taverneii,??,,ASK JOHN
+169,Paramormyrops_SN2_58_E05,Paramormyrops,SN2,Paramormyrops SN2,BP,,https://onlinelibrary.wiley.com/doi/abs/10.1111/j.0014-3820.2002.tb01370.x
+163,Paramormyrops_SN3_58_A03,Paramormyrops,SN3,Paramormyrops SN3,BP,,https://onlinelibrary.wiley.com/doi/abs/10.1111/j.0014-3820.2002.tb01370.x
+167,Paramormyrops_SN7_56_D07,Paramormyrops,SN7,Paramormyrops SN7,BP,,https://onlinelibrary.wiley.com/doi/abs/10.1111/j.0014-3820.2002.tb01370.x
+165,Paramormyrops_SN9_64_C04,Paramormyrops,SN9,Paramormyrops SN9,BP,,https://onlinelibrary.wiley.com/doi/abs/10.1111/j.0014-3820.2002.tb01370.x
+164,Paramormyrops_sphekodes_58_C10,Paramormyrops,sphekodes,Paramormyrops sphekodes,BP,https://macaulaylibrary.org/asset/197474,Macaulay Library
+147,Paramormyrops_SZA_58_H11,Paramormyrops,SZA,Paramormyrops SZA,TP,,https://onlinelibrary.wiley.com/doi/abs/10.1111/j.0014-3820.2002.tb01370.x
+150,Paramormyrops_TEN_58_H02,Paramormyrops,TEN,Paramormyrops TEN,BP,,https://onlinelibrary.wiley.com/doi/abs/10.1111/j.0014-3820.2002.tb01370.x
+166,Paramormyrops_TEU_58_C12,Paramormyrops,TEU,Paramormyrops TEU,BP,,https://onlinelibrary.wiley.com/doi/abs/10.1111/j.0014-3820.2002.tb01370.x
+8,Petrocephalus_arnegardi_56_H11,Petrocephalus,arnegardi,Petrocephalus arnegardi,BP,https://macaulaylibrary.org/asset/135561,Macaulay Library
+7,Petrocephalus_balayi_58_D06,Petrocephalus,balayi,Petrocephalus balayi,BP,https://macaulaylibrary.org/asset/514224,Macaulay Library
+11,Petrocephalus_levequei_64_G05,Petrocephalus,levequei,Petrocephalus levequei,??,,
+6,Petrocephalus_binotatus_64_E02,Petrocephalus,binotatus,Petrocephalus binotatus,BP,,https://mapress.com/zt/article/view/zootaxa.2600.1.1
+21,Petrocephalus_magnitrunci_67_D07,Petrocephalus,magnitrunci,Petrocephalus magnitrunci,??,,
+19,Petrocephalus_magnoculis_67_D09,Petrocephalus,magnoculis,Petrocephalus magnoculis,??,,
+5,Petrocephalus_boboto_58_B12,Petrocephalus,boboto,Petrocephalus boboto,BP,https://macaulaylibrary.org/asset/510505,Macaulay Library
+10,Petrocephalus_bovei_58_G11,Petrocephalus,bovei,Petrocephalus bovei,BP,https://macaulaylibrary.org/asset/528270,Macaulay Library
+26,Petrocephalus_christyi_58_B02,Petrocephalus,christyi,Petrocephalus christyi,BP,https://macaulaylibrary.org/asset/510402,Macaulay Library
+25,Petrocephalus_grandoculis_58_B08,Petrocephalus,grandoculis,Petrocephalus grandoculis,BP,https://macaulaylibrary.org/asset/510431,Macaulay Library
+15,Petrocephalus_pellegrini_58_G07,Petrocephalus,pellegrini,Petrocephalus pellegrini,??,,
+2,Petrocephalus_microphthalmus_SRR6399355,Petrocephalus,microphthalmus,Petrocephalus microphthalmus,BP,https://macaulaylibrary.org/asset/197442,Macaulay Library
+9,Petrocephalus_odzalaensis_58_H03,Petrocephalus,odzalaensis,Petrocephalus odzalaensis,BP,https://macaulaylibrary.org/asset/514395,Macaulay Library
+29,Petrocephalus_pulsivertens_64_A04,Petrocephalus,pulsivertens,Petrocephalus pulsivertens,BP,https://macaulaylibrary.org/asset/514418,Macaulay Library
+16,Petrocephalus_sp_1,Petrocephalus,sp,Petrocephalus sp,??,,
+28,Petrocephalus_sp_2_64_G10,Petrocephalus,sp,Petrocephalus sp,??,,
+13,Petrocephalus_sp1_58_G09,Petrocephalus,sp1,Petrocephalus sp1,??,,
+22,Petrocephalus_squalostoma_58_B10,Petrocephalus,squalostoma,Petrocephalus squalostoma,??,,
+27,Petrocephalus_sauvagii_64_D12,Petrocephalus,sauvagii,Petrocephalus sauvagii,BP,Petrocephalus sauvagii,Macaulay Library
+3,Petrocephalus_schoutedeni_SRR9214420,Petrocephalus,schoutedeni,Petrocephalus schoutedeni,BP,https://macaulaylibrary.org/asset/510488,Macaulay Library
+24,Petrocephalus_sullivani_SRR6410432,Petrocephalus,sullivani,Petrocephalus sullivani,BP,https://macaulaylibrary.org/asset/197345,Macaulay Library
+17,Petrocephalus_valentini_64_C03,Petrocephalus,valentini,Petrocephalus valentini,BP,https://macaulaylibrary.org/asset/514363,Macaulay Library
+18,Petrocephalus_zakoni_SRR9214598,Petrocephalus,zakoni,Petrocephalus zakoni,BP,https://macaulaylibrary.org/asset/514321,Macaulay Library
+134,Pollimyrus_isidori_SRR9215378,Pollimyrus,isidori,Pollimyrus isidori,TP,https://macaulaylibrary.org/asset/510487,Macaulay Library
+125,Pollimyrus_maculipinnis_58_B11,Pollimyrus,maculipinnis,Pollimyrus maculipinnis,??,,
+132,Pollimyrus_nigricans_58_G02,Pollimyrus,nigricans,Pollimyrus nigricans,TP,https://macaulaylibrary.org/asset/528262,Macaulay Library
+129,Pollimyrus_nigripinnis_58_B07,Pollimyrus,nigripinnis,Pollimyrus nigripinnis,TP,https://macaulaylibrary.org/asset/510503,Macaulay Library
+130,Pollimyrus_osborni_64_A02,Pollimyrus,osborni,Pollimyrus osborni,??,,
+126,Pollimyrus_pedunculatus_58_D05,Pollimyrus,pedunculatus,Pollimyrus pedunculatus,??,,
+135,Pollimyrus_petricolus_64_E04,Pollimyrus,petricolus,Pollimyrus petricolus,??,,
+128,Pollimyrus_plagiostoma_SRR9214508,Pollimyrus,plagiostoma,Pollimyrus plagiostoma,TP,https://macaulaylibrary.org/asset/510380,Macaulay Library
+131,Pollimyrus_pulverulentus_58_E08,Pollimyrus,pulverulentus,Pollimyrus pulverulentus,??,,
+127,Pollimyrus_schreyeni_58_E12,Pollimyrus,schreyeni,Pollimyrus schreyeni,??,,
+133,Pollimyrus_sp1_67_H03,Pollimyrus,sp1,Pollimyrus sp1,??,,
+136,Pollimyrus_sp2_67_G06,Pollimyrus,sp2,Pollimyrus sp2,??,,
+137,Pollimyrus_sp3_JPS_1031,Pollimyrus,sp3,Pollimyrus sp3,??,,
+139,Pollimyrus_stappersii_JPS_1001,Pollimyrus,stappersii,Pollimyrus stappersii,??,,
+121,Stomatorhinus_fuliginosus_58_H04,Stomatorhinus,fuliginosus,Stomatorhinus fuliginosus,??,,
+123,Stomatorhinus_humilior_58_F12,Stomatorhinus,humilior,Stomatorhinus humilior,??,,
+118,Stomatorhinus_ivindoensis_SRR9214431,Stomatorhinus,ivindoensis,Stomatorhinus ivindoensis,TP,https://macaulaylibrary.org/asset/514484,Macaulay Library
+120,Stomatorhinus_kununguensis_58_F06,Stomatorhinus,kununguensis,Stomatorhinus kununguensis,??,,
+122,Stomatorhinus_microps_58_C11,Stomatorhinus,microps,Stomatorhinus microps,??,,
+117,Stomatorhinus_patrizii_58_F02,Stomatorhinus,patrizii,Stomatorhinus patrizii,TP,https://macaulaylibrary.org/asset/528168,Macaulay Library
+124,Stomatorhinus_polylepis_64_E06,Stomatorhinus,polylepis,Stomatorhinus polylepis,??,,
+119,Stomatorhinus_walkeri_SRR9214424,Stomatorhinus,walkeri,Stomatorhinus walkeri,TP,https://macaulaylibrary.org/asset/197416,Macaulay Library
