@@ -10,7 +10,7 @@ root <- rprojroot::find_root(".git/index")
 knitr::opts_knit$set(root.dir = root)
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_chunk$set(crop = TRUE)
-library(tidyverse)  # Includes ggplot2 and other data manipulation packages
+library(tidyverse) # Includes ggplot2 and other data manipulation packages
 library(data.table)
 library(ape)
 library(phytools)
@@ -18,61 +18,64 @@ library(castor)
 ```
 
 ```{r}
-snp_tree<-paramormyropstree
-fish_data<-read.csv2('~/Desktop/paramormyrops_phenotypes.csv',row.names=1,header=F,sep=",")
+snp_tree <- paramormyropstree
+fish_data_file <- file.path(root, "input_data/04_Phylogenomics/paramormyrops_phenotypes.csv")
+
+fish_data <- read.csv2(fish_data_file, row.names = 1, header = F, sep = ",")
 ```
 
 Is there any missing samples between the phenotype file and the tree?
 ```{r}
-phylo_samps<-snp_tree$tip.label
-pheno_discrete_samps<-rownames(fish_data)
-setdiff(phylo_samps,pheno_discrete_samps)
+phylo_samps <- snp_tree$tip.label
+pheno_discrete_samps <- rownames(fish_data)
+setdiff(phylo_samps, pheno_discrete_samps)
 ```
 
 # Organize phenotypes so that there are three (TP, BP and Wobble)
 ```{r}
-phenos<-setNames(as.character(fish_data$V2), row.names(fish_data))
-phenos<-as.factor(phenos)
-## set colors for plotting 
-cols<-setNames(c("blue","red"),levels(phenos)) 
-
+phenos <- setNames(as.character(fish_data$V2), row.names(fish_data))
+phenos <- as.factor(phenos)
+## set colors for plotting
+cols <- setNames(c("blue", "red"), levels(phenos))
 ```
 
 ```{r}
-plotTree(snp_tree
-  ,mar=c(4.1,1.1,0.1,1.1))
+plotTree(snp_tree,
+  mar = c(4.1, 1.1, 0.1, 1.1)
+)
 axis(1)
-title(xlab="relative time before present")
-abline(v=seq(0,15,by=5),lty="dotted",col="grey")
-tiplabels(pie=to.matrix(phenos[snp_tree$tip.label], levels(phenos)), piecol=cols, cex=0.3)
+title(xlab = "relative time before present")
+abline(v = seq(0, 15, by = 5), lty = "dotted", col = "grey")
+tiplabels(pie = to.matrix(phenos[snp_tree$tip.label], levels(phenos)), piecol = cols, cex = 0.3)
 ```
 
 
 
 ```{r}
-## fit ER model 
-fitER<-fitMk(snp_tree,phenos,model="ER") 
-## fit ARD model 
-fitARD<-fitMk(snp_tree,phenos,model="ARD") 
+## fit ER model
+fitER <- fitMk(snp_tree, phenos, model = "ER")
+## fit ARD model
+fitARD <- fitMk(snp_tree, phenos, model = "ARD")
 ## fit SYM model
-fitSYM<-fitMk(snp_tree,phenos,model="SYM")
+fitSYM <- fitMk(snp_tree, phenos, model = "SYM")
 ```
 
 ```{r}
-## extract AIC values for each model 
-aic<-c(AIC(fitER),AIC(fitARD),AIC(fitSYM)) 
-## print summary table 
+## extract AIC values for each model
+aic <- c(AIC(fitER), AIC(fitARD), AIC(fitSYM))
+## print summary table
 
-model_summary<-data.frame(
-  model=c("ER","ARD","Symmetric"), 
-  logL=c(logLik(fitER),logLik(fitARD),logLik(fitSYM)), 
-  AIC=aic,delta.AIC=aic-min(aic),
-  weight=unclass(aic.w(aic)))
+model_summary <- data.frame(
+  model = c("ER", "ARD", "Symmetric"),
+  logL = c(logLik(fitER), logLik(fitARD), logLik(fitSYM)),
+  AIC = aic, delta.AIC = aic - min(aic),
+  weight = unclass(aic.w(aic))
+)
 
 model_summary
 ```
 ```{r, fig.width=4, fig.height=4}
-  plot(fitER, width=TRUE, color=TRUE, cex.rates=0.9, main="ER Model") # Add a main title with the tree name
+plot(fitER, width = TRUE, color = TRUE, cex.rates = 0.9, main = "ER Model") # Add a main title with the tree name
 ```
 
 ## Perform Stochastic Character Mapping
@@ -80,10 +83,10 @@ model_summary
 See Revell & Harmon (2022) "Comparative Phylogenetic Comparative Methods in R", page 245.
 
 ```{r}
-mtrees<-make.simmap(snp_tree,phenos,model="ER",nsim=1000,Q="mcmc",vQ=0.01, prior=list(use.empirical=TRUE),samplefreq=10)
+mtrees <- make.simmap(snp_tree, phenos, model = "ER", nsim = 1000, Q = "mcmc", vQ = 0.01, prior = list(use.empirical = TRUE), samplefreq = 10)
 ```
 ```{r}
-pd<-summary(mtrees)
+pd <- summary(mtrees)
 pd
 ```
 
@@ -91,37 +94,40 @@ Let's examine the distribution of changes that we see.
 
 Interestingly, about 6 transitions directly from TP->BP (on average) (see http://blog.phytools.org/2022/07/understanding-number-of-changes-of.html)
 ```{r}
-dd<-density(mtrees)
+dd <- density(mtrees)
 dd
 ```
 
 We can look at these densities graphically as well...
 ```{r, fig.height=12}
-plot(dd,colors=c("orange","lightgreen","lightblue"),alpha=0.5)
-
+plot(dd, colors = c("orange", "lightgreen", "lightblue"), alpha = 0.5)
 ```
 ```{r}
-all_trees<-as.data.frame(countSimmap(mtrees,c("BP","TP")))
+all_trees <- as.data.frame(countSimmap(mtrees, c("BP", "TP")))
 
-all_trees<-rownames_to_column(all_trees, "treeno")
-all_trees<-all_trees %>% arrange(Tr.N)
+all_trees <- rownames_to_column(all_trees, "treeno")
+all_trees <- all_trees %>% arrange(Tr.N)
 head(all_trees)
 ```
 ```{r, fig.width=12}
-## create a plot showing PP at all nodes of the tree 
-plot(pd,colors=cols,fsize=1,ftype="i",lwd=2,
-offset=0.4,ylim=c(-1,Ntip(snp_tree)),cex=c(0.5,0.3)) 
+## create a plot showing PP at all nodes of the tree
+plot(pd,
+  colors = cols, fsize = 1, ftype = "i", lwd = 2,
+  offset = 0.4, ylim = c(-1, Ntip(snp_tree)), cex = c(0.5, 0.3)
+)
 ## add a legend
-legend("bottomleft",legend=levels(phenos),pch=22, pt.cex=1.5,pt.bg=cols,bty="n",cex=0.8)
+legend("bottomleft", legend = levels(phenos), pch = 22, pt.cex = 1.5, pt.bg = cols, bty = "n", cex = 0.8)
 ```
 
 ```{r,fig.width=12}
-gp.int<-as.numeric(phenos);
-names(gp.int)<-names(phenos)  
-gp.int <- gp.int[match(snp_tree$tip.label,names(gp.int))]
-anc.mp <- asr_max_parsimony(snp_tree,gp.int)
+gp.int <- as.numeric(phenos)
+names(gp.int) <- names(phenos)
+gp.int <- gp.int[match(snp_tree$tip.label, names(gp.int))]
+anc.mp <- asr_max_parsimony(snp_tree, gp.int)
 plot(snp_tree)
-tiplabels(pie=model.matrix(~as.factor(gp.int)-1),piecol=cols,cex=0.3)
-nodelabels(node=1:snp_tree$Nnode+Ntip(snp_tree),
-           pie=anc.mp$ancestral_likelihoods,piecol=cols,cex=0.3)
+tiplabels(pie = model.matrix(~ as.factor(gp.int) - 1), piecol = cols, cex = 0.3)
+nodelabels(
+  node = 1:snp_tree$Nnode + Ntip(snp_tree),
+  pie = anc.mp$ancestral_likelihoods, piecol = cols, cex = 0.3
+)
 ```
