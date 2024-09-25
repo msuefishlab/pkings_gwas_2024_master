@@ -1,0 +1,133 @@
+---
+title: "Reconstruction of EOD Waveform Type Evolution in Paramormyrops kingsleyae using Parsimony, Stochastic Character Mapping and Joint Ancesteral Reconstruction"
+output: html_notebook
+params:
+  data_path: NULL
+  output_file: NULL
+---
+```{r setup, include=FALSE}
+root <- rprojroot::find_root(".git/index")
+knitr::opts_knit$set(root.dir = root)
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(crop = TRUE)
+library(tidyverse)  # Includes ggplot2 and other data manipulation packages
+library(data.table)
+library(ape)
+library(phytools)
+library(castor)
+library(corHMM)
+```
+
+# Set up analysis
+Specify the paths for the various input phylogenetic trees and phenotypic data
+```{r}
+treefile<-file.path(root,"output_data/04_Phylogeny_And_Admixture/MIC4273_HAP2_NEWREF_MSU618_all_fish_all_sites.FILTERED_BIALLELIC_SNPS_ONLY.renamed_extracted_gcf_tree.cf.tree")
+fish_data_file<-file.path(root,"input_data/01_Terra/data_model/fish_data_2024a.txt")
+```
+
+```{r}
+snp_tree<-read.tree(treefile)
+fish_data<-read.csv(fish_data_file,row.names=1,sep="\t")
+
+pheno_discrete <- fish_data %>% 
+  mutate(Phenotype = factor(Phenotype)) %>%
+  select(Phenotype)
+```
+
+Is there any missing samples between the phenotype file and the tree?
+```{r}
+phylo_samps<-snp_tree$tip.label
+pheno_discrete_samps<-rownames(pheno_discrete)
+setdiff(phylo_samps,pheno_discrete_samps)
+```
+
+# Clean Up Tree
+
+For reasons that I can't really understand, joint reconstruction fails because of the long branches of PVAD_5505 AND PSZA_454.  So here, I'm going to drop PVAD_5505 and root the tree in PSZA_454.
+```{r}
+rooted_snp_tree<-root(snp_tree,outgroup="PSZA_454", resolve.root=TRUE)
+
+rooted_snp_tree<-drop.tip(rooted_snp_tree,"PVAD_5505")
+```
+
+# Create a Time Calibrated Chronogram
+Estimates of crown age come from timetree.org and Peterson et al. 2023 phylogeny
+```{r}
+mycalibration=makeChronosCalib(rooted_snp_tree,node="root",age.min=8.30,age.max=9.96)
+ultrametric_rooted_tree <- chronos(rooted_snp_tree, lambda = .1, model = "relaxed", calibration = mycalibration, control = chronos.control(dual.iter.max=100) )
+```
+
+# Organize Phenotypes
+Need to categorize assigned phenotypes as TP and BP, and for now we are converting wobbles for illustrative purposes.
+```{r}
+phenos<-setNames(as.character(pheno_discrete$Phenotype), row.names(pheno_discrete))
+phenos <- gsub("TYPE_II", "TP", phenos)
+phenos <- gsub("TYPE_I", "TP", phenos)
+phenos<-as.factor(phenos)
+## set colors for plotting 
+
+newphenos<-phenos[snp_tree$tip.label]
+newphenos['APA_193']<-'TP'
+newphenos['BAM_165']<-'BP'
+newphenos<-droplevels(newphenos)
+cols<-setNames(c("blue","red"),levels(newphenos)) 
+```
+
+# View Extant Character Distribution on the Phylogeny
+```{r}
+plotTree(ultrametric_rooted_tree
+  ,mar=c(4.1,1.1,0.1,1.1))
+axis(1)
+title(xlab="millions of years since mrca")
+abline(v=seq(0,10,by=2),lty="dotted",col="grey")
+tiplabels(pie=to.matrix(newphenos[ultrametric_rooted_tree$tip.label], levels(newphenos)), piecol=cols, cex=0.3)
+```
+# Using Parsimony to reconstruct character evolution.
+See pg. 251 of Revell & Harmon (2022) "Comparative Phylogenetic Comparative Methods in R" - assumes rate of evolution is very slow.
+```{r,fig.width=12}
+gp.int<-as.numeric(newphenos);
+names(gp.int)<-names(newphenos)  
+gp.int <- gp.int[match(ultrametric_rooted_tree$tip.label,names(gp.int))]
+anc.mp <- asr_max_parsimony(ultrametric_rooted_tree,gp.int)
+plot(ultrametric_rooted_tree)
+tiplabels(pie=model.matrix(~as.factor(gp.int)-1),piecol=cols,cex=0.3)
+nodelabels(node=1:ultrametric_rooted_tree$Nnode+Ntip(ultrametric_rooted_tree),
+           pie=anc.mp$ancestral_likelihoods,piecol=cols,cex=0.3)
+```
+# Joint Character Estimation
+See pg. 238 Revell & Harmon (2022) "Comparative Phylogenetic Comparative Methods in R":
+In joint ancestral state reconstruction, what we do is ask which set of character values at all the internal nodes maximizes the probability of obtaining the values for the character that we’ve observed at the tips of the tree, given our model.
+
+Approach outlined here: http://blog.phytools.org/2024/04/a-few-useful-demos-on-ancestral-state.html
+```{r}
+## fit ER model 
+fitER<-fitMk(ultrametric_rooted_tree,newphenos,model="ER", pi=c(0,1)) 
+## fit ARD model 
+fitARD<-fitMk(ultrametric_rooted_tree,newphenos,model="ARD",pi=c(0,1))
+## fit SYM model
+fitSYM<-fitMk(ultrametric_rooted_tree,newphenos,model="SYM",pi=c(0,1))
+```
+
+```{r}
+model_aov<-anova(fitER,
+  fitARD,fitSYM)
+
+```
+
+
+```{r}
+paramormyrops_ancr<-ancr(fitER, type="joint")
+paramormyrops_ancr
+```
+```{r, fig.width=12}
+obj<-plot(paramormyrops_ancr,
+  legend=FALSE,piecol=cols)
+legend("bottomright",levels(newphenos),
+  pch=16,col=obj$piecol,bty="n",cex=0.8,
+  pt.cex=1.5)
+
+```
+```{r}
+wavetype_hrm<-fitHRM(ultrametric_rooted_tree,newphenos,ncat=2,pi=(c(0,1)),parallel=TRUE,niter=20)
+
+```

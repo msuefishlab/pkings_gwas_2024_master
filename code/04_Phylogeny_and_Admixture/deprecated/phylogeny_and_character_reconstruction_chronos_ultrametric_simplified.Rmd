@@ -1,0 +1,176 @@
+---
+title: "Phylogenetic Reconstruction of BP, TP and Wobbles"
+output: html_notebook
+params:
+  data_path: NULL
+  output_file: NULL
+---
+```{r setup, include=FALSE}
+root <- rprojroot::find_root(".git/index")
+knitr::opts_knit$set(root.dir = root)
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(crop = TRUE)
+library(tidyverse)  # Includes ggplot2 and other data manipulation packages
+library(data.table)
+library(ape)
+library(phytools)
+library(castor)
+
+```
+
+# Set up analysis
+Specify the paths for the various input phylogenetic trees and phenotypic data
+```{r}
+treefile<-file.path(root,"output_data/04_Phylogeny_And_Admixture/MIC4273_HAP2_NEWREF_MSU618_all_fish_all_sites.FILTERED_BIALLELIC_SNPS_ONLY.renamed_extracted_gcf_tree.cf.tree")
+fish_data_file<-file.path(root,"input_data/01_Terra/data_model/fish_data_2024a.txt")
+```
+
+```{r}
+snp_tree<-read.tree(treefile)
+fish_data<-read.csv(fish_data_file,row.names=1,sep="\t")
+
+pheno_discrete <- fish_data %>% 
+  mutate(Phenotype = factor(Phenotype)) %>%
+  select(Phenotype)
+```
+
+Is there any missing samples between the phenotype file and the tree?
+```{r}
+phylo_samps<-snp_tree$tip.label
+pheno_discrete_samps<-rownames(pheno_discrete)
+setdiff(phylo_samps,pheno_discrete_samps)
+```
+
+# Root the tree based on the *Paramormyrops szaboi*
+```{r}
+paramormyrops_mrca<-getMRCA(snp_tree,c("PVAD_5505","PSZA_454"))
+
+rooted_snp_tree<-root(snp_tree,node=paramormyrops_mrca, resolve.root=TRUE)
+```
+
+# Create a Time Calibrated Chronogram of the *Paramormyrops* populations with a maximum age based on the above estimate
+```{r}
+mycalibration=makeChronosCalib(rooted_snp_tree,node="root",age.min=8.30,age.max=9.96)
+ultrametric_rooted_tree <- chronos(rooted_snp_tree, lambda = .1, model = "relaxed", calibration = mycalibration, control = chronos.control(dual.iter.max=100) )
+```
+
+# Organize phenotypes so that there are three (TP, BP and Wobble)
+```{r}
+phenos<-setNames(as.character(pheno_discrete$Phenotype), row.names(pheno_discrete))
+phenos <- gsub("TYPE_II", "TP", phenos)
+phenos <- gsub("TYPE_I", "TP", phenos)
+phenos<-as.factor(phenos)
+## set colors for plotting 
+
+newphenos<-phenos[snp_tree$tip.label]
+newphenos['APA_193']<-'TP'
+newphenos['BAM_165']<-'BP'
+newphenos<-droplevels(newphenos)
+cols<-setNames(c("blue","red"),levels(newphenos)) 
+```
+
+```{r}
+plotTree(ultrametric_rooted_tree
+  ,mar=c(4.1,1.1,0.1,1.1))
+axis(1)
+title(xlab="millions of years since mrca")
+abline(v=seq(0,10,by=2),lty="dotted",col="grey")
+tiplabels(pie=to.matrix(newphenos[ultrametric_rooted_tree$tip.label], levels(newphenos)), piecol=cols, cex=0.3)
+```
+
+```{r,fig.width=12}
+gp.int<-as.numeric(newphenos);
+names(gp.int)<-names(newphenos)  
+gp.int <- gp.int[match(ultrametric_rooted_tree$tip.label,names(gp.int))]
+anc.mp <- asr_max_parsimony(ultrametric_rooted_tree,gp.int)
+plot(ultrametric_rooted_tree)
+tiplabels(pie=model.matrix(~as.factor(gp.int)-1),piecol=cols,cex=0.3)
+nodelabels(node=1:ultrametric_rooted_tree$Nnode+Ntip(ultrametric_rooted_tree),
+           pie=anc.mp$ancestral_likelihoods,piecol=cols,cex=0.3)
+```
+
+```{r}
+## fit ER model 
+fitER<-fitMk(ultrametric_rooted_tree,newphenos,model="ER") 
+## fit ARD model 
+fitARD<-fitMk(ultrametric_rooted_tree,newphenos,model="ARD")
+## fit SYM model
+fitSYM<-fitMk(ultrametric_rooted_tree,newphenos,model="SYM")
+```
+
+```{r}
+## extract AIC values for each model 
+aic<-c(AIC(fitER),AIC(fitARD),AIC(fitSYM)) 
+## print summary table 
+
+model_summary<-data.frame(
+  model=c("ER","ARD","Symmetric"), 
+  logL=c(logLik(fitER),logLik(fitARD),logLik(fitSYM)), 
+  AIC=aic,delta.AIC=aic-min(aic),
+  weight=unclass(aic.w(aic)))
+
+model_summary
+```
+```{r, fig.width=4, fig.height=4}
+  plot(fitER, width=TRUE, color=TRUE, cex.rates=0.9, main="ER Model") # Add a main title with the tree name
+```
+
+
+```{r}
+ultrametric_rooted_tree$node.label<-NULL
+fitER <- ace(newphenos, ultrametric_rooted_tree, model="ER", type="discrete")
+# summary of model fit
+fitER
+```
+
+## Perform Stochastic Character Mapping
+
+See Revell & Harmon (2022) "Comparative Phylogenetic Comparative Methods in R", page 245.
+
+```{r}
+mtrees<-make.simmap(ultrametric_rooted_tree,newphenos,model="ER", nsim=1000,Q="mcmc",vQ=0.01,prior=list(use.empirical=TRUE),samplefreq=10,pi=c(0,1))
+pd<-summary(mtrees)
+pd
+```
+
+Let's examine the distribution of changes that we see.
+
+Interestingly, about 6 transitions directly from TP->BP (on average) (see http://blog.phytools.org/2022/07/understanding-number-of-changes-of.html)
+```{r}
+dd<-density(mtrees)
+dd
+```
+
+We can look at these densities graphically as well...
+```{r, fig.height=12}
+plot(dd,colors=c("orange","lightgreen","lightblue"),alpha=0.5)
+
+```
+```{r}
+all_trees<-as.data.frame(countSimmap(mtrees,c("BP","TP")))
+
+all_trees<-rownames_to_column(all_trees, "treeno")
+all_trees<-all_trees %>% arrange(Tr.N)
+head(all_trees)
+```
+```{r}
+## create a plot showing PP at all nodes of the tree 
+plot(pd,colors=cols,fsize=1,ftype="i",lwd=2,
+offset=0.4,ylim=c(-1,Ntip(ultrametric_rooted_tree)),cex=c(0.5,0.3)) 
+axis(1)
+title(xlab="millions of years before present")
+abline(v=seq(0,10,by=1),lty="dotted",col="grey")
+## add a legend
+legend("bottomleft",legend=levels(newphenos),pch=22, pt.cex=1.5,pt.bg=cols,bty="n",cex=0.8)
+```
+
+
+
+```{r}
+plotTree(ultrametric_rooted_tree,mar=c(4.1,1.1,0.1,1.1),ftype="i",offset=0.4,lwd=2,ylim=c(-1,Ntip(ultrametric_rooted_tree)))
+axis(1)
+title(xlab="millions of years before present")
+abline(v=seq(0,10,by=1),lty="dotted",col="grey")
+nodelabels(pie=fitER$lik.anc, piecol=cols, cex=0.5)
+tiplabels(pie=to.matrix(phenos[ultrametric_rooted_tree$tip.label], levels(phenos)), piecol=cols, cex=0.3)
+```
