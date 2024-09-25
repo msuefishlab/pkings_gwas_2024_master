@@ -112,15 +112,22 @@ fitARD<-fitMk(mormyrotree_pruned,new_phenos,model="ARD")
 ## fit SYM model
 fitSYM<-fitMk(mormyrotree_pruned,new_phenos,model="SYM")
 ```
+```{r}
+## fit directional model
+directional<-matrix(c(0,0,1,2,0,0,3,0,0),3,3,byrow=TRUE)
+rownames(directional)<-levels(new_phenos)
+colnames(directional)<-levels(new_phenos)
+fitDIR<-fitMk(mormyrotree_pruned,new_phenos,model=directional,pi=c(0,1,0))
+```
 
 ```{r}
 ## extract AIC values for each model 
-aic<-c(AIC(fitER),AIC(fitARD),AIC(fitSYM)) 
+aic<-c(AIC(fitER),AIC(fitARD),AIC(fitSYM),AIC(fitDIR))
 ## print summary table 
 
 model_summary<-data.frame(
-  model=c("ER","ARD","Symmetric"), 
-  logL=c(logLik(fitER),logLik(fitARD),logLik(fitSYM)), 
+  model=c("ER","ARD","Symmetric","DIR"), 
+  logL=c(logLik(fitER),logLik(fitARD),logLik(fitSYM),logLik(fitDIR)), 
   AIC=aic,delta.AIC=aic-min(aic),
   weight=unclass(aic.w(aic)))
 
@@ -131,7 +138,7 @@ Evaluating the fits of these models, there is a "virtual tie" between the symmet
 
 
 ```{r, fig.width=4, fig.height=4}
-  plot(fitARD, width=TRUE, color=TRUE, cex.rates=0.9, main="ARD Model") # Add a main title with the tree name
+  plot(fitDIR, width=TRUE, color=TRUE, cex.rates=0.9, main="ARD Model") # Add a main title with the tree name
 ```
 
 ## Perform Stochastic Character Mapping
@@ -141,7 +148,7 @@ The idea here is now that we've decided on a model, we are going to "simulate" e
 
 
 ```{r}
-mle.Q<-as.Qmatrix(fitARD)
+mle.Q<-as.Qmatrix(fitDIR)
 mle.Q
 ```
 ```{r}
@@ -172,21 +179,29 @@ Okay-- the last step is to consolidate all of this information over our runs to 
 ## create a plot showing PP at all nodes of the tree 
 #plot(pd,colors=cols,fsize=0.5,
 #offset=5,cex=c(0.3,0.1),ftype = "i", lwd = 1, fsize = 0.6, direction="upwards",pts=FALSE) 
-
+plot_name<-file.path(root,'output_data/04_Phylogeny_And_Admixture/mormyrid_character_map.svg')
+svg(plot_name, width=12)  # Adjust width as needed
 arctree(mormyrotree_pruned,0.4)
 tiplabels(pie=to.matrix(new_phenos[mormyrotree_pruned$tip.label], levels(new_phenos)), piecol=cols, cex=0.2)
 nodelabels(node=1:mormyrotree_pruned$Nnode+Ntip(mormyrotree_pruned),
            pie=pd$ace,piecol=cols,cex=0.2)
+n<-dev.off()  # Close the SVG device
+knitr::include_graphics(plot_name)
 ```
 What we see is pretty striking, but not terribly different than what we'd get using maximum parsimony:
 
 ```{r,fig.height=12}
+plot_name<-file.path(root,'output_data/04_Phylogeny_And_Admixture/mormyrid_parsimony.svg')
+svg(plot_name, width=12)  # Adjust width as needed
+
 gp.int<-as.numeric(new_phenos);
 names(gp.int)<-names(new_phenos)  
 gp.int <- gp.int[match(mormyrotree_pruned$tip.label,names(gp.int))]
 anc.mp <- asr_max_parsimony(mormyrotree_pruned,gp.int)
-arctree(mormyrotree_pruned,0.4)
+pars_tree<-arctree(mormyrotree_pruned,0.4)
 tiplabels(pie=model.matrix(~as.factor(gp.int)-1),piecol=cols,cex=0.2)
 nodelabels(node=1:mormyrotree_pruned$Nnode+Ntip(mormyrotree_pruned),
            pie=anc.mp$ancestral_likelihoods,piecol=cols,cex=0.2)
+n<-dev.off()  # Close the SVG device
+knitr::include_graphics(plot_name)
 ```
