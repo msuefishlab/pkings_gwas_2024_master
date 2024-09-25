@@ -1,0 +1,33 @@
+#!/bin/bash --login
+
+########## Define Resources Needed with SBATCH Lines ##########
+#SBATCH --export=ALL
+#SBATCH --time=04:00:00             # limit of wall clock time - how long the job will run (same as -t)
+#SBATCH --job-name RUN_IQTREE2    # you can give your job a name for easier identification (same as -J)
+
+
+# Number of MPI tasks needed for use case:
+#SBATCH --ntasks=128
+
+# Processors per task:
+#SBATCH --cpus-per-task=2
+
+# Memory per CPU
+#SBATCH --mem-per-cpu=5G
+########## Command Lines to Run ##########
+
+cd $root
+
+source $root/pkings_gwas.env
+
+module purge; module load foss/2023b Boost/1.83.0-GCC-13.2.0 Eigen/3.4.0-GCCcore-13.2.0 OpenMPI/4.1.6-GCC-13.2.0 CMake/3.27.6-GCCcore-13.2.0
+
+indir=${root}/output_data/04_Phylogeny_And_Admixture/extracted_seqs/actual_data/
+outdir=${root}/output_data/04_Phylogeny_And_Admixture/
+
+mkdir -p ${outdir}
+
+cd ${outdir}
+
+echo srun -n $SLURM_NTASKS -c $SLURM_CPUS_PER_TASK --export=ALL ~/iqtree2/build/iqtree2-mpi -nt $SLURM_CPUS_PER_TASK -safe -S ${indir} --prefix loci_mpi
+srun -n $SLURM_NTASKS -c $SLURM_CPUS_PER_TASK --export=ALL ~/iqtree2/build/iqtree2-mpi -nt $SLURM_CPUS_PER_TASK -safe -S ${indir} --prefix loci_mpi

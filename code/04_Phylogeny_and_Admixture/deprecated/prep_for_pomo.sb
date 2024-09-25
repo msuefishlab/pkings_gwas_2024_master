@@ -1,0 +1,49 @@
+#!/bin/bash --login
+
+########## Define Resources Needed with SBATCH Lines ##########
+
+#SBATCH --time=24:00:00             # limit of wall clock time - how long the job will run (same as -t)
+#SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
+#SBATCH --cpus-per-task=1           # number of CPUs (or cores) per task (same as -c)
+#SBATCH --mem=12G                    # memory required per node - amount of memory (in bytes)
+#SBATCH --job-name CONVERT_VCF_TO_COUNTS      # you can give your job a name for easier identification (same as -J)
+########## Command Lines to Run ##########
+cd $root
+
+source $root/pkings_gwas.env
+
+MYNAME=$(whoami)
+
+indir=${root}/output_data/03_QC/
+outdir=${root}/output_data/04_Phylogeny_And_Admixture/
+refdir=${root}/input_data/00_Reference_Genome/
+popsdir=${root}/input_data/04_Phylogeny_And_Admixture/
+tmpoutdir=${scratch_store}/output_data/04_Phylogeny_And_Admixture/
+
+mkdir -p ${outdir}
+mkdir -p ${tmpoutdir}
+
+OUTROOT=${snps_only_vcf%".vcf.gz"}
+POPBASE=${pop%".pops.args"}
+
+# echo singularity exec --bind $indir:/in_dir --bind ${tmpoutdir}:/out_dir ${gatk_image=$} /gatk/gatk \
+# SelectVariants \
+# -R ${root}/input_data/00_Reference_Genome/${reference} \
+# -V ${indir}/${snps_only_vcf} \
+# --sample-name ${popsdir}/${pop} \
+# -O /tmpoutdir/$POPBASE.vcf.gz \
+# --create-output-variant-index true
+
+# singularity exec --bind $indir:/in_dir --bind ${tmpoutdir}:/out_dir ${gatk_image=$} /gatk/gatk \
+# SelectVariants \
+# -R ${root}/input_data/00_Reference_Genome/${reference} \
+# -V ${indir}/${snps_only_vcf} \
+# --sample-name ${popsdir}/${pop} \
+# -O /out_dir/$POPBASE.vcf.gz \
+# --create-output-variant-index true
+
+conda deactivate
+source ~/cflib_env/bin/activate
+
+echo python3 ~/cflib/scripts/FastaVCFToCounts.py -p 2 -m ${root}/input_data/00_Reference_Genome/${reference} ${tmpoutdir}/$POPBASE.vcf.gz ${outdir}/${POPBASE}.counts
+python3 ~/cflib/scripts/FastaVCFToCounts.py -p 2 -m ${root}/input_data/00_Reference_Genome/${reference} ${tmpoutdir}/$POPBASE.vcf.gz ${outdir}/${POPBASE}.counts

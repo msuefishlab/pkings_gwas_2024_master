@@ -1,0 +1,24 @@
+#!/bin/bash --login
+
+########## Define Resources Needed with SBATCH Lines ##########
+
+#SBATCH --time=24:00:00             # limit of wall clock time - how long the job will run (same as -t)
+#SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
+#SBATCH --cpus-per-task=128           # number of CPUs (or cores) per task (same as -c)
+#SBATCH --mem=0                    # memory required per node - amount of memory (in bytes)
+#SBATCH --job-name RUN_IQTREE2    # you can give your job a name for easier identification (same as -J)
+#SBATCH -A data-machine
+########## Command Lines to Run ##########
+
+cd $root
+
+source $root/pkings_gwas.env
+
+indir=${root}/output_data/04_Phylogeny_And_Admixture/extracted_seqs/actual_data/
+outdir=${root}/output_data/04_Phylogeny_And_Admixture/
+
+mkdir -p ${outdir}
+
+cd ${outdir}
+echo singularity exec ${gwas_tools_image} /iqtree/iqtree2 -T 128 -s allpops_merged.cnts -m GTR+P -B 1000
+singularity exec ${gwas_tools_image} /iqtree/iqtree2 -T 128 -s allpops_merged.cnts -m GTR+P -B 1000
