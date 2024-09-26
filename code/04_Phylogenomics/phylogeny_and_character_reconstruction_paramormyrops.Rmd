@@ -1,5 +1,5 @@
 ---
-title: "Phylogenetic Reconstruction of BP, TP and Wobbles"
+title: "Reconstruction of EOD Waveform Type Evolution in Paramormyrops kingsleyae using Parsimony, Stochastic Character Mapping and Joint Ancesteral Reconstruction"
 output: html_notebook
 params:
   data_path: NULL
@@ -10,124 +10,254 @@ root <- rprojroot::find_root(".git/index")
 knitr::opts_knit$set(root.dir = root)
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_chunk$set(crop = TRUE)
-library(tidyverse) # Includes ggplot2 and other data manipulation packages
+library(tidyverse)  # Includes ggplot2 and other data manipulation packages
 library(data.table)
 library(ape)
 library(phytools)
 library(castor)
+library(plotrix)
+library(corHMM)
+
+arctree <- function(tree,arc_height){
+h<-max(nodeHeights(tree))
+plotTree(tree, ftype = "i", lwd = 1, fsize = 0.6, type = "arc",arc_height=arc_height,ylim=c(-0.1*h,1.1*(1+arc_height)*h), offset=4)
+labs<-seq(0,6,by=.5)
+a1<-axis(1,pos=-0.02*h,at=h-labs+arc_height*h,
+  labels=labs,cex.axis=0.8,lwd=2,lend=2)
+text(mean(a1),-0.23*h,"million years bp",font=3)
+a2<-axis(1,pos=-0.02*h,at=-h+labs-arc_height*h,
+  labels=labs,cex.axis=0.8,lwd=2,lend=2)
+text(mean(a2),-0.23*h,"million years bp",font=3)
+draw.arc(0,0,radius=h-labs[2:length(labs)]+arc_height*h,
+  angle1=,angle2=pi,col=make.transparent("black",0.4),
+  lty="dotted")
+}
+```
+
+# Set up analysis
+Specify the paths for the various input phylogenetic trees and phenotypic data
+```{r}
+paramormyrops_tree_file<-file.path(root,"output_data/04_Phylogenomics/pkings_iqtree_genes_astral_gcf_scf_tree.cf.tree.nex")
+fish_data_file<-file.path(root,"input_data/01_Terra/data_model/fish_data_2024a.txt")
+treefile<-file.path(root,"input_data/04_Phylogenomics/ssAll_iqtree_timtree.tree")
+osteotree<-read.tree(treefile)
+osteotree<-osteotree$`UTREE1=`
+
+mormyrotree<-extract.clade(osteotree,220,root.edge=0,collapse.singles=TRUE)
 ```
 
 ```{r}
-snp_tree <- paramormyropstree
-fish_data_file <- file.path(root, "input_data/04_Phylogenomics/paramormyrops_phenotypes.csv")
+paramormyrops_tree<-read.nexus(paramormyrops_tree_file)
+fish_data<-read.csv(fish_data_file,row.names=1,sep="\t")
 
-fish_data <- read.csv2(fish_data_file, row.names = 1, header = F, sep = ",")
+
+cf_stats_file<-file.path(root,"output_data/04_Phylogenomics/pkings_iqtree_genes_astral_gcf_scf_tree.cf.stat")
+cf_stats<-read.csv(cf_stats_file,sep="\t",comment.char = "#")
+
+concord_factors<-cf_stats[c("ID","gCF","sCF")]
+
+concord_factors <- concord_factors %>%
+    mutate(new_label = paste0("gCF:",concord_factors$gCF,"\nsCF:",concord_factors$sCF))
+
+cf_branch_file<-file.path(root,"output_data/04_Phylogenomics/pkings_iqtree_genes_astral_gcf_scf_tree.cf.branch")
+cf_branch<-read.tree(cf_branch_file)
+
+paramormyrops_tree$node.label<-cf_branch$node.label
+
+label_lookup <- setNames(concord_factors$new_label, as.character(concord_factors$ID))
+
+paramormyrops_tree$node.label<- sapply(paramormyrops_tree$node.label, function(x) {
+    new_label <- label_lookup[as.character(x)]
+    if(is.na(new_label)) return(x) else return(new_label)
+})
+
+pheno_discrete <- fish_data %>% 
+  mutate(Phenotype = factor(Phenotype)) %>%
+  select(Phenotype)
 ```
 
 Is there any missing samples between the phenotype file and the tree?
 ```{r}
-phylo_samps <- snp_tree$tip.label
-pheno_discrete_samps <- rownames(fish_data)
-setdiff(phylo_samps, pheno_discrete_samps)
+phylo_samps<-paramormyrops_tree$tip.label
+pheno_discrete_samps<-rownames(pheno_discrete)
+setdiff(phylo_samps,pheno_discrete_samps)
 ```
 
-# Organize phenotypes so that there are three (TP, BP and Wobble)
+# Clean Up Tree (MAYBE UNCESSERSARY?)
+
+For reasons that I can't really understand, joint reconstruction fails because of the long branches of PVAD_5505 AND PSZA_454.  So here, I'm going to drop PVAD_5505 and root the tree in PSZA_454.
 ```{r}
-phenos <- setNames(as.character(fish_data$V2), row.names(fish_data))
-phenos <- as.factor(phenos)
-## set colors for plotting
-cols <- setNames(c("blue", "red"), levels(phenos))
+paramormyrops_tree<-drop.tip(paramormyrops_tree, c("PHOP_5511","BIK_6898"), trim.internal = TRUE)
+paramormyrops_tree<-root(paramormyrops_tree,outgroup="PVAD_5505", resolve.root=TRUE)
 ```
 
+# Let's get some calibration points from Peterson et al. Tree
 ```{r}
-plotTree(snp_tree,
-  mar = c(4.1, 1.1, 0.1, 1.1)
-)
-axis(1)
-title(xlab = "relative time before present")
-abline(v = seq(0, 15, by = 5), lty = "dotted", col = "grey")
-tiplabels(pie = to.matrix(phenos[snp_tree$tip.label], levels(phenos)), piecol = cols, cex = 0.3)
+crown<-getMRCA(mormyrotree,c("Paramormyrops_kingsleyae_SRR6507961","Paramormyrops_batesii_CU79740B"))
+peterson_tree_paramormyrops<-extract.clade(mormyrotree,crown,root.edge=0,collapse.singles=TRUE)
+```
+
+```{r, fig.height=8}
+crown<-getMRCA(peterson_tree_paramormyrops,c("Paramormyrops_SN2_58_E05","Paramormyrops_batesii_CU79740B"))
+sza_mag<-getMRCA(peterson_tree_paramormyrops,c("Paramormyrops_mag_SRR9214510","Paramormyrops_SZA_58_H11"))
+sn2_cur<-getMRCA(peterson_tree_paramormyrops,c("Paramormyrops_SN2_58_E05","Paramormyrops_curvifrons_58_C01"))
+gab_mag<-getMRCA(peterson_tree_paramormyrops,c("Paramormyrops_gabonensis_64_C06","Paramormyrops_mag_SRR9214510"))
+hop_cur<-getMRCA(peterson_tree_paramormyrops,c("Paramormyrops_curvifrons_58_C01","Paramormyrops_hopkinsi_SRR9214432"))
+lon_sn2<-getMRCA(peterson_tree_paramormyrops,c("Paramormyrops_SN2_58_E05","Paramormyrops_longicaudatus_64_D10"))
+
+times<-branching.times(peterson_tree_paramormyrops)
+
+arctree(peterson_tree_paramormyrops,0.4)
+peterson_nodes<-c(crown,sza_mag,sn2_cur,gab_mag,hop_cur,lon_sn2)
+nodelabels(node=peterson_nodes, cex=1, frame="none", col="red")
+
+
+peterson_times<-times[as.character(peterson_nodes)]
+
+```
+```{r}
+peterson_times
+peterson_times_named<-peterson_times
+```
+```{r}
+crown<-getMRCA(paramormyrops_tree,c("PVAD_5505","PSN2_616"))
+sza_mag<-getMRCA(paramormyrops_tree,c("PSZA_454","PMAG_404"))
+sn2_cur<-getMRCA(paramormyrops_tree,c("PSN2_616","PCUR_538"))
+gab_mag<-getMRCA(paramormyrops_tree,c("PGAB_3980","PMAG_404"))
+hop_cur<-getMRCA(paramormyrops_tree,c("PCUR_538","PHOP_505"))
+lon_sn2<-getMRCA(paramormyrops_tree,c("PSN2_616","PLON_2190"))
+
+paramormyrops_nodes<-c(crown,sza_mag,sn2_cur,gab_mag,hop_cur,lon_sn2)
+
+paramormyrops_nodes
+```
+
+# Create a Time Calibrated Chronogram
+Estimates of crown age come from timetree.org and Peterson et al. 2023 phylogeny
+```{r}
+mycalibration=makeChronosCalib(paramormyrops_tree,node=paramormyrops_nodes,age.min=peterson_times,age.max=peterson_times)
+mycalibration
 ```
 
 
-
 ```{r}
-## fit ER model
-fitER <- fitMk(snp_tree, phenos, model = "ER")
-## fit ARD model
-fitARD <- fitMk(snp_tree, phenos, model = "ARD")
+ultrametric_rooted_tree <- chronos(paramormyrops_tree, lambda = .1, model = "discrete", calibration = mycalibration, control = chronos.control(dual.iter.max=100) )
+```
+
+# Organize Phenotypes
+Need to categorize assigned phenotypes as TP and BP, and for now we are converting wobbles for illustrative purposes.
+```{r}
+phenos<-setNames(as.character(pheno_discrete$Phenotype), row.names(pheno_discrete))
+phenos <- gsub("TYPE_II", "TP", phenos)
+phenos <- gsub("TYPE_I", "TP", phenos)
+phenos<-as.factor(phenos)
+## set colors for plotting 
+
+newphenos<-phenos[paramormyrops_tree$tip.label]
+newphenos['APA_193']<-'TP'
+newphenos['BAM_165']<-'BP'
+newphenos<-droplevels(newphenos)
+cols<-setNames(c("blue","red"),levels(newphenos)) 
+```
+
+# View Extant Character Distribution on the Phylogeny
+```{r, fig.width=8}
+arctree(ultrametric_rooted_tree,0.4)
+tiplabels(pie=to.matrix(newphenos[ultrametric_rooted_tree$tip.label], levels(newphenos)), piecol=cols, cex=0.3)
+```
+# Using Parsimony to reconstruct character evolution.
+See pg. 251 of Revell & Harmon (2022) "Comparative Phylogenetic Comparative Methods in R" - assumes rate of evolution is very slow.
+```{r,fig.width=8}
+plot_name<-file.path(root,'output_data/04_Phylogenomics/paramormyrops_parsimony.svg')
+svg(plot_name, width=12)  # Adjust width as needed
+gp.int<-as.numeric(newphenos);
+names(gp.int)<-names(newphenos)  
+gp.int <- gp.int[match(ultrametric_rooted_tree$tip.label,names(gp.int))]
+anc.mp <- asr_max_parsimony(ultrametric_rooted_tree,gp.int)
+arctree(ultrametric_rooted_tree,0.4)
+tiplabels(pie=model.matrix(~as.factor(gp.int)-1),piecol=cols,cex=0.3)
+nodelabels(node=1:ultrametric_rooted_tree$Nnode+Ntip(ultrametric_rooted_tree),
+           pie=anc.mp$ancestral_likelihoods,piecol=cols,cex=0.3)
+#edgelabels()
+nodelabels(text=ultrametric_rooted_tree$node.label, adj=c(-.25,.25),frame="none",cex=0.5)
+n<-dev.off()  # Close the SVG device
+#knitr::include_graphics(plot_name)
+```
+# Joint Character Estimation
+See pg. 238 Revell & Harmon (2022) "Comparative Phylogenetic Comparative Methods in R":
+In joint ancestral state reconstruction, what we do is ask which set of character values at all the internal nodes maximizes the probability of obtaining the values for the character that we’ve observed at the tips of the tree, given our model.
+
+Approach outlined here: http://blog.phytools.org/2024/04/a-few-useful-demos-on-ancestral-state.html
+```{r}
+## fit ER model 
+fitER<-fitMk(ultrametric_rooted_tree,newphenos,model="ER", pi=c(0,1),transform="delta") 
+## fit ARD model 
+fitARD<-fitMk(ultrametric_rooted_tree,newphenos,model="ARD",pi=c(0,1),transform="delta")
 ## fit SYM model
-fitSYM <- fitMk(snp_tree, phenos, model = "SYM")
+fitSYM<-fitMk(ultrametric_rooted_tree,newphenos,model="SYM",pi=c(0,1),transform="delta")
+
+## fit directional model
+directional<-matrix(c(0,0,1,0),2,2,byrow=TRUE)
+fitDIR<-fitMk(ultrametric_rooted_tree,newphenos,model=directional,pi=c(0,1),transform="delta")
 ```
 
-```{r}
-## extract AIC values for each model
-aic <- c(AIC(fitER), AIC(fitARD), AIC(fitSYM))
-## print summary table
 
-model_summary <- data.frame(
-  model = c("ER", "ARD", "Symmetric"),
-  logL = c(logLik(fitER), logLik(fitARD), logLik(fitSYM)),
-  AIC = aic, delta.AIC = aic - min(aic),
-  weight = unclass(aic.w(aic))
-)
+```{r}
+## extract AIC values for each model 
+aic<-c(AIC(fitER),AIC(fitARD),AIC(fitSYM),AIC(fitDIR))
+## print summary table 
+
+model_summary<-data.frame(
+  model=c("ER","ARD","Symmetric","DIR"), 
+  logL=c(logLik(fitER),logLik(fitARD),logLik(fitSYM),logLik(fitDIR)), 
+  AIC=aic,delta.AIC=aic-min(aic),
+  weight=unclass(aic.w(aic)))
 
 model_summary
 ```
+
 ```{r, fig.width=4, fig.height=4}
-plot(fitER, width = TRUE, color = TRUE, cex.rates = 0.9, main = "ER Model") # Add a main title with the tree name
+  plot(fitDIR, width=TRUE, color=TRUE, cex.rates=0.9, main="DIR Model")
 ```
 
-## Perform Stochastic Character Mapping
-
-See Revell & Harmon (2022) "Comparative Phylogenetic Comparative Methods in R", page 245.
 
 ```{r}
-mtrees <- make.simmap(snp_tree, phenos, model = "ER", nsim = 1000, Q = "mcmc", vQ = 0.01, prior = list(use.empirical = TRUE), samplefreq = 10)
+mle.Q<-as.Qmatrix(fitDIR)
+mle.Q
 ```
+
+
 ```{r}
-pd <- summary(mtrees)
+system.time(mtrees.sc<-make.simmap(ultrametric_rooted_tree,newphenos,Q=mle.Q, nsim=1000,pi=c(0,1)))
+```
+
+```{r}
+pd<-summary(mtrees.sc)
 pd
 ```
-
-Let's examine the distribution of changes that we see.
-
-Interestingly, about 6 transitions directly from TP->BP (on average) (see http://blog.phytools.org/2022/07/understanding-number-of-changes-of.html)
 ```{r}
-dd <- density(mtrees)
+dd<-density(mtrees.sc)
 dd
 ```
 
-We can look at these densities graphically as well...
-```{r, fig.height=12}
-plot(dd, colors = c("orange", "lightgreen", "lightblue"), alpha = 0.5)
+```{r, fig.width=8}
+plot_name<-file.path(root,'output_data/04_Phylogenomics/paramormyrops_character_map.svg')
+svg(plot_name, width=12)  # Adjust width as needed
+arctree(ultrametric_rooted_tree,0.4)
+tiplabels(pie=to.matrix(newphenos[ultrametric_rooted_tree$tip.label], levels(newphenos)), piecol=cols, cex=0.3)
+nodelabels(node=1:ultrametric_rooted_tree$Nnode+Ntip(ultrametric_rooted_tree),
+           pie=pd$ace,piecol=cols,cex=0.4)
+nodelabels(node=1:ultrametric_rooted_tree$Nnode+Ntip(ultrametric_rooted_tree),
+           pie=pd$ace,piecol=cols,cex=0.4)
+nodelabels(text=ultrametric_rooted_tree$node.label, adj=c(-.25,.25),frame="none",cex=0.5)
+n<-dev.off()  # Close the SVG device
+#knitr::include_graphics(plot_name)
 ```
+
 ```{r}
-all_trees <- as.data.frame(countSimmap(mtrees, c("BP", "TP")))
-
-all_trees <- rownames_to_column(all_trees, "treeno")
-all_trees <- all_trees %>% arrange(Tr.N)
-head(all_trees)
-```
-```{r, fig.width=12}
-## create a plot showing PP at all nodes of the tree
-plot(pd,
-  colors = cols, fsize = 1, ftype = "i", lwd = 2,
-  offset = 0.4, ylim = c(-1, Ntip(snp_tree)), cex = c(0.5, 0.3)
-)
-## add a legend
-legend("bottomleft", legend = levels(phenos), pch = 22, pt.cex = 1.5, pt.bg = cols, bty = "n", cex = 0.8)
-```
-
-```{r,fig.width=12}
-gp.int <- as.numeric(phenos)
-names(gp.int) <- names(phenos)
-gp.int <- gp.int[match(snp_tree$tip.label, names(gp.int))]
-anc.mp <- asr_max_parsimony(snp_tree, gp.int)
-plot(snp_tree)
-tiplabels(pie = model.matrix(~ as.factor(gp.int) - 1), piecol = cols, cex = 0.3)
-nodelabels(
-  node = 1:snp_tree$Nnode + Ntip(snp_tree),
-  pie = anc.mp$ancestral_likelihoods, piecol = cols, cex = 0.3
-)
+ggplot(concord_factors,aes(x=gCF,y=sCF))+
+  geom_point() + 
+  xlim(0, 100) +
+    ylim(0, 100) +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed")
 ```

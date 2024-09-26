@@ -192,7 +192,7 @@ nodelabels(
   pie = pd$ace, piecol = cols, cex = 0.2
 )
 n <- dev.off() # Close the SVG device
-knitr::include_graphics(plot_name)
+#knitr::include_graphics(plot_name)
 ```
 What we see is pretty striking, but not terribly different than what we'd get using maximum parsimony:
 
@@ -211,5 +211,5 @@ nodelabels(
   pie = anc.mp$ancestral_likelihoods, piecol = cols, cex = 0.2
 )
 n <- dev.off() # Close the SVG device
-knitr::include_graphics(plot_name)
+#knitr::include_graphics(plot_name)
 ```
