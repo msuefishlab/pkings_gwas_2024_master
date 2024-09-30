@@ -4,9 +4,10 @@
 
 #SBATCH --time=24:00:00             # limit of wall clock time - how long the job will run (same as -t)
 #SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
-#SBATCH --cpus-per-task=19           # number of CPUs (or cores) per task (same as -c)
+#SBATCH --cpus-per-task=16           # number of CPUs (or cores) per task (same as -c)
 #SBATCH --mem=30G                    # memory required per node - amount of memory (in bytes)
 #SBATCH --job-name PREP_ADMIXTURE      # you can give your job a name for easier identification (same as -J)
+#SBATCH -A data-machine
 ########## Command Lines to Run ##########
 cd $root
 
@@ -15,7 +16,7 @@ source $root/pkings_gwas.env
 MYNAME=$(whoami)
 
 indir=${root}/output_data/03_QC/
-outdir=${root}/output_data/04_Phylogeny/
+outdir=${root}/output_data/05_PopGen/
 tmpoutdir=/mnt/local/${MYNAME}/${SLURM_JOB_ID}/
 
 mkdir -p ${outdir}
