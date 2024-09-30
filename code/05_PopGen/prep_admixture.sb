@@ -36,11 +36,18 @@ echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind 
 
 singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "bcftools +prune -n 1 -w 20000bp --nsites-per-win-mode rand --random-seed 42 /tmp_dir/${OUTROOT}.renamed.maf5.miss20.dp5.vcf -o /tmp_dir/${OUTROOT}.renamed.maf5.miss20.dp5.r20kb.vcf"
 
+cat ${root}/input_data/00_Reference_Genome/${chr_name_map}.chromosome_number_map.txt | awk '{print $2 " " $1}'  > ${tmpoutdir}/switcheroo.txt
+
+echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "bcftools annotate --rename-chrs /tmp_dir/switcheroo.txt /tmp_dir/${OUTROOT}.renamed.maf5.miss20.dp5.r20kb.vcf -o /tmp_dir/${OUTROOT}.renamed.maf5.miss20.dp5.r20kb.rn.vcf"
+ singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "bcftools annotate --rename-chrs /tmp_dir/switcheroo.txt /tmp_dir/${OUTROOT}.renamed.maf5.miss20.dp5.r20kb.vcf -o /tmp_dir/${OUTROOT}.renamed.maf5.miss20.dp5.r20kb.rn.vcf"
+
+
+
 singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /plink/plink \
---vcf  /tmp_dir/${OUTROOT}.renamed.maf5.miss20.dp5.r20kb.vcf \
---allow-extra-chr \
+--vcf  /tmp_dir/${OUTROOT}.renamed.maf5.miss20.dp5.r20kb.rn.vcf \
+--allow-extra-chr 0 \
 --allow-no-sex \
 --double-id \
 --make-bed \
---pheno /project_root/input_data/06_Association/${OUTNAME}.pheno.txt \
+--pheno /project_root/input_data/06_Association/PKINGS_TP1_BP2_WOB9.pheno.txt \
 --out /out_dir/$OUTROOT.renamed.maf5.miss20.dp5.r20kb.for_admixture

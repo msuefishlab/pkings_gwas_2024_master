@@ -11,15 +11,15 @@ source $root/pkings_gwas.env
 
 MYNAME=$(whoami)
 
-indir=${root}/output_data/04_Phylogeny_And_Admixture/
-outdir=${root}/output_data/04_Phylogeny_And_Admixture/
+indir=${root}/output_data/05_PopGen/
+outdir=${root}/output_data/05_PopGen/
 
 mkdir -p ${outdir}
 
 OUTROOT=${snps_only_vcf%".vcf.gz"}
 
 rm -f ${outdir}/cv_errors.txt
-grep -h CV ${outdir}/${OUTROOT}.renamed.maf5.miss20.dp5.autosomes_only.set_ids.kings_only.pruned.*.out | cut -d"=" -f2 | sed --expression='s/):/\t/g' > ${outdir}/cv_errors.txt
+grep -h CV ${outdir}/${OUTROOT}.renamed.maf5.miss20.dp5.r20kb.for_admixture.kings_only.*.out | cut -d"=" -f2 | sed --expression='s/):/\t/g' > ${outdir}/cv_errors.txt
 
 
 rm -f ${outdir}/admixture_long_results.txt
@@ -27,7 +27,7 @@ for i in $(cut -f1 ${outdir}/cv_errors.txt);
   do
    for k in $(seq 1 $i);
 	do
-      cat  ${outdir}/${OUTROOT}.renamed.maf5.miss20.dp5.autosomes_only.set_ids.kings_only.pruned.${i}.Q | cut -d" " -f$k | awk -v i="$i" -v k="$k" '{print i,k,$0}'| paste ${outdir}/indfile.txt - >> ${outdir}/admixture_long_results.txt
+      cat  ${outdir}/${OUTROOT}.renamed.maf5.miss20.dp5.r20kb.for_admixture.kings_only.${i}.Q | cut -d" " -f$k | awk -v i="$i" -v k="$k" '{print i,k,$0}'| paste ${outdir}/indfile.txt - >> ${outdir}/admixture_long_results.txt
    done
 done
 
