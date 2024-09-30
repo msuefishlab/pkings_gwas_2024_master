@@ -2,7 +2,7 @@
 title: "Overall Popgen Stats"
 output: html_notebook
 params:
-  popgen_prefix: MIC4273_HAP1_MSU618_all_fish
+  popgen_prefix: MIC4273_HAP2_NEWREF_MSU618_all_fish_all_sites
 ---
 
 ```{r setup, include=FALSE}
@@ -56,7 +56,6 @@ dxy_file=file.path(root,"output_data/05_PopGen/",paste0(params$popgen_prefix,"_d
 fst_file=file.path(root,"output_data/05_PopGen/",paste0(params$popgen_prefix,"_fst.txt"))
 pi_file=file.path(root,"output_data/05_PopGen/",paste0(params$popgen_prefix,"_pi.txt"))
 
-#note there is a problem with how tajima's d is being calculated.  there are double values for some intervals, suggesting that the method of breaking up the chromosomes needs to be revisited for this step.
 tajd_file=file.path(root,"output_data/05_PopGen/",paste0(params$popgen_prefix,"_tajd.txt"))
 
 tajd_df<-fread(tajd_file)
@@ -98,7 +97,7 @@ dxy_df <- dxy_df %>%
 pixy_df[[1]] <- fst_df
 pixy_df[[2]] <- dxy_df
 pixy_df[[3]] <- df_pi
-#pixy_df[[4]] <- tajd_df
+pixy_df[[4]] <- tajd_df
 
 pixy<-bind_rows(pixy_df) %>%
     arrange(pop1, pop2, chromosome, window_pos_1, statistic)
@@ -106,10 +105,11 @@ pixy<-bind_rows(pixy_df) %>%
 ```
 
 ```{r}
-{tajd_df} %>%
-  dplyr::group_by(pop1, pop2, chromosome, window_pos_1, window_pos_2, statistic) %>%
-  dplyr::summarise(n = dplyr::n(), .groups = "drop") %>%
-  dplyr::filter(n > 1L)
+#Check to make sure fix for calculating tajima's d is working...
+tajd_df %>%
+  dplyr::group_by(pop1, chromosome, window_pos_1) %>%
+  dplyr::filter(dplyr::n() > 1) %>%
+  dplyr::ungroup()
 ```
 
 
@@ -270,6 +270,12 @@ combined_plot <- combined_plot +
 
 # Print the combined plot
 combined_plot
+```
+```{r}
+plot_name<-file.path(root,'output_data/05_PopGen/popstats.svg')
+svg(plot_name, width=12, height = 24)  # Adjust width as needed
+combined_plot
+n<-dev.off()
 ```
 
 ```{r, fig.width=12}
