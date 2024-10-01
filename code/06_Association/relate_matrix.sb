@@ -7,6 +7,7 @@
 #SBATCH --cpus-per-task=2           # number of CPUs (or cores) per task (same as -c)
 #SBATCH --mem=12g                    # memory required per node - amount of memory (in bytes)
 #SBATCH -J relmatrix
+#SBATCH -A data-machine
 ########## Command Lines to Run ##########
 cd $root
 

@@ -4,9 +4,10 @@
 
 #SBATCH --time=04:00:00             # limit of wall clock time - how long the job will run (same as -t)
 #SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
-#SBATCH --cpus-per-task=17          # number of CPUs (or cores) per task (same as -c)
+#SBATCH --cpus-per-task=16          # number of CPUs (or cores) per task (same as -c)
 #SBATCH --mem=12g                   # memory required per node - amount of memory (in bytes)
 #SBATCH -J prep_assoc_data
+#SBATCH -A data-machine
 ########## Command Lines to Run ##########
 
 cd $root
@@ -24,8 +25,8 @@ mkdir -p ${tmpoutdir}
 
 mkdir -p ${outdir}/$OUTNAME
 
-echo singularity exec --bind $root:/project_root --bind $indir:/input_dir --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "bcftools view --threads 8 -S /project_root/input_data/06_Association/${OUTNAME}.keep.txt /input_dir/${snps_only_vcf} | bcftools view --threads 8 -e 'AC==0 || AC==AN || F_MISSING > 0.1 || ALT=\"*\"' -O z -o /tmp_dir/${OUTNAME}.for_gemma.vcf.gz"
-singularity exec --bind $root:/project_root --bind $indir:/input_dir --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "bcftools view --threads 8 -S /project_root/input_data/06_Association/${OUTNAME}.keep.txt /input_dir/${snps_only_vcf} | bcftools view --threads 8 -e 'AC==0 || AC==AN || F_MISSING > 0.1 || ALT=\"*\"' -O z -o /tmp_dir/${OUTNAME}.for_gemma.vcf.gz"
+echo singularity exec --bind $root:/project_root --bind $indir:/input_dir --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "bcftools view --threads 8 -S /project_root/input_data/06_Association/${OUTNAME}.keep.txt /input_dir/${snps_only_vcf} | bcftools view --threads 8 -e 'AC==0 || AC==AN || ALT=\"*\"' -O z -o /tmp_dir/${OUTNAME}.for_gemma.vcf.gz"
+singularity exec --bind $root:/project_root --bind $indir:/input_dir --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "bcftools view --threads 8 -S /project_root/input_data/06_Association/${OUTNAME}.keep.txt /input_dir/${snps_only_vcf} | bcftools view --threads 8 -e 'AC==0 || AC==AN || ALT=\"*\"' -O z -o /tmp_dir/${OUTNAME}.for_gemma.vcf.gz"
 
 echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "bcftools annotate --threads 8 --set-id '%CHROM\\_%POS\\_%REF\\_%FIRST_ALT' -O z -o /out_dir/$OUTNAME/${OUTNAME}_merge_ID.vcf.gz /tmp_dir/${OUTNAME}.for_gemma.vcf.gz"
 singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bash -c "bcftools annotate --threads 8 --set-id '%CHROM\\_%POS\\_%REF\\_%FIRST_ALT' -O z -o /out_dir/$OUTNAME/${OUTNAME}_merge_ID.vcf.gz /tmp_dir/${OUTNAME}.for_gemma.vcf.gz"

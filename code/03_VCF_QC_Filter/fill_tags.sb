@@ -1,0 +1,28 @@
+#!/bin/bash --login
+
+########## Define Resources Needed with SBATCH Lines ##########
+
+#SBATCH --time=024:00:00             # limit of wall clock time - how long the job will run (same as -t)
+#SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
+#SBATCH --cpus-per-task=1           # number of CPUs (or cores) per task (same as -c)
+#SBATCH --mem=60G                    # memory required per node - amount of memory (in bytes)
+#SBATCH --job-name Rename_VCFs    # you can give your job a name for easier identification (same as -J)
+#SBATCH -A data-machine
+########## Command Lines to Run ##########
+
+cd $root
+
+source $root/pkings_gwas.env
+
+mkdir -p $root"/output_data/slurm_logs"/03_QC/
+
+outdir=${root}/output_data/03_QC/
+
+mkdir -p ${outdir}
+
+OUTROOT=${snps_only_vcf%".renamed.vcf.gz"}
+
+module purge; module load BCFtools
+
+bcftools +fill-tags /${outdir}/${OUTROOT}.renamed.vcf.gz -Oz -o /${outdir}/${OUTROOT}.renamed.tagged.vcf.gz -- -t AN,AC,F_MISSING
+tabix /outdir/${OUTROOT}.renamed.tagged.vcf.gz
