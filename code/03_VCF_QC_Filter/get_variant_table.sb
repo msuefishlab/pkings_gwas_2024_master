@@ -47,6 +47,7 @@ VariantsToTable \
     -F ReadPosRankSum \
     -F SOR \
     -GF GQ \
+    -GF DP \
     -O /out_dir/${vcf_file%.vcf.gz}.${SLURM_ARRAY_TASK_ID}.tab
 
 

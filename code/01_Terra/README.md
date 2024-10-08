@@ -98,7 +98,7 @@ rm ./uifiles2.txt
    mv sample.tsv input*data/01_Terra/data_model/
    cd input_data/01_Terra/data_model/
    mkdir sample_metadata
-   awk -F "\t" '{file = "./sample_metadata/unaligned_bams*" $12 ".txt"; print $13 > file; close(file)}' samples_ubam_complete.tsv
+   awk -F "\t" '{file = "./sample_metadata/unaligned_bams_" $12 ".txt"; print $13 >> file; close(file)}' samples_ubam_complete.tsv
 
    # You need to edit the 'participants' table to point to the unaligned bam file path at this point
 
