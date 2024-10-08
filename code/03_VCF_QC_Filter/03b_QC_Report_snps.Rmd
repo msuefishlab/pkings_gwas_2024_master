@@ -2,7 +2,7 @@
 title: "VCF QC Report for SNPs"
 output: html_notebook
 params:
-  data_path: NULL
+  data_path: /Users/jasongallant/Desktop/for_github/pkings_gwas_2024_master/output_data/03_QC/MIC4273_HAP2_NEWREF_MSU618_all_fish_all_sites.raw.all.snp.sampled.tab
   output_file: NULL
 ---
 
@@ -15,6 +15,8 @@ require(ggplot2)
 
 ```{r}
 #proposed cutoffs
+DP_lo_thresh=2
+DP_hi_thresh=100
 QD_thresh=5
 FS_thresh=60
 MQ_thresh=40
@@ -27,6 +29,13 @@ See https://gatk.broadinstitute.org/hc/en-us/articles/360035890471-Hard-filterin
 
 ```{r}
 snp_data<-fread(params$data_path)
+```
+```{r, fig.width=12,fig.height=6}
+
+ggplot(data=snp_data, aes(x=DP)) + geom_density(color="darkblue",fill="lightblue") + xlim(0,5000) + geom_vline(xintercept = DP_lo_thresh, linetype="dotted", color = "red", size=1.5) + geom_vline(xintercept = DP_hi_thresh, linetype="dotted", color = "red", size=1.5)
+```
+```{r, fig.width=12,fig.height=6}
+ggplot(data=snp_data, aes(x=AC)) + geom_density(color="darkblue",fill="lightblue")
 ```
 
 ```{r, fig.width=12,fig.height=6}

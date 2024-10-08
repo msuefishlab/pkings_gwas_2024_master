@@ -15,9 +15,9 @@ library(patchwork)
 ```
 
 ```{r}
-admix.file=file.path(root,"output_data/04_Phylogeny_And_Admixture/admixture_long_results.header.txt")
-cv.file=file.path(root,"output_data/04_Phylogeny_And_Admixture/cv_errors.txt")
-fish_data_file<-file.path(root,"input_data/01_Terra/data_model/fish_data_2023.txt")
+admix.file=file.path(root,"output_data/05_PopGen/admixture_long_results.header.txt")
+cv.file=file.path(root,"output_data/05_PopGen/cv_errors.txt")
+fish_data_file<-file.path(root,"input_data/01_Terra/data_model/fish_data_2024a.txt")
 ```
 
 
@@ -44,7 +44,7 @@ admix_data <- merge(admix_data, phenos_df, by = "Sample", all.x = TRUE)
 ```{r}
 ggplot(cv_errors, aes(K,CV)) +
   geom_line()+
-  geom_vline(xintercept = 8,linetype='dotted', col = 'red')
+  geom_vline(xintercept = 7,linetype='dotted', col = 'red')
 ```
 
 ```{r, fig.width=12, fig.height=4}
@@ -62,7 +62,7 @@ custom_colors <- c(
 )
 
 
-p1<-ggplot(subset(admix_data,MAXK==8), aes(factor(Sample), Q, fill = factor(GROUP))) +
+p1<-ggplot(subset(admix_data,MAXK==7), aes(factor(Sample), Q, fill = factor(GROUP))) +
   geom_col(color = "gray", size = 0.1) +
   facet_grid(~fct_inorder(Pop), switch = "x", scales = "free", space = "free") +
   theme_minimal() + labs(x = "Individuals", y = "Ancestry") +
@@ -78,14 +78,14 @@ p1<-ggplot(subset(admix_data,MAXK==8), aes(factor(Sample), Q, fill = factor(GROU
     scale_fill_manual(values = custom_colors) 
 
 
-p2 <- ggplot(subset(admix_data, MAXK == 8), aes(x = factor(Sample), y = 0.5, fill = factor(Phenotype))) +
+p2 <- ggplot(subset(admix_data, MAXK == 7), aes(x = factor(Sample), y = 0.5, fill = factor(Phenotype))) +
   geom_col(position="identity",color = "gray", size = 0.1) +
   scale_fill_manual(values = col.pheno) +
   facet_grid(~fct_inorder(Pop), switch = "x", scales = "free", space = "free") +
   scale_y_continuous(expand = c(0, 0)) +
   scale_x_discrete(expand = expand_scale(add = 1)) +
   theme_minimal() +
-  labs(title = "K=8") +
+  labs(title = "K=7") +
    theme(
     panel.spacing.x = unit(0.1, "lines"),
     axis.text.x = element_blank(),  # Hides x-axis text
@@ -108,5 +108,5 @@ combined_plot
 
 ```
 ```{r}
-ggsave(file.path(root,'output_data/04_Phylogeny_And_Admixture/final_admixture.pdf'), plot = combined_plot, width = 12, height = 4, units = "in")
+ggsave(file.path(root,'output_data/05_PopGen/final_admixture.pdf'), plot = combined_plot, width = 12, height = 4, units = "in")
 ```

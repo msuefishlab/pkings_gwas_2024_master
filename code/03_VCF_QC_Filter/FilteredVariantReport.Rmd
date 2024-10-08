@@ -19,27 +19,87 @@ setwd(root)
 
 ```{r}
 #proposed cutoffs
-GQ_thresh=10
+AC_THRESH=0
+N_MISSING_THRESH=0.1
 ```
 
 ```{r}
-gq_data<-fread(params$data_path)
+filtered_gt_datafile<-file.path(root,"output_data/03_QC","MIC4273_HAP2_NEWREF_MSU618_all_fish_all_sites.FILTERED_BIALLELIC_SNPS_ONLY.renamed.filtered.stats.sampled.tab")
+missing
+gt_data<-fread(filtered_gt_datafile)
+missing_data_file<-file.path(root,"output_data/03_QC/","MIC4273_HAP2_NEWREF_MSU618_all_fish_all_sites.missingness_per_site_per_group.txt")
+missing_data<-fread(missing_data_file)
+```
+
+
+```{r}
 randomRows = function(df,n){
    return(df[sample(nrow(df),n),])
 }
-hist_vals<-gq_data[,-c(1:2)] %>% gather()
-hist_vals$value<-as.numeric(hist_vals$value)
+hist_vals<-as.data.frame(gt_data[,c(1:5)])
 ```
 
-```{r, fig.width=12,fig.height=24}
-ggplot(subset(hist_vals, value < 102), aes(x = value)) +
-    geom_density(color="darkblue",fill="lightblue",adjust=5,aes(y=..scaled..)) +
-    facet_wrap(~key) +
-    geom_vline(xintercept = GQ_thresh, linetype="dotted",
+```{r}
+
+# Step 2: Reshape the data to long format (to work per individual per variant)
+missingness_long <- melt(missing_data, id.vars = c("CHROM", "POS"), variable.name = "Group", value.name = "Missingness")
+
+```
+
+```{r, fig.width=12}
+
+# Plot using ggplot2 with geom_density, faceted by population
+missingness_long %>%
+  filter(grepl("_", Group)) %>%
+  ggplot( aes(x = Missingness, fill = Group)) +
+  geom_density(alpha = 0.3) +  # Use density plot to visualize the distribution
+  geom_vline(xintercept = N_MISSING_THRESH, linetype="dotted",
                 color = "red", size=1.5) +
+  labs(title = "Distribution of Missing Genotypes per Variant by Population",
+       x = "Percent of Missing Individuals per Variant",
+       y = "Density") +
+  facet_wrap(~ Group, scales = "free_y") +  # Facet by population, allowing y-axis to be independent
+  theme_minimal() +                              # Use a clean theme
+  theme(legend.position = "none")                # Remove legend since faceting already splits by population
+```
+
+```{r, fig.width=12}
+# Plot using ggplot2 with geom_density, faceted by population
+missingness_long %>%
+  filter(!grepl("_", Group)) %>%
+  ggplot( aes(x = Missingness, fill = Group)) +
+  geom_histogram(binwidth=0.1) +  # Use density plot to visualize the distribution
+  geom_vline(xintercept = N_MISSING_THRESH, linetype="dotted",
+                color = "red", size=1.5) +
+  labs(title = "Distribution of Missing Genotypes per Variant by Population",
+       x = "Percent of Missing Individuals per Variant",
+       y = "Density") +
+  facet_wrap(~ Group, scales = "free_y") +  # Facet by population, allowing y-axis to be independent
+  theme_minimal() +                              # Use a clean theme
+  theme(legend.position = "none")                # Remove legend since faceting already splits by population
+```
+
+
+```{r}
+count_equal_ac_an <- nrow(subset(hist_vals, AC == AN))
+count_equal_ac_an
+```
+
+```{r, fig.width=8,fig.height=8}
+ggplot(hist_vals, aes(x = AC)) +
+    geom_density(color="darkblue",fill="lightblue",adjust=5,aes(y=..scaled..)) +
+    geom_vline(xintercept = AC_THRESH, linetype="dotted",
+                color = "red", size=1.5) +
+    xlim(-10,200) +
     theme(text = element_text(size=15),
         axis.text.x = element_text(angle=90, hjust=1))
 ```
+
+```{r}
+count_ac_less_than_zero <- nrow(subset(hist_vals, AC == 0))
+count_ac_less_than_zero
+```
+
 
 ```{r}
 cutoff_table<-NULL

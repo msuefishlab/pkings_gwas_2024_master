@@ -13,6 +13,8 @@ library(data.table)  # For fread and data manipulation
 library(patchwork)   # For combining plots
 library(stringr)     # String manipulation, used in mutate and case_when
 library(scales)      # For percent_format in scale_y_continuous
+library(riverdist)
+library(sf)
 ```
 
 ```{r}
@@ -323,4 +325,108 @@ ggplot(zfst_data, aes(x = cumulative_pos, y = value, color = comparison)) +
        color = "Comparison") +
   theme(legend.position = "bottom",
         axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+```{r}
+load(paste0(root,"/input_data/XX_Mapping/","rivs_cleaned.R"))
+
+kings_riv <- pointshp2segvert(path=paste0(root,"/input_data/XX_Mapping/Ndnde_Network"), layer="collection_sites_kings_only_XYTableToPoint", rivers=rivs_cleaned)
+
+kings_samp_locations<-read.csv(paste0(root,"/input_data/XX_Mapping/collection_sites_kings_only.csv"))
+
+
+hist(kings_riv$snapdist, main="snapping distance (m)")
+```
+
+```{r,fig.height=8}
+topologydots(rivs_cleaned)
+zoomtoseg(seg=c(393,495,692), rivers=rivs_cleaned)
+
+
+points(kings_samp_locations$Lat, kings_samp_locations$Long, pch=16, col="red")
+
+riverpoints(seg=kings_riv$seg, vert=kings_riv$vert, rivers=rivs_cleaned, pch=15, 
+            col="blue")
+```
+
+```{r}
+#zoomtoseg(seg=c(485,674), rivers=rivs_cleaned)
+
+riverdistance(startseg=546, startvert=31, endseg=19, endvert=1, rivers=rivs_cleaned, map=TRUE)
+
+```
+
+```{r}
+dmat <- riverdistancemat(kings_riv$seg,kings_riv$vert,rivs_cleaned, ID=kings_riv$Row_Labels, stopiferror=FALSE)
+
+#colnames(dmat)<-kings_riv$Row_Labels
+#rownames(dmat)<-kings_riv$Row_Labels
+
+dmat
+```
+```{r}
+distance_matrix <- as.data.frame(dmat) %>%  rownames_to_column(var = "pop1") %>%
+  pivot_longer(cols = -pop1, 
+               names_to = "pop2", 
+               values_to = "Distance")
+
+distance_matrix$pop1<-as.factor(distance_matrix$pop1)
+distance_matrix$pop2<-as.factor(distance_matrix$pop2)
+
+levels(distance_matrix$pop1)<-c("IVI","BAM","BAVA","BEN","BIK","BIR","DOG","DOV","COB1","APA","COB1","MOV")
+levels(distance_matrix$pop2)<-c("IVI","BAM","BAVA","BEN","BIK","BIR","DOG","DOV","COB1","APA","COB1","MOV")
+
+
+distance_matrix_reversed <- distance_matrix %>%
+  rename(pop1 = pop2, pop2 = pop1)
+```
+
+
+```{r, fig.width=12}
+average_values <- pixy_with_avg %>%
+  group_by(pop1, pop2) %>%
+  summarise(avg_value = mean(value, na.rm = TRUE))
+
+# Step 3: Merge the distance data with the average values
+average_values_with_distances <- average_values %>%
+  left_join(distance_matrix, by = c("pop1", "pop2"))
+
+average_values_with_distances <- average_values_with_distances %>%
+  left_join(phenotype_lookup, by = c("pop1" = "POP")) %>%
+  dplyr::rename(phenotype_pop1 = population_phenotype)
+
+average_values_with_distances <- average_values_with_distances %>%
+  left_join(phenotype_lookup, by = c("pop2" = "POP")) %>%
+  dplyr::rename(phenotype_pop2 = population_phenotype)
+
+average_values_with_distances <- average_values_with_distances %>%
+  mutate(comparison_type = case_when(
+    phenotype_pop1 == "BP" & phenotype_pop2 == "BP" ~ "BP",
+    phenotype_pop1 == "TP" & phenotype_pop2 == "TP" ~ "TP",
+    TRUE ~ "Mixed"
+  ))
+
+
+# Step 4: Create the scatter plot
+ggplot(average_values_with_distances, aes(x = Distance/1000, y = avg_value)) +
+  geom_point(size=4) +
+  #scale_color_manual(values = c("BP" = "skyblue3", "TP"="coral2", "Mixed" = "mediumorchid1")) +
+  labs(x = "Geographic Distance (km)", y = "Average Weir & Cockerham's Fst ") +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +  # Optional: Add a trend line
+
+  geom_text_repel(aes(label = paste0(pop1," vs ",pop2)), point.size = 4) +  # Add labels from the 'comparison' column 
+  scale_x_log10()+
+  theme_minimal() +
+    theme(
+        legend.position = "bottom",
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        panel.background = element_blank(),
+        axis.text = element_text(size = rel(1.2), family = "Arial"),
+        axis.title.x = element_text(size = rel(2.1), family = "Arial", margin = margin(t = 20)),  # Adjust margin for x-axis title
+        axis.title.y = element_text(size = rel(2.1), family = "Arial", margin = margin(r = 20))   # Adjust margin for y-axis title
+    )
+
 ```

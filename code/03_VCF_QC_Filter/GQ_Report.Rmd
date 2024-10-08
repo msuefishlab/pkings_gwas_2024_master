@@ -2,7 +2,7 @@
 title: "VCF QC Report for SNPs"
 output: html_notebook
 params:
-  data_path: ~/Desktop/MIC4273_HAP1_MSU618_all_fish_all_sites.FILTERED_BIALLELIC_SNPS_ONLY.gq.ss.txt
+  data_path: /Users/jasongallant/Desktop/for_github/pkings_gwas_2024_master/output_data/03_QC/MIC4273_HAP2_NEWREF_MSU618_all_fish_all_sites.raw.all.snp.sampled.tab
 ---
 
 ```{r setup, include=FALSE}
@@ -19,7 +19,7 @@ setwd(root)
 
 ```{r}
 #proposed cutoffs
-GQ_thresh=10
+GQ_thresh=7
 ```
 
 ```{r}
@@ -27,7 +27,8 @@ gq_data<-fread(params$data_path)
 randomRows = function(df,n){
    return(df[sample(nrow(df),n),])
 }
-hist_vals<-gq_data[,-c(1:2)] %>% gather()
+GQ_data <- gq_data %>% select(-ends_with(".DP"))
+hist_vals<-GQ_data[,-c(1:18)] %>% gather()
 hist_vals$value<-as.numeric(hist_vals$value)
 ```
 

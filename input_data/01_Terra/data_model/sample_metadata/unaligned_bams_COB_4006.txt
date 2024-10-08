@@ -1,1 +1,4 @@
+gs://fc-secure-439dbe80-8f90-415e-8c76-ab83f6ecf9d3/submissions/b5daf881-3dfc-4cd1-a5a8-e193e6039845/generateunalignedBAM/2d798968-4ac4-4941-a938-8987364cf55b/call-FastqtoSam/cacheCopy/COB_4006_C6UU2ANXX.7.TAATGCGCAGNCGAA_fastqtosam.bam
+gs://fc-secure-439dbe80-8f90-415e-8c76-ab83f6ecf9d3/submissions/b5daf881-3dfc-4cd1-a5a8-e193e6039845/generateunalignedBAM/f8e460b3-70dd-4a16-89b0-8ab0e0ce5125/call-FastqtoSam/cacheCopy/COB_4006_C6UU2ANXX.8.TAATGCGCAGGCGAA_fastqtosam.bam
+gs://fc-secure-439dbe80-8f90-415e-8c76-ab83f6ecf9d3/submissions/b5daf881-3dfc-4cd1-a5a8-e193e6039845/generateunalignedBAM/12b035cc-4f05-437d-a98c-6f397626b9bd/call-FastqtoSam/cacheCopy/COB_4006_H5MWJBCXX.1.TAATGCGCAGGCGAAG_fastqtosam.bam
 gs://fc-secure-439dbe80-8f90-415e-8c76-ab83f6ecf9d3/submissions/b5daf881-3dfc-4cd1-a5a8-e193e6039845/generateunalignedBAM/90008d9c-0caa-4800-9d4f-acc8011a867e/call-FastqtoSam/cacheCopy/COB_4006_H5MWJBCXX.2.TAATGCGCAGGCGAAG_fastqtosam.bam
