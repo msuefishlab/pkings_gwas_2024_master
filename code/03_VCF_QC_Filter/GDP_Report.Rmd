@@ -1,0 +1,60 @@
+---
+title: "VCF QC Report for SNPs"
+output: html_notebook
+params:
+  data_path: /Users/jasongallant/Desktop/for_github/pkings_gwas_2024_master/output_data/03_QC/MIC4273_HAP2_NEWREF_MSU618_all_fish_all_sites.raw.all.snp.sampled.tab
+---
+
+```{r setup, include=FALSE}
+root<-rprojroot::find_root(".git/index")
+knitr::opts_knit$set(root.dir = root)
+require(data.table)
+require(ggplot2)
+require(dplyr)
+require(tidyr)
+require(reshape2)
+require(stringr)
+setwd(root)
+```
+
+```{r}
+#proposed cutoffs
+GDP_lo_thresh=2
+GDP_hi_thresh=100
+```
+
+```{r}
+gd_data<-fread(params$data_path)
+DP_data <- gd_data %>% select(-ends_with(".GQ"))
+hist_vals<-DP_data[,-c(1:18)] %>% gather()
+#hist_vals$value<-as.numeric(hist_vals$value)
+```
+
+```{r, fig.width=12,fig.height=24}
+ggplot(hist_vals, aes(x = value)) +
+    geom_density(color="darkblue",fill="lightblue",adjust=5,aes(y=..scaled..)) +
+    xlim(0,20) +
+    facet_wrap(~key) +
+    geom_vline(xintercept = GDP_lo_thresh, linetype="dotted",
+                color = "red", size=1.5) +
+  geom_vline(xintercept = GDP_hi_thresh, linetype="dotted",
+                color = "red", size=1.5) +
+    theme(text = element_text(size=15),
+        axis.text.x = element_text(angle=90, hjust=1))
+```
+
+```{r}
+cutoff_table<-NULL
+cutoff_table<-as.data.frame(hist_vals %>% filter(value > GDP_lo_thresh & value < GDP_hi_thresh) %>% count(key))
+cutoff_table$Total<-as.data.frame(hist_vals %>% count(key))$n
+cutoff_table$POP<-str_split_fixed(cutoff_table$key,"_",2)[,1]
+names(cutoff_table)<-c("Sample","GDP","Total","POP")
+cutoff_table$Percent<-cutoff_table$GDP/cutoff_table$Total
+ggplot(data=cutoff_table, aes(x=POP,y=Percent))+ geom_boxplot()
+
+```
+
+```{r}
+confidence=10^(-GQ_thresh/10)
+(1-confidence)*100
+```
