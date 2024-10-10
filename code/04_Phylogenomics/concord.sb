@@ -15,14 +15,14 @@ source $root/pkings_gwas.env
 
 MYNAME=$(whoami)
 
-outdir=${root}/output_data/04_Phylogeny_And_Admixture/
+outdir=${root}/output_data/04_Phylogenomics/
 
 mkdir -p ${outdir}
 
 OUTROOT=${snps_only_vcf%".vcf.gz"}
 
-indir=${root}/output_data/04_Phylogeny_And_Admixture/extracted_seqs/actual_data/
-outdir=${root}/output_data/04_Phylogeny_And_Admixture/
+indir=${root}/output_data/04_Phylogenomics/extracted_complete_alignments/
+outdir=${root}/output_data/04_Phylogenomics/
 
 echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir ${gwas_tools_image} /iqtree/iqtree2 -te /out_dir/pkings_iqtree_genes_astral --gcf /out_dir/pkings_iqtree_genes.treefile --scf 100 -S /in_dir --prefix /out_dir/pkings_iqtree_genes_astral_gcf_scf_tree -T 128
 singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir ${gwas_tools_image} /iqtree/iqtree2 -te /out_dir/pkings_iqtree_genes_astral --gcf /out_dir/pkings_iqtree_genes.treefile --scf 100 -S /in_dir --prefix /out_dir/pkings_iqtree_genes_astral_gcf_scf_tree -T 128

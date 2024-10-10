@@ -8,4 +8,4 @@
 root="$(git rev-parse --show-toplevel)"
 source "${root}/pkings_gwas.env"
 
-cat ${root}/output_data/04_Phylogeny_And_Admixture/gene_trees_extracted/*treefile > ${root}/output_data/04_Phylogeny_And_Admixture/all_genes_extracted.treefile
+cat ${root}/output_data/04_Phylogenomics/gene_trees_extracted/*treefile > ${root}/output_data/04_Phylogenomics/all_genes_extracted.treefile

@@ -8,8 +8,8 @@
 root="$(git rev-parse --show-toplevel)"
 source ${root}/"pkings_gwas.env"
 
-indir=${root}/input_data/04_Phylogeny_And_Admixture/
-outdir=${root}/output_data/04_Phylogeny_And_Admixture/
+indir=${root}/input_data/04_Phylogenomics/
+outdir=${root}/output_data/04_Phylogenomics/
 
 mkdir -p ${outdir}/extracted_seqs
 

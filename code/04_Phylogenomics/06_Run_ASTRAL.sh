@@ -8,7 +8,7 @@
 root="$(git rev-parse --show-toplevel)"
 source ${root}/"pkings_gwas.env"
 
-mkdir -p ${root}/output_data/slurm_logs/04_Phylogeny_And_Admixture/
+mkdir -p ${root}/output_data/slurm_logs/04_Phylogenomics/
 
-echo sbatch --job-name "PHYLO_ASTRAL" --output ${root}"/output_data/slurm_logs/04_Phylogeny_And_Admixture/phylo_run_astral_extracted.log" --export=root=${root} ${root}/code/04_Phylogeny_and_Admixture/run_astral.sb
-sbatch --job-name "PHYLO_ASTRAL" --output ${root}"/output_data/slurm_logs/04_Phylogeny_And_Admixture/phylo_run_astral_extracted.log" --export=root=${root} ${root}/code/04_Phylogeny_and_Admixture/run_astral.sb
+echo sbatch --job-name "PHYLO_ASTRAL" --output ${root}"/output_data/slurm_logs/04_Phylogenomics/phylo_run_astral_extracted.log" --export=root=${root} ${root}/code/04_Phylogenomics/run_astral.sb
+sbatch --job-name "PHYLO_ASTRAL" --output ${root}"/output_data/slurm_logs/04_Phylogenomics/phylo_run_astral_extracted.log" --export=root=${root} ${root}/code/04_Phylogenomics/run_astral.sb

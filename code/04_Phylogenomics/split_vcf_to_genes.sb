@@ -15,7 +15,7 @@ source $root/pkings_gwas.env
 MYNAME=$(whoami)
 
 indir=${root}/output_data/03_QC/
-outdir=${root}/output_data/04_Phylogeny_And_Admixture/
+outdir=${root}/output_data/04_Phylogenomics/
 refdir=${root}/input_data/00_Reference_Genome/
 tmpoutdir=/mnt/local/${MYNAME}/${SLURM_JOB_ID}/
 
@@ -64,12 +64,12 @@ mkdir -p ${outdir}/gene_alignments/
 
 echo "Now running Create Fasta Alignment on ${file_suffix}..."
 
-singularity exec --bind ${tmpoutdir}:/in_dir --bind ${outdir}:/out_dir ${gwas_tools_image} python3 ${root}/code/04_Phylogeny_and_Admixture/create_fasta_alignment.py \
+singularity exec --bind ${tmpoutdir}:/in_dir --bind ${outdir}:/out_dir ${gwas_tools_image} python3 ${root}/code/04_Phylogenomics/create_fasta_alignment.py \
 /in_dir/${invariant_and_snps_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz \
 ${regionfile} \
 /out_dir/gene_alignments/
 
-singularity exec --bind ${tmpoutdir}:/in_dir --bind ${outdir}:/out_dir ${gwas_tools_image} python3 ${root}/code/04_Phylogeny_and_Admixture/create_fasta_alignment.py \
+singularity exec --bind ${tmpoutdir}:/in_dir --bind ${outdir}:/out_dir ${gwas_tools_image} python3 ${root}/code/04_Phylogenomics/create_fasta_alignment.py \
 /in_dir/${invariant_and_snps_vcf}.${SLURM_ARRAY_TASK_ID}.vcf.gz \
 ${regionfile} \
 /out_dir/gene_alignments/

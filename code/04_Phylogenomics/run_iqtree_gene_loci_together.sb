@@ -14,8 +14,8 @@ cd $root
 
 source $root/pkings_gwas.env
 
-indir=${root}/output_data/04_Phylogeny_And_Admixture/extracted_seqs/actual_data/
-outdir=${root}/output_data/04_Phylogeny_And_Admixture/
+indir=${root}/output_data/04_Phylogenomics/extracted_complete_alignments/
+outdir=${root}/output_data/04_Phylogenomics/
 
 mkdir -p ${outdir}
 

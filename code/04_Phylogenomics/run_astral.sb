@@ -26,4 +26,4 @@ OUTROOT=${snps_only_vcf%".vcf.gz"}
 cd ${outdir}
 module load GCC/12.3.0
 
-~/ASTER/bin/astral4 -i ${root}/output_data/04_Phylogeny_And_Admixture/pkings_iqtree_genes.treefile -r 16 -s 16 -t 128 -o ${root}/output_data/04_Phylogeny_And_Admixture/pkings_iqtree_genes_astral
+~/ASTER/bin/astral4 -i ${root}/output_data/04_Phylogenomics/pkings_iqtree_genes.treefile -r 16 -s 16 -t 128 -o ${root}/output_data/04_Phylogenomics/pkings_iqtree_genes_astral
