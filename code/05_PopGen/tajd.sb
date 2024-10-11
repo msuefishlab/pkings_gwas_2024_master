@@ -21,7 +21,7 @@ tmpoutdir=/mnt/local/${MYNAME}/${SLURM_JOB_ID}
 mkdir -p ${outdir}
 mkdir -p ${tmpoutdir}
 
-TN=$(basename ${allsites_vcf})
+TN=$(basename ${snps_only_vcf})
 VCFBASE=${TN%".vcf.gz"}
 
 intervals=()
@@ -39,8 +39,8 @@ f=${intervals[$SLURM_ARRAY_TASK_ID]}
 
 #subset vcf
 echo "Subsetting VCF..."
-echo singularity exec --bind $root:/project_root  --bind $indir:/in_dir --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bcftools view -r ${f} -Oz -o /tmp_dir/${VCFBASE}_${SLURM_ARRAY_TASK_ID}.vcf.gz /in_dir/${allsites_vcf}
-singularity exec --bind $root:/project_root  --bind $indir:/in_dir --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bcftools view -r ${f} -Oz -o /tmp_dir/${VCFBASE}_${SLURM_ARRAY_TASK_ID}.vcf.gz /in_dir/${allsites_vcf}
+echo singularity exec --bind $root:/project_root  --bind $indir:/in_dir --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bcftools view -r ${f} -Oz -o /tmp_dir/${VCFBASE}_${SLURM_ARRAY_TASK_ID}.vcf.gz /in_dir/${snps_only_vcf}
+singularity exec --bind $root:/project_root  --bind $indir:/in_dir --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} bcftools view -r ${f} -Oz -o /tmp_dir/${VCFBASE}_${SLURM_ARRAY_TASK_ID}.vcf.gz /in_dir/${snps_only_vcf}
 
 #index vcf
 echo "Indexing VCF..."
