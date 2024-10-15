@@ -10,6 +10,7 @@
 # #SBATCH --cpus-per-task=4
 # #SBATCH --mem=120g
 # #SBATCH -o gemma_permute_%j.out
+root="$(git rev-parse --show-toplevel)"
 
 OUTNAME=$1
 
