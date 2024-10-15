@@ -1,0 +1,15 @@
+#!/bin/bash --login
+
+########## Define Resources Needed with SBATCH Lines ##########
+
+#SBATCH -t 06:00:00
+#SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
+#SBATCH --cpus-per-task=8           # number of CPUs (or cores) per task (same as -c)
+#SBATCH --mem=24G                    # memory required per node - amount of memory (in bytes)
+#SBATCH -J copy-from-google
+#SBATCH -o copy_%J_%A_%a.out
+
+########## Command Lines to Run ##########
+
+cd $SCRATCH/pkings_popgen_2023/2023_AR_BAMS
+cat 2023_AR_BAMLIST | gsutil -m cp -I .

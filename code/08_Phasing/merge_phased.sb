@@ -1,0 +1,37 @@
+#!/bin/bash --login
+
+########## Define Resources Needed with SBATCH Lines ##########
+
+#SBATCH --time=04:00:00             # limit of wall clock time - how long the job will run (same as -t)
+#SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
+#SBATCH --cpus-per-task=9           # number of CPUs (or cores) per task (same as -c)
+#SBATCH --mem=160G                    # memory required per node - amount of memory (in bytes)
+#SBATCH -J merge_phased
+#SBATCH -o merge_phased_%J_%A_%a.out
+
+########## Command Lines to Run ##########
+
+module purge; module load       GCC/4.9.3-2.25  OpenMPI/1.10.2 tabix/0.2.6 bcftools_local_1.16
+
+cd $SLURM_SUBMIT_DIR
+
+scriptdir="$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )"
+WORK_D=$(git rev-parse --show-toplevel)
+
+cd $WORK_D
+
+echo $scriptdir
+
+source $WORK_D/code/00_utility/parse_yaml.sh
+
+eval $(parse_yaml ./global_params.yaml)
+
+ls -1 $WORK_D/output_data/shapeit/*.phased.vcf.gz > $WORK_D/metadata/phased_for_merge.list
+
+VCF_FILE_ROOT=${BIALLELIC_VCF%.vcf.gz}
+
+mkdir -p $WORK_D/output_data/phased_vcf/
+
+bcftools concat --threads 8 -f $WORK_D/metadata/phased_for_merge.list -Oz -o $WORK_D/output_data/phased_vcf/${VCF_FILE_ROOT}.phased.vcf.gz
+bcftools index $WORK_D/output_data/phased_vcf/${VCF_FILE_ROOT}.phased.vcf.gz
+tabix $WORK_D/output_data/phased_vcf/${VCF_FILE_ROOT}.phased.vcf.gz

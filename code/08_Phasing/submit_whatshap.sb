@@ -1,0 +1,93 @@
+#!/bin/bash --login
+
+########## Define Resources Needed with SBATCH Lines ##########
+
+#SBATCH --time=04:00:00             # limit of wall clock time - how long the job will run (same as -t)
+#SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
+#SBATCH --cpus-per-task=2           # number of CPUs (or cores) per task (same as -c)
+#SBATCH --mem=8G                    # memory required per node - amount of memory (in bytes)
+#SBATCH -J whatshap
+#SBATCH -o whatshap_%J_%A_%a.out
+
+########## Command Lines to Run ##########
+
+
+module purge; module load GCC/9.3.0 bcftools_local_1.16
+mamba activate phasing
+#whatshap/tabix/samtools installed with mamba
+
+scriptdir="$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )"
+WORK_D=$(git rev-parse --show-toplevel)
+
+cd $WORK_D
+
+echo $scriptdir
+
+source $WORK_D/code/00_utility/parse_yaml.sh
+
+eval $(parse_yaml ./global_params.yaml)
+
+REF=$WORK_D/data/reference/${REFERENCE_FILE}
+
+VCF=$WORK_D/output_data/variant_filtration/${BIALLELIC_VCF}
+
+#26 chromosomes
+INTERVAL_FILE=${WORK_D}/metadata/region_lists/region_${SLURM_ARRAY_TASK_ID}.txt
+INTERVAL_COUNT=$(sed -n \$= $INTERVAL_FILE)
+
+if [[ $INTERVAL_COUNT -gt 1 ]]
+then
+	SAMPLE=${1}
+	mkdir -p ${TMPDIR}/${SAMPLE}
+	cd ${TMPDIR}/${SAMPLE}
+	scp $REF ${TMPDIR}/${SAMPLE}
+	scp $REF.fai ${TMPDIR}/${SAMPLE}
+
+    while read INTERVAL
+	do
+	####
+	bcftools view -r $INTERVAL -s $SAMPLE -O z -o ${TMPDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.vcf.gz $VCF
+	bcftools index ${TMPDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.vcf.gz
+
+	samtools view -b ${WORK_D}/data/2023_AR_BAMS/${SAMPLE}.pkings_nanopore_ragoo.aligned.duplicate_marked.sorted.bam $INTERVAL > ${TMPDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.ar.bam
+	samtools index ${TMPDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.ar.bam
+
+	whatshap phase -o ${TMPDIR}/${SAMPLE}_${INTERVAL}.whatshap.vcf --reference=ragtag.scaffold.fasta ${TMPDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.vcf.gz ${SAMPLE}_${INTERVAL}.ar.bam
+
+	mkdir -p ${WORK_D}/output_data/whatshap/${SAMPLE}
+	mv ${TMPDIR}/${SAMPLE}_${INTERVAL}.whatshap.vcf ${WORK_D}/output_data/whatshap/${SAMPLE}
+
+	bgzip ${WORK_D}/output_data/whatshap/${SAMPLE}/${SAMPLE}_${INTERVAL}.whatshap.vcf
+	bcftools index ${WORK_D}/output_data/whatshap/${SAMPLE}/${SAMPLE}_${INTERVAL}.whatshap.vcf.gz
+
+	done < $INTERVAL_FILE
+else
+	INTERVAL=`cat $INTERVAL_FILE`
+  	
+	####
+	SAMPLE=${1}
+
+	mkdir -p ${TMPDIR}/${SAMPLE}
+
+	bcftools view -r $INTERVAL -s $SAMPLE -O z -o ${TMPDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.vcf.gz $VCF
+	bcftools index ${TMPDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.vcf.gz
+
+	cd ${TMPDIR}/${SAMPLE}
+	scp $REF ${TMPDIR}/${SAMPLE}
+	scp $REF.fai ${TMPDIR}/${SAMPLE}
+
+	samtools view -b ${WORK_D}/data/2023_AR_BAMS/${SAMPLE}.pkings_nanopore_ragoo.aligned.duplicate_marked.sorted.bam $INTERVAL > ${TMPDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.ar.bam
+	samtools index ${TMPDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.ar.bam
+
+	if ! whatshap phase -o ${TMPDIR}/${SAMPLE}_${INTERVAL}.whatshap.vcf --reference=ragtag.scaffold.fasta ${TMPDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.vcf.gz ${SAMPLE}_${INTERVAL}.ar.bam; then
+		touch ${TMPDIR}/${SAMPLE}_${INTERVAL}.whatshap.vcf.empty
+		mkdir -p ${WORK_D}/output_data/whatshap/${SAMPLE}
+		mv ${TMPDIR}/${SAMPLE}_${INTERVAL}.whatshap.vcf.empty ${WORK_D}/output_data/whatshap/${SAMPLE}
+	else
+		mkdir -p ${WORK_D}/output_data/whatshap/${SAMPLE}
+		mv ${TMPDIR}/${SAMPLE}_${INTERVAL}.whatshap.vcf ${WORK_D}/output_data/whatshap/${SAMPLE}
+
+		bgzip ${WORK_D}/output_data/whatshap/${SAMPLE}/${SAMPLE}_${INTERVAL}.whatshap.vcf
+		bcftools index ${WORK_D}/output_data/whatshap/${SAMPLE}/${SAMPLE}_${INTERVAL}.whatshap.vcf.gz
+	fi
+fi

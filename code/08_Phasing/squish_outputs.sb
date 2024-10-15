@@ -1,0 +1,49 @@
+#!/bin/bash --login
+
+########## Define Resources Needed with SBATCH Lines ##########
+
+#SBATCH --time=04:00:00             # limit of wall clock time - how long the job will run (same as -t)
+#SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
+#SBATCH --cpus-per-task=4           # number of CPUs (or cores) per task (same as -c)
+#SBATCH --mem=24G                    # memory required per node - amount of memory (in bytes)
+#SBATCH -J squish_outputs
+#SBATCH -o squish_%J_%A_%a.out
+
+########## Command Lines to Run ##########
+
+module purge; module load GCC/9.3.0 bcftools_local_1.16
+
+cd $SLURM_SUBMIT_DIR
+
+scriptdir="$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )"
+WORK_D=$(git rev-parse --show-toplevel)
+
+cd $WORK_D
+
+echo $scriptdir
+
+source $WORK_D/code/00_utility/parse_yaml.sh
+
+eval $(parse_yaml ./global_params.yaml)
+
+OUT_D=./output_data/whatshap/"$1"
+
+cd $WORK_D
+
+INTERVAL_FILE=${WORK_D}/metadata/region_lists/region_${FINAL_REGION}.txt
+INTERVAL_COUNT=$(sed -n \$= $INTERVAL_FILE)
+SN=$1
+
+rm -f $OUT_D/final_chunk.list
+touch $OUT_D/final_chunk.list
+while read INTERVAL
+	do
+	ls -1 $OUT_D/*${INTERVAL}.whatshap.vcf.gz >> $OUT_D/final_chunk.list
+done < $INTERVAL_FILE
+
+module load picard
+java -jar $EBROOTPICARD/picard.jar MergeVcfs I=$OUT_D/final_chunk.list O=$OUT_D/${SN}_final_chunk.whatshap.vcf.gz
+bcftools index $OUT_D/${SN}_final_chunk.whatshap.vcf.gz
+
+cat $OUT_D/final_chunk.list | xargs rm
+cat $OUT_D/final_chunk.list | sed s/$/".csi"/ | xargs rm
