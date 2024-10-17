@@ -32,6 +32,17 @@ hist_vals<-GQ_data[,-c(1:18)] %>% gather()
 hist_vals$value<-as.numeric(hist_vals$value)
 ```
 
+```{r}
+ggplot(subset(hist_vals, key=="PVAD_5505.GQ"), aes(x = value)) +
+    geom_density(color="darkblue",fill="lightblue",adjust=5,aes(y=..scaled..)) +
+    facet_wrap(~key) +
+    geom_vline(xintercept = GQ_thresh, linetype="dotted",
+                color = "red", size=1.5) +
+    theme(text = element_text(size=15),
+        axis.text.x = element_text(angle=90, hjust=1))
+```
+
+
 ```{r, fig.width=12,fig.height=24}
 ggplot(subset(hist_vals, value < 102), aes(x = value)) +
     geom_density(color="darkblue",fill="lightblue",adjust=5,aes(y=..scaled..)) +

@@ -15,10 +15,11 @@ library(stringr)     # String manipulation, used in mutate and case_when
 library(scales)      # For percent_format in scale_y_continuous
 library(riverdist)
 library(sf)
+library(ggrepel)
 ```
 
 ```{r}
-sampleinfo<-file.path(root,"input_data/01_Terra/data_model/fish_data_2023.txt")
+sampleinfo<-file.path(root,"input_data/01_Terra/data_model/fish_data_2024a.txt")
 metadata<-fread(sampleinfo)
 
 # Step 1: Group by population

@@ -87,7 +87,7 @@ setdiff(phylo_samps,pheno_discrete_samps)
 
 For reasons that I can't really understand, joint reconstruction fails because of the long branches of PVAD_5505 AND PSZA_454.  So here, I'm going to drop PVAD_5505 and root the tree in PSZA_454.
 ```{r}
-paramormyrops_tree<-drop.tip(paramormyrops_tree, c("PHOP_5511","BIK_6898"), trim.internal = TRUE)
+#paramormyrops_tree<-drop.tip(paramormyrops_tree, c("PHOP_5511","BIK_6898"), trim.internal = TRUE)
 paramormyrops_tree<-root(paramormyrops_tree,outgroup="PVAD_5505", resolve.root=TRUE)
 ```
 
@@ -181,7 +181,7 @@ nodelabels(node=1:ultrametric_rooted_tree$Nnode+Ntip(ultrametric_rooted_tree),
 #edgelabels()
 nodelabels(text=ultrametric_rooted_tree$node.label, adj=c(-.25,.25),frame="none",cex=0.5)
 n<-dev.off()  # Close the SVG device
-#knitr::include_graphics(plot_name)
+knitr::include_graphics(plot_name)
 ```
 # Joint Character Estimation
 See pg. 238 Revell & Harmon (2022) "Comparative Phylogenetic Comparative Methods in R":
@@ -251,7 +251,7 @@ nodelabels(node=1:ultrametric_rooted_tree$Nnode+Ntip(ultrametric_rooted_tree),
            pie=pd$ace,piecol=cols,cex=0.4)
 nodelabels(text=ultrametric_rooted_tree$node.label, adj=c(-.25,.25),frame="none",cex=0.5)
 n<-dev.off()  # Close the SVG device
-#knitr::include_graphics(plot_name)
+knitr::include_graphics(plot_name)
 ```
 
 ```{r}

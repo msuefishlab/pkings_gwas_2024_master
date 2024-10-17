@@ -43,10 +43,10 @@ print(paste0("The threshold for suggestive association is: ",suggestive))
 pk.lmm.filt <- pk.lmm %>% filter(log_p > 1) %>% filter(af > params$MAF_thresh) %>% filter((!grepl("ups", chr)) & !is.na(row) & !is.na(log_p)) %>% arrange(numeric_chr)
 
 #define peaks using an arbitrarily low threshold, merging windows within 75kb and removing singleton SNP peaks
-pk.lmm.peaks <- peak_list_permutation(pk.lmm.filt, "log_p",3, 10) 
+pk.lmm.peaks <- peak_list_permutation(pk.lmm.filt, "log_p",3, 4) 
 
 #define intervals where the peaks are, keeping information on length and mean/max p values
-pk.lmm.bed <- gemma.peak.bed(pk.lmm.peaks,significant)
+pk.lmm.bed <- gemma.peak.bed(pk.lmm.peaks,suggestive)
 
 ```
 
@@ -61,8 +61,8 @@ pk.lmm.filt %>%
 #create a filtered bed file that has peaks only with snps above the threshold
 
 pk.lmm.bed.f <- pk.lmm.bed %>% 
-  filter(max.log_p > significant ) %>% 
-  filter(num.snps.above.threshold > 10 ) %>% 
+  filter(max.log_p > suggestive ) %>% 
+  filter(num.snps.above.threshold > 4 ) %>% 
   ungroup() %>% 
   arrange(numeric_chr, start) %>% #arrange by chr order
   mutate(peak.original = peak, #new col for original peak name
@@ -131,5 +131,5 @@ p.gemma +
     geom_point(data = subset(pk.lmm.filt, log_p > suggestive), aes(x = row, y = log_p,size=log_p), color = "red", shape=20,stroke=0.2,alpha=0.25) +
   scale_size_continuous(range = c(0.9, 3)) +
   labs(y = expression(paste("-log"[10], italic("P"),"-value")),x= "Chromosome")+
-  ylim(c(1,15))
+  ylim(c(1,17))
 ```
