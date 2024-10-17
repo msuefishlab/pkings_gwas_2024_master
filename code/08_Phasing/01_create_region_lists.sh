@@ -5,27 +5,22 @@
 ## JRG
 # This script creates region files for downstream phasing and is run interactively from the command line.
 
-scriptdir="$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )"
-WORK_D=$(git rev-parse --show-toplevel)
+root="$(git rev-parse --show-toplevel)"
+source ${root}/"pkings_gwas.env"
 
-cd $WORK_D
+outdir=${root}/input_data/08_Phasing/
+mkdir -p ${outdir}
 
-echo $scriptdir
-
-source $WORK_D/code/00_utility/parse_yaml.sh
-
-eval $(parse_yaml ./global_params.yaml)
+mkdir -p ${outdir}/region_lists/
 
 
-mkdir -p ./metadata/region_lists
-
-cat ./data/reference/${REFERENCE_FILE}.fai | sort -r -k2 -n | head -25 | cut -f1 > ./metadata/pseudo_chrs.txt
+cat input_data/00_Reference_Genome/${reference}.fai | sort -r -k2 -n | head -25 | cut -f1 > ${outdir}/pseudo_chrs.txt
 
 i=0
 while read SCAFFOLD
 do
-  echo "$SCAFFOLD" > ./metadata/region_lists/region_${i}.txt
+  echo "$SCAFFOLD" > ${outdir}/region_lists/region_${i}.txt
   ((i++))
-done < ./metadata/pseudo_chrs.txt
-cat data/reference/ragtag.scaffold.fasta.fai | sort -r -k2 -n | tail -n +26 | cut -f1 > ./metadata/region_lists/region_${i}.txt
+done < ${outdir}/pseudo_chrs.txt
+cat input_data/00_Reference_Genome/${reference}.fai  | sort -r -k2 -n | tail -n +26 | cut -f1 > ${outdir}/region_lists/region_${i}.txt
 

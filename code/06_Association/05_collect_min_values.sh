@@ -6,6 +6,9 @@
 # This script collects minimum p-values across permuted gemma gwas runs, which would normally be collected by gemma-wrapper when not in slurm mode.
 # e.g. . code/06_Association/05_collect_min_values.sh APA_BAM_ONLY_BP1_TP0_WOBBLE9
 
+root="$(git rev-parse --show-toplevel)"
+
+
 OUTNAME=$1
 
 cd $root
