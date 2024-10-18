@@ -4,6 +4,7 @@ output: html_notebook
 params:
   data_path: DOV_DOG_BEN_APA_BIK_BAVA_BIR_TP1_BP2_WOB9
   output_file: NULL
+  MAF_thresh: NULL
 ---
 
 ```{r setup, include=FALSE}
@@ -24,7 +25,7 @@ source(file.path(root,"code","06_Association","gemma_gwas_functions.R"))
 ```
 
 ```{r}
-anno_file<-file.path(root,"input_data","00_Reference_Genome","MIC4273_HAP1_MSU618.liftoff.renamed.sorted.genes_only.gff")
+anno_file<-file.path(root,"input_data","00_Reference_Genome","jordan-mic4273-mb-hirise-20xx3__06-13-2024__final_assembly.fasta.renamed.sorted.genes_only.gff")
 feat_table_file<-file.path(root,"input_data","00_Reference_Genome","GCF_002872115.1_PKINGS_0.1_feature_table.txt")
 gemma_file<-file.path(root,"output_data","06_Association",params$data_path,paste0(params$data_path,".lmm2.assoc.txt"))
 minpath<-file.path(root,"output_data","06_Association",params$data_path,paste0(params$data_path,"_permution"),"min.txt")
@@ -46,7 +47,7 @@ suggestive
 
 ```{r}
 #remove low log p to reduce memory footprint
-pk.lmm.filt <- pk.lmm %>% filter(log_p > 1) %>% filter((!grepl("ups", chr)) & !is.na(row) & !is.na(log_p))
+pk.lmm.filt <- pk.lmm %>% filter(log_p > 1) %>% filter(af > params$MAF_thresh) %>% filter((!grepl("ups", chr)) & !is.na(row) & !is.na(log_p)) %>% arrange(numeric_chr)
 
 pk.lmm.filt<- pk.lmm.filt %>% mutate(new_rs = str_split(rs, ":", simplify = TRUE)[, 1])
 

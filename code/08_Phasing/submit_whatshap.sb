@@ -12,53 +12,39 @@
 ########## Command Lines to Run ##########
 
 
-module purge; module load GCC/9.3.0 bcftools_local_1.16
-mamba activate phasing
-#whatshap/tabix/samtools installed with mamba
-
-scriptdir="$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )"
-WORK_D=$(git rev-parse --show-toplevel)
-
-cd $WORK_D
-
-echo $scriptdir
-
-source $WORK_D/code/00_utility/parse_yaml.sh
-
-eval $(parse_yaml ./global_params.yaml)
-
-REF=$WORK_D/data/reference/${REFERENCE_FILE}
-
-VCF=$WORK_D/output_data/variant_filtration/${BIALLELIC_VCF}
+source $root/pkings_gwas.env
 
 #26 chromosomes
-INTERVAL_FILE=${WORK_D}/metadata/region_lists/region_${SLURM_ARRAY_TASK_ID}.txt
+INTERVAL_FILE=${root}/input_data/08_Phasing/region_lists/region_${SLURM_ARRAY_TASK_ID}.txt
 INTERVAL_COUNT=$(sed -n \$= $INTERVAL_FILE)
+TMPOUTDIR=${scratch_store}/output_data/08_Phasing/phase_chunks
+
+mkdir -p ${TMPOUTDIR}
 
 if [[ $INTERVAL_COUNT -gt 1 ]]
 then
 	SAMPLE=${1}
 	mkdir -p ${TMPDIR}/${SAMPLE}
 	cd ${TMPDIR}/${SAMPLE}
-	scp $REF ${TMPDIR}/${SAMPLE}
-	scp $REF.fai ${TMPDIR}/${SAMPLE}
+	cp ${root}/input_data/00_Reference_Genome/${original_reference} ${TMPDIR}/${SAMPLE}
+	cp ${root}/input_data/00_Reference_Genome/${original_reference}.fai ${TMPDIR}/${SAMPLE}
 
     while read INTERVAL
 	do
 	####
-	bcftools view -r $INTERVAL -s $SAMPLE -O z -o ${TMPDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.vcf.gz $VCF
-	bcftools index ${TMPDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.vcf.gz
+	singularity exec ${gwas_tools_image} bcftools view -r $INTERVAL -s $SAMPLE -O z -o ${TMPDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.vcf.gz ${root}/output_data/03_QC/${snps_only_for_phasing}
+	singularity exec ${gwas_tools_image} bcftools index ${TMPDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.vcf.gz
 
-	samtools view -b ${WORK_D}/data/2023_AR_BAMS/${SAMPLE}.pkings_nanopore_ragoo.aligned.duplicate_marked.sorted.bam $INTERVAL > ${TMPDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.ar.bam
-	samtools index ${TMPDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.ar.bam
+	singularity exec ${gwas_tools_image} samtools view -b ${scratch_store}/output_data/08_Phasing/${SAMPLE}.MIC4273_HAP2_NEWREF_MSU618.aligned.duplicate_marked.sorted.bam $INTERVAL > ${TMPDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.ar.bam
+	singularity exec ${gwas_tools_image} samtools index ${TMPDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.ar.bam
 
-	whatshap phase -o ${TMPDIR}/${SAMPLE}_${INTERVAL}.whatshap.vcf --reference=ragtag.scaffold.fasta ${TMPDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.vcf.gz ${SAMPLE}_${INTERVAL}.ar.bam
+	singularity exec ${gwas_tools_image} whatshap phase -o ${TMPDIR}/${SAMPLE}_${INTERVAL}.whatshap.vcf --reference=${TMPDIR}/${SAMPLE}/${original_reference} ${TMPDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.vcf.gz ${SAMPLE}_${INTERVAL}.ar.bam
 
-	mkdir -p ${WORK_D}/output_data/whatshap/${SAMPLE}
-	mv ${TMPDIR}/${SAMPLE}_${INTERVAL}.whatshap.vcf ${WORK_D}/output_data/whatshap/${SAMPLE}
+	mkdir -p ${TMPOUTDIR}/${SAMPLE}
+	mv ${TMPDIR}/${SAMPLE}_${INTERVAL}.whatshap.vcf ${TMPOUTDIR}/${SAMPLE}
 
-	bgzip ${WORK_D}/output_data/whatshap/${SAMPLE}/${SAMPLE}_${INTERVAL}.whatshap.vcf
-	bcftools index ${WORK_D}/output_data/whatshap/${SAMPLE}/${SAMPLE}_${INTERVAL}.whatshap.vcf.gz
+	singularity exec ${gwas_tools_image} bgzip ${TMPOUTDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.whatshap.vcf
+	singularity exec ${gwas_tools_image} bcftools index ${TMPOUTDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.whatshap.vcf.gz
 
 	done < $INTERVAL_FILE
 else
@@ -69,25 +55,25 @@ else
 
 	mkdir -p ${TMPDIR}/${SAMPLE}
 
-	bcftools view -r $INTERVAL -s $SAMPLE -O z -o ${TMPDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.vcf.gz $VCF
-	bcftools index ${TMPDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.vcf.gz
+	singularity exec ${gwas_tools_image} bcftools view -r $INTERVAL -s $SAMPLE -O z -o ${TMPDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.vcf.gz ${root}/output_data/03_QC/${snps_only_for_phasing}
+	singularity exec ${gwas_tools_image} bcftools index ${TMPDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.vcf.gz
 
 	cd ${TMPDIR}/${SAMPLE}
-	scp $REF ${TMPDIR}/${SAMPLE}
-	scp $REF.fai ${TMPDIR}/${SAMPLE}
+	cp ${root}/input_data/00_Reference_Genome/${original_reference} ${TMPDIR}/${SAMPLE}
+	cp ${root}/input_data/00_Reference_Genome/${original_reference}.fai ${TMPDIR}/${SAMPLE}
 
-	samtools view -b ${WORK_D}/data/2023_AR_BAMS/${SAMPLE}.pkings_nanopore_ragoo.aligned.duplicate_marked.sorted.bam $INTERVAL > ${TMPDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.ar.bam
-	samtools index ${TMPDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.ar.bam
+	singularity exec ${gwas_tools_image} samtools view -b ${scratch_store}/output_data/08_Phasing/${SAMPLE}.MIC4273_HAP2_NEWREF_MSU618.aligned.duplicate_marked.sorted.bam $INTERVAL > ${TMPDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.ar.bam
+	singularity exec ${gwas_tools_image} samtools index ${TMPDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.ar.bam
 
-	if ! whatshap phase -o ${TMPDIR}/${SAMPLE}_${INTERVAL}.whatshap.vcf --reference=ragtag.scaffold.fasta ${TMPDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.vcf.gz ${SAMPLE}_${INTERVAL}.ar.bam; then
+	if ! singularity exec ${gwas_tools_image} whatshap phase -o ${TMPDIR}/${SAMPLE}_${INTERVAL}.whatshap.vcf --reference=${TMPDIR}/${SAMPLE}/${original_reference} ${TMPDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.vcf.gz ${SAMPLE}_${INTERVAL}.ar.bam; then
 		touch ${TMPDIR}/${SAMPLE}_${INTERVAL}.whatshap.vcf.empty
-		mkdir -p ${WORK_D}/output_data/whatshap/${SAMPLE}
-		mv ${TMPDIR}/${SAMPLE}_${INTERVAL}.whatshap.vcf.empty ${WORK_D}/output_data/whatshap/${SAMPLE}
+		mkdir -p ${TMPOUTDIR}/${SAMPLE}
+		mv ${TMPDIR}/${SAMPLE}_${INTERVAL}.whatshap.vcf.empty ${TMPOUTDIR}/${SAMPLE}
 	else
-		mkdir -p ${WORK_D}/output_data/whatshap/${SAMPLE}
-		mv ${TMPDIR}/${SAMPLE}_${INTERVAL}.whatshap.vcf ${WORK_D}/output_data/whatshap/${SAMPLE}
+		mkdir -p ${TMPOUTDIR}/${SAMPLE}
+		mv ${TMPDIR}/${SAMPLE}_${INTERVAL}.whatshap.vcf ${TMPOUTDIR}/${SAMPLE}
 
-		bgzip ${WORK_D}/output_data/whatshap/${SAMPLE}/${SAMPLE}_${INTERVAL}.whatshap.vcf
-		bcftools index ${WORK_D}/output_data/whatshap/${SAMPLE}/${SAMPLE}_${INTERVAL}.whatshap.vcf.gz
+		singularity exec ${gwas_tools_image} bgzip ${TMPOUTDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.whatshap.vcf
+		singularity exec ${gwas_tools_image} bcftools index ${TMPOUTDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.whatshap.vcf.gz
 	fi
 fi
