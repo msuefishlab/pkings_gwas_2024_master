@@ -6,16 +6,13 @@
 # This script runs shapeit on all whatshap vcf files
 # e.g. bash 05_run_shapeit.sh
 
-scriptdir="$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )"
-WORK_D=$(git rev-parse --show-toplevel)
+root="$(git rev-parse --show-toplevel)"
+source ${root}/"pkings_gwas.env"
 
-cd $WORK_D
+outdir=${root}/input_data/08_Phasing/
+mkdir -p ${outdir}
 
-echo $scriptdir
+mkdir -p ${root}/output_data/slurm_logs/08_Phasing/
 
-source $WORK_D/code/00_utility/parse_yaml.sh
-
-eval $(parse_yaml ./global_params.yaml)
-
-mkdir -p $WORK_D/slurm_outputs/merge_phased/
-sbatch --job-name "MERGE_PHASED" --output $WORK_D/slurm_outputs/merge_phased/"MERGE_PHASED.slurm_%j_%a.log" --export=scriptdir=$scriptdir $scriptdir/merge_phased.sb
+echo sbatch --job-name "MERGE_PHASED" --output ${root}/output_data/slurm_logs/08_Phasing/MERGE_PHASED.slurm.log --export=root=${root} ${root}/code/08_Phasing/merge_phased.sb
+sbatch --job-name "MERGE_PHASED" --output ${root}/output_data/slurm_logs/08_Phasing/MERGE_PHASED.slurm.log --export=root=${root} ${root}/code/08_Phasing/merge_phased.sb

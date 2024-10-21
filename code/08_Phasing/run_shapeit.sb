@@ -2,69 +2,56 @@
 
 ########## Define Resources Needed with SBATCH Lines ##########
 
-#SBATCH --time=04:00:00             # limit of wall clock time - how long the job will run (same as -t)
+#SBATCH --time=08:00:00             # limit of wall clock time - how long the job will run (same as -t)
 #SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
-#SBATCH --cpus-per-task=5           # number of CPUs (or cores) per task (same as -c)
-#SBATCH --mem=24G                    # memory required per node - amount of memory (in bytes)
+#SBATCH --cpus-per-task=8           # number of CPUs (or cores) per task (same as -c)
+#SBATCH --mem=64G                    # memory required per node - amount of memory (in bytes)
 #SBATCH -J shapeit
 #SBATCH -o shapeit_%J_%A_%a.out
 #SBATCH --constraint=[intel16|intel18|amd20|amd22]
 ########## Command Lines to Run ##########
 
-#module purge; module load GCC/9.3.0 bcftools_local_1.16
-module purge; module load GCC/10.2.0 Boost/1.71.0 HTSlib/1.12 bcftools_local_1.16
-#mamba activate phasing
-#whatshap/tabix/samtools installed with mamba
+source $root/pkings_gwas.env
 
+INTERVAL_FILE=${root}/input_data/08_Phasing/region_lists/region_${SLURM_ARRAY_TASK_ID}.txt
+INTERVAL_COUNT=$(sed -n \$= $INTERVAL_FILE)
+TMPOUTDIR=${scratch_store}/output_data/08_Phasing/phase_chunks
 
+TMPOUTPHASEDIR=${scratch_store}/output_data/08_Phasing/phase_chunks_by_region
 
-cd $SLURM_SUBMIT_DIR
+mkdir -p ${TMPOUTPHASEDIR}
 
-scriptdir="$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )"
-WORK_D=$(git rev-parse --show-toplevel)
-
-cd $WORK_D
-
-echo $scriptdir
-
-source $WORK_D/code/00_utility/parse_yaml.sh
-
-OUT_D=$WORK_D/output_data/shapeit
-
-mkdir -p $OUT_D
-
-INTERVAL_LIST=${WORK_D}/metadata/shapeit_regions.txt
+INTERVAL_LIST=${root}/input_data/08_Phasing/shapeit_regions.txt
 INTERVAL=`cat $INTERVAL_LIST | awk -v line=$SLURM_ARRAY_TASK_ID '{if (NR == line) print $0}'`
 
-SAMPLE_DIR=$WORK_D/output_data/whatshap
+ls $TMPOUTDIR/*/*${INTERVAL}.whatshap.vcf.gz > $TMPOUTPHASEDIR/${INTERVAL}.list
 
-ls $SAMPLE_DIR/*/*${INTERVAL}.whatshap.vcf.gz > $OUT_D/${INTERVAL}.list
+echo singularity exec ${gwas_tools_image} bcftools merge --threads 8 -l $TMPOUTPHASEDIR/${INTERVAL}.list -O z -o $TMPOUTPHASEDIR/${INTERVAL}.whatshap.vcf.gz
+singularity exec ${gwas_tools_image} bcftools merge --threads 8 -l $TMPOUTPHASEDIR/${INTERVAL}.list -O z -o $TMPOUTPHASEDIR/${INTERVAL}.whatshap.vcf.gz
 
-bcftools merge --threads 4 -l $OUT_D/${INTERVAL}.list -O z -o $OUT_D/${INTERVAL}.whatshap.vcf.gz
-bcftools index $OUT_D/${INTERVAL}.whatshap.vcf.gz
+echo singularity exec ${gwas_tools_image} bcftools index $TMPOUTPHASEDIR/${INTERVAL}.whatshap.vcf.gz
+singularity exec ${gwas_tools_image} bcftools index $TMPOUTPHASEDIR/${INTERVAL}.whatshap.vcf.gz
 
-#module load picard
-#java -jar $EBROOTPICARD/picard.jar MergeVcfs I=$OUT_D/${INTERVAL}.list O=$OUT_D/${INTERVAL}.whatshap.vcf.gz
-#bcftools index $OUT_D/${INTERVAL}.whatshap.vcf.gz
+module load SHAPEIT4/4.2.2-foss-2023a
 
 if [ $INTERVAL == "final_chunk" ]; then
-INTERVAL_FILE=${WORK_D}/metadata/region_lists/region_25.txt
-while read INTERVAL
-	do
-	/mnt/home/jgallant/shapeit4-4.2.2/bin/shapeit4.2 --input $OUT_D/final_chunk.whatshap.vcf.gz \
-          --use-PS 0.0001 \
-          --output $OUT_D/${INTERVAL}.phased.vcf.gz \
-          --thread 4 \
-          --region $INTERVAL \
-          --log $OUT_D/${INTERVAL}.phasing.log
+    INTERVAL_FILE=${root}/input_data/01_Terra/remaining_intervals.list
+    while read NEWINTERVAL
+        do
+        shapeit4.2 --input $TMPOUTPHASEDIR/final_chunk.whatshap.vcf.gz \
+            --use-PS 0.0001 \
+            --output $TMPOUTPHASEDIR/${NEWINTERVAL}.phased.vcf.gz \
+            --thread 8 \
+            --region $INTERVAL \
+            --log $TMPOUTPHASEDIR/${NEWINTERVAL}.phasing.log
 
-    done < $INTERVAL_FILE
+        done < $INTERVAL_FILE
 
 else
-/mnt/home/jgallant/shapeit4-4.2.2/bin/shapeit4.2 --input $OUT_D/${INTERVAL}.whatshap.vcf.gz \
+shapeit4.2 --input $TMPOUTPHASEDIR/${INTERVAL}.whatshap.vcf.gz \
           --use-PS 0.0001 \
-          --output $OUT_D/${INTERVAL}.phased.vcf.gz \
-          --thread 4 \
+          --output $TMPOUTPHASEDIR/${INTERVAL}.phased.vcf.gz \
+          --thread 8 \
           --region $INTERVAL \
-          --log $OUT_D/${INTERVAL}.phasing.log
+          --log $TMPOUTPHASEDIR/${INTERVAL}.phasing.log
 fi

@@ -3,26 +3,23 @@
 ## 02_whatshap_submit.sh
 ## Feb 2023
 ## JRG
-# This script combines all unplaced scaffolds into a single VCF to reduce the total number of files, and improve slurm throughput for shapeit
-# e.g. bash 04_squish_outputs.sh
+# This script creates runs whatshap on sample batches located in the metadata folder
+# e.g. bash 03_whatshap_submit.sh sample_names_b_0.txt
 
-scriptdir="$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )"
-WORK_D=$(git rev-parse --show-toplevel)
+root="$(git rev-parse --show-toplevel)"
+source ${root}/"pkings_gwas.env"
 
-cd $WORK_D
+outdir=${root}/input_data/08_Phasing/
+mkdir -p ${outdir}
 
-echo $scriptdir
-
-source $WORK_D/code/00_utility/parse_yaml.sh
-
-eval $(parse_yaml ./global_params.yaml)
-
-#cat $WORK_D/metadata/sample_names_b*.txt > $WORK_D/metadata/all_samples.txt
+mkdir -p ${root}/output_data/slurm_logs/08_Phasing/
 
 while read SAMPLE
 do
   echo "$SAMPLE"
-  mkdir -p $WORK_D/slurm_outputs/squish/
-  sbatch --job-name $SAMPLE"_SQUISH" --output $WORK_D/slurm_outputs/squish/$SAMPLE"_SQUISH.slurm_%j_%a.log" --export=scriptdir=$scriptdir $scriptdir/squish_outputs.sb $SAMPLE
+  mkdir -p ${outdir}/$SAMPLE
 
-done < $WORK_D/metadata/samples_to_squish.txt
+  echo sbatch --job-name ${SAMPLE}_WHATSHAP --output ${root}/output_data/slurm_logs/08_Phasing/${SAMPLE}_SQUISH_OUTPUTS.slurm.log --export=root=${root} ${root}/code/08_Phasing/squish_outputs.sb $SAMPLE
+  sbatch --job-name ${SAMPLE}_WHATSHAP --output ${root}/output_data/slurm_logs/08_Phasing/${SAMPLE}_SQUISH_OUTPUTS.slurm.log --export=root=${root} ${root}/code/08_Phasing/squish_outputs.sb $SAMPLE
+
+done < "$1"

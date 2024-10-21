@@ -11,27 +11,19 @@
 
 ########## Command Lines to Run ##########
 
-module purge; module load       GCC/4.9.3-2.25  OpenMPI/1.10.2 tabix/0.2.6 bcftools_local_1.16
+source $root/pkings_gwas.env
 
-cd $SLURM_SUBMIT_DIR
+mkdir -p $root/output_data/08_Phasing/
 
-scriptdir="$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )"
-WORK_D=$(git rev-parse --show-toplevel)
+ls -1 ${scratch_store}/output_data/08_Phasing/phase_chunks_by_region/*.phased.vcf.gz > $root/output_data/08_Phasing/phased_for_merge.list
 
-cd $WORK_D
+VCF_FILE_ROOT=${snps_only_for_phasing%.vcf.gz}
 
-echo $scriptdir
+echo singularity exec ${gwas_tools_image} bcftools concat --threads 8 -f $root/output_data/08_Phasing/phased_for_merge.list -Oz -o $root/output_data/08_Phasing/${VCF_FILE_ROOT}.phased.vcf.gz
+singularity exec ${gwas_tools_image} bcftools concat --threads 8 -f $root/output_data/08_Phasing/phased_for_merge.list -Oz -o $root/output_data/08_Phasing/${VCF_FILE_ROOT}.phased.vcf.gz
 
-source $WORK_D/code/00_utility/parse_yaml.sh
+echo singularity exec ${gwas_tools_image} bcftools index $root/output_data/08_Phasing/${VCF_FILE_ROOT}.phased.vcf.gz
+singularity exec ${gwas_tools_image} bcftools index $root/output_data/08_Phasing/${VCF_FILE_ROOT}.phased.vcf.gz
 
-eval $(parse_yaml ./global_params.yaml)
-
-ls -1 $WORK_D/output_data/shapeit/*.phased.vcf.gz > $WORK_D/metadata/phased_for_merge.list
-
-VCF_FILE_ROOT=${BIALLELIC_VCF%.vcf.gz}
-
-mkdir -p $WORK_D/output_data/phased_vcf/
-
-bcftools concat --threads 8 -f $WORK_D/metadata/phased_for_merge.list -Oz -o $WORK_D/output_data/phased_vcf/${VCF_FILE_ROOT}.phased.vcf.gz
-bcftools index $WORK_D/output_data/phased_vcf/${VCF_FILE_ROOT}.phased.vcf.gz
-tabix $WORK_D/output_data/phased_vcf/${VCF_FILE_ROOT}.phased.vcf.gz
+echo singularity exec ${gwas_tools_image} tabix $root/output_data/08_Phasing/${VCF_FILE_ROOT}.phased.vcf.gz
+singularity exec ${gwas_tools_image} tabix $root/output_data/08_Phasing/${VCF_FILE_ROOT}.phased.vcf.gz

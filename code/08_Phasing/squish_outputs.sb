@@ -11,39 +11,23 @@
 
 ########## Command Lines to Run ##########
 
-module purge; module load GCC/9.3.0 bcftools_local_1.16
+source $root/pkings_gwas.env
 
-cd $SLURM_SUBMIT_DIR
+TMPOUTDIR=${scratch_store}/output_data/08_Phasing/phase_chunks/$1
 
-scriptdir="$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )"
-WORK_D=$(git rev-parse --show-toplevel)
-
-cd $WORK_D
-
-echo $scriptdir
-
-source $WORK_D/code/00_utility/parse_yaml.sh
-
-eval $(parse_yaml ./global_params.yaml)
-
-OUT_D=./output_data/whatshap/"$1"
-
-cd $WORK_D
-
-INTERVAL_FILE=${WORK_D}/metadata/region_lists/region_${FINAL_REGION}.txt
+INTERVAL_FILE=${root}/input_data/01_Terra/remaining_intervals.list
 INTERVAL_COUNT=$(sed -n \$= $INTERVAL_FILE)
 SN=$1
 
-rm -f $OUT_D/final_chunk.list
-touch $OUT_D/final_chunk.list
+rm -f $TMPOUTDIR/final_chunk.list
+touch $TMPOUTDIR/final_chunk.list
 while read INTERVAL
 	do
-	ls -1 $OUT_D/*${INTERVAL}.whatshap.vcf.gz >> $OUT_D/final_chunk.list
+	ls -1 $TMPOUTDIR/*${INTERVAL}.whatshap.vcf.gz >> $TMPOUTDIR/final_chunk.list
 done < $INTERVAL_FILE
 
-module load picard
-java -jar $EBROOTPICARD/picard.jar MergeVcfs I=$OUT_D/final_chunk.list O=$OUT_D/${SN}_final_chunk.whatshap.vcf.gz
-bcftools index $OUT_D/${SN}_final_chunk.whatshap.vcf.gz
+singularity exec ${gatk_image} /gatk/gatk MergeVcfs I=$TMPOUTDIR/final_chunk.list O=$TMPOUTDIR/${SN}_final_chunk.whatshap.vcf.gz D=${root}/input_data/00_Reference_Genome/jordan-mic4273-mb-hirise-20xx3__06-13-2024__final_assembly.dict 
+singularity exec ${gwas_tools_image} bcftools index $TMPOUTDIR/${SN}_final_chunk.whatshap.vcf.gz
 
-cat $OUT_D/final_chunk.list | xargs rm
-cat $OUT_D/final_chunk.list | sed s/$/".csi"/ | xargs rm
+cat $TMPOUTDIR/final_chunk.list | xargs rm
+cat $TMPOUTDIR/final_chunk.list | sed s/$/".csi"/ | xargs rm
