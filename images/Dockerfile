@@ -30,7 +30,7 @@ RUN R -e 'BiocManager::install("ggtree")'
 RUN mkdir -p /snphylo/bin
 
 RUN apt-get update && \
-	apt-get install -y muscle phylip curl git python2 bcftools vcftools tabix wget build-essential libgsl-dev libblas-dev liblapack-dev zlib1g-dev ruby time parallel coreutils binutils openmpi-bin openmpi-doc libopenmpi-dev 
+	apt-get install -y muscle phylip curl git python2 bcftools vcftools samtools tabix wget build-essential libgsl-dev libblas-dev liblapack-dev zlib1g-dev ruby time parallel coreutils binutils openmpi-bin openmpi-doc libopenmpi-dev 
 
 RUN git clone https://github.com/jasongallant/SNPhylo.git
 
@@ -140,6 +140,16 @@ WORKDIR /cflib
 RUN git clone https://github.com/pomo-dev/cflib.git
 
 RUN pip3 install setuptools==57.5.0
-RUN pip3 install biopython pyvcf argparse pysam cflib-pomo
+RUN pip3 install biopython pyvcf argparse pysam cflib-pomo whatshap
+
+RUN mkdir -p /shapeit
+
+WORKDIR /shapeit
+
+RUN wget https://mathgen.stats.ox.ac.uk/genetics_software/shapeit/shapeit.v2.r904.glibcv2.17.linux.tar.gz
+
+RUN tar -zxvf shapeit.v2.r904.glibcv2.17.linux.tar.gz
+
+RUN mv shapeit*/bin/shapeit .
 
 CMD ["/bin/bash"]

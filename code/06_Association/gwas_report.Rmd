@@ -2,7 +2,7 @@
 title: "GWAS Report"
 output: html_notebook
 params:
-  data_path: PKINGS_TP1_BP2_WOB9
+  data_path: MOV_BIR_DOG_DOV_BAVA_BIK_APA_BEN_TP1_BP2_WOB9
   output_file: NULL
   MAF_thresh: NULL
 ---
@@ -122,8 +122,8 @@ pk.lmm.bed.f %>% dplyr::select(numeric_chr,start,end, peak) %>%
   write.table(file.path(peak_data_path,paste0(params$data_path,"_PEAKS.bed")), sep = "\t", quote = F, row.names = F, col.names = F)
 
 ```
-
 ```{r, fig.width=20,fig.height=5}
+dynamic_max <- quantile(pk.lmm.filt$log_p, 0.99999)
 p.gemma <- manc2.labels(pk.lmm.filt, "log_p")
 p.gemma +
   geom_hline(yintercept = suggestive, linetype = 2, color = "blue") +
@@ -131,5 +131,5 @@ p.gemma +
     geom_point(data = subset(pk.lmm.filt, log_p > suggestive), aes(x = row, y = log_p,size=log_p), color = "red", shape=20,stroke=0.2,alpha=0.25) +
   scale_size_continuous(range = c(0.9, 3)) +
   labs(y = expression(paste("-log"[10], italic("P"),"-value")),x= "Chromosome")+
-  ylim(c(1,17))
+  ylim(c(1,dynamic_max))
 ```
