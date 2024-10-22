@@ -12,7 +12,7 @@ source ${root}/"pkings_gwas.env"
 
 OUTNAME=$1
 
-outdir=${root}/output_data/07_Peak_Analysis/${OUTNAME}
+outdir=${root}/output_data/08_Peak_Analysis/${OUTNAME}
 mkdir -p ${outdir}
 
 

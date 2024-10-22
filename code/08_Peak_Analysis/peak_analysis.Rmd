@@ -23,7 +23,7 @@ library(ggtree)
 
 
 ```{r}
-geno_path<-file.path(root,"output_data","07_Peak_Analysis",params$data_path,paste0(params$data_path,".bin.pos.genos"))
+geno_path<-file.path(root,"output_data","08_Peak_Analysis",params$data_path,paste0(params$data_path,".bin.pos.genos"))
 peaks_path<-file.path(root,"output_data","06_Association",params$data_path,paste0(params$data_path,"_PEAKS.bed"))
 logp_path<-file.path(root,"output_data","06_Association",params$data_path,paste0(params$data_path,"_SNPS_IN_PEAKS_TOP250.txt"))
 
@@ -78,9 +78,9 @@ rooted_snp_tree<-root(snp_tree,node=new_root_node)
 mycalibration=makeChronosCalib(rooted_snp_tree,node="root",age.max=1)
 ultrametric_rooted_tree <- chronos(rooted_snp_tree, lambda = 1, model = "correlated", calibration = mycalibration, control = chronos.control(dual.iter.max=100) )
 
-write.tree(ultrametric_rooted_tree,file.path(root,"output_data","07_Peak_Analysis",paste0(params$data_path,".tree")))
+write.tree(ultrametric_rooted_tree,file.path(root,"output_data","08_Peak_Analysis",paste0(params$data_path,".tree")))
 
-ultrametric_rooted_tree <- ape::read.tree(file.path(root,"output_data","07_Peak_Analysis",paste0(params$data_path,".tree")))
+ultrametric_rooted_tree <- ape::read.tree(file.path(root,"output_data","08_Peak_Analysis",paste0(params$data_path,".tree")))
 
 ```
 
@@ -119,7 +119,7 @@ for (peak.idx in unique(df.bed$peak)){
           mapping=aes(x = snp_order_within_individual, fill = geno)) +
           scale_fill_manual(values = c("NA" = "white", "0" = "grey", "1" = "blue", "2" = "orange"))
     
-  ggsave(file.path("output_data","07_Peak_Analysis",params$data_path,paste0(params$data_path,"_PEAK",peak.idx,"_CHR",chr.idx, ".png")), width = 8.5, height = 17)
+  ggsave(file.path("output_data","08_Peak_Analysis",params$data_path,paste0(params$data_path,"_PEAK",peak.idx,"_CHR",chr.idx, ".png")), width = 8.5, height = 17)
     
 }
 ```
