@@ -22,6 +22,35 @@ require(rentrez)
 knitr::opts_chunk$set(dev="png", 
                       dev.args=list(type="cairo"))
 source(file.path(root,"code","06_Association","gemma_gwas_functions.R"))
+
+get_gene_info_in_batches <- function(gene_ids, batch_size = 50, delay = 1) {
+  gene_info_list <- list()
+  
+  # Split gene IDs into batches
+  gene_batches <- split(gene_ids, ceiling(seq_along(gene_ids) / batch_size))
+  
+  # Loop through each batch
+  for (i in seq_along(gene_batches)) {
+    cat("Processing batch", i, "of", length(gene_batches), "\n")
+    
+    # Get the gene summaries for the current batch
+    gene_summaries <- entrez_summary(db = "gene", id = gene_batches[[i]])
+    
+    # Extract relevant information for each gene in the batch
+    batch_info <- lapply(gene_summaries, function(x) {
+      c(GeneID = x$uid, Symbol = x$name, Description = x$title, description = x$description)
+    })
+    
+    # Combine the current batch's info with the rest
+    gene_info_list <- c(gene_info_list, batch_info)
+    
+    # Pause to avoid overwhelming the server
+    Sys.sleep(delay)
+  }
+  
+  return(gene_info_list)
+}
+
 ```
 
 ```{r}
@@ -54,6 +83,7 @@ pk.lmm.filt<- pk.lmm.filt %>% mutate(new_rs = str_split(rs, ":", simplify = TRUE
 ```
 
 ```{r, fig.width=20,fig.height=5}
+dynamic_max <- quantile(pk.lmm.filt$log_p, 0.99999)
 p.gemma <- manc2.labels(pk.lmm.filt, "log_p")
 p.gemma +
   geom_hline(yintercept = suggestive, linetype = 2, color = "blue") +
@@ -61,7 +91,7 @@ p.gemma +
     geom_point(data = subset(pk.lmm.filt, log_p > suggestive), aes(x = row, y = log_p,size=log_p), color = "red", shape=20,stroke=0.2,alpha=0.25) +
   scale_size_continuous(range = c(0.9, 3)) +
   labs(y = expression(paste("-log"[10], italic("P"),"-value")),x= "Chromosome")+
-  ylim(c(1,15))
+  ylim(c(1,dynamic_max))
 ```
 
 
@@ -175,10 +205,8 @@ p+facet_wrap(~PEAK, scales="free_x") + theme(axis.text.x = element_text(angle = 
 ```{r, echo = FALSE, results='asis'}
 overlapping_annotations_df$gid<-as.numeric(str_split(unlist(overlapping_annotations_df$Dbxref),":",simplify=TRUE)[,2])
 
-gene_summaries <- entrez_summary(db = "gene", id = overlapping_annotations_df$gid)
-gene_info <- lapply(gene_summaries, function(x) {
-  c(GeneID = x$uid, Symbol = x$name, Description = x$title, description=x$description)
-})
+# Fetch gene information in batches (adjust batch_size and delay as needed)
+gene_info <- get_gene_info_in_batches(overlapping_annotations_df$gid, batch_size = 50, delay = 1)
 
 # Convert list to data frame for easier viewing/manipulation
 gene_info_df <- do.call(rbind, gene_info)
