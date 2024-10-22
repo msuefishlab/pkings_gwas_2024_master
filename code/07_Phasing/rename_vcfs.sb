@@ -14,7 +14,7 @@ cd $root
 
 source $root/pkings_gwas.env
 
-outdir=${root}/output_data/08_Phasing/
+outdir=${root}/output_data/07_Phasing/
 
 VCF_FILE_ROOT=${snps_only_for_phasing%.vcf.gz}
 

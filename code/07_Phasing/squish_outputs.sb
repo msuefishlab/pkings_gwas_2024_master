@@ -13,7 +13,7 @@
 
 source $root/pkings_gwas.env
 
-TMPOUTDIR=${scratch_store}/output_data/08_Phasing/phase_chunks/$1
+TMPOUTDIR=${scratch_store}/output_data/07_Phasing/phase_chunks/$1
 
 INTERVAL_FILE=${root}/input_data/01_Terra/remaining_intervals.list
 INTERVAL_COUNT=$(sed -n \$= $INTERVAL_FILE)

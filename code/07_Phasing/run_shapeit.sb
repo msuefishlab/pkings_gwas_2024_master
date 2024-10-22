@@ -13,15 +13,15 @@
 
 source $root/pkings_gwas.env
 
-INTERVAL_FILE=${root}/input_data/08_Phasing/region_lists/region_${SLURM_ARRAY_TASK_ID}.txt
+INTERVAL_FILE=${root}/input_data/07_Phasing/region_lists/region_${SLURM_ARRAY_TASK_ID}.txt
 INTERVAL_COUNT=$(sed -n \$= $INTERVAL_FILE)
-TMPOUTDIR=${scratch_store}/output_data/08_Phasing/phase_chunks
+TMPOUTDIR=${scratch_store}/output_data/07_Phasing/phase_chunks
 
-TMPOUTPHASEDIR=${scratch_store}/output_data/08_Phasing/phase_chunks_by_region
+TMPOUTPHASEDIR=${scratch_store}/output_data/07_Phasing/phase_chunks_by_region
 
 mkdir -p ${TMPOUTPHASEDIR}
 
-INTERVAL_LIST=${root}/input_data/08_Phasing/shapeit_regions.txt
+INTERVAL_LIST=${root}/input_data/07_Phasing/shapeit_regions.txt
 INTERVAL=`cat $INTERVAL_LIST | awk -v line=$SLURM_ARRAY_TASK_ID '{if (NR == line) print $0}'`
 
 ls $TMPOUTDIR/*/*${INTERVAL}.whatshap.vcf.gz > $TMPOUTPHASEDIR/${INTERVAL}.list

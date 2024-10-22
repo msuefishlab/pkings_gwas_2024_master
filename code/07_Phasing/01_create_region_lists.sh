@@ -8,7 +8,7 @@
 root="$(git rev-parse --show-toplevel)"
 source ${root}/"pkings_gwas.env"
 
-outdir=${root}/input_data/08_Phasing/
+outdir=${root}/input_data/07_Phasing/
 mkdir -p ${outdir}
 
 mkdir -p ${outdir}/region_lists/

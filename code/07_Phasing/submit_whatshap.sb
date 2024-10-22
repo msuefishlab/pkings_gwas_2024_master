@@ -15,9 +15,9 @@
 source $root/pkings_gwas.env
 
 #26 chromosomes
-INTERVAL_FILE=${root}/input_data/08_Phasing/region_lists/region_${SLURM_ARRAY_TASK_ID}.txt
+INTERVAL_FILE=${root}/input_data/07_Phasing/region_lists/region_${SLURM_ARRAY_TASK_ID}.txt
 INTERVAL_COUNT=$(sed -n \$= $INTERVAL_FILE)
-TMPOUTDIR=${scratch_store}/output_data/08_Phasing/phase_chunks
+TMPOUTDIR=${scratch_store}/output_data/07_Phasing/phase_chunks
 
 mkdir -p ${TMPOUTDIR}
 
@@ -35,7 +35,7 @@ then
 	singularity exec ${gwas_tools_image} bcftools view -r $INTERVAL -s $SAMPLE -O z -o ${TMPDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.vcf.gz ${root}/output_data/03_QC/${snps_only_for_phasing}
 	singularity exec ${gwas_tools_image} bcftools index ${TMPDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.vcf.gz
 
-	singularity exec ${gwas_tools_image} samtools view -b ${scratch_store}/output_data/08_Phasing/${SAMPLE}.MIC4273_HAP2_NEWREF_MSU618.aligned.duplicate_marked.sorted.bam $INTERVAL > ${TMPDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.ar.bam
+	singularity exec ${gwas_tools_image} samtools view -b ${scratch_store}/output_data/07_Phasing/${SAMPLE}.MIC4273_HAP2_NEWREF_MSU618.aligned.duplicate_marked.sorted.bam $INTERVAL > ${TMPDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.ar.bam
 	singularity exec ${gwas_tools_image} samtools index ${TMPDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.ar.bam
 
 	singularity exec ${gwas_tools_image} whatshap phase -o ${TMPDIR}/${SAMPLE}_${INTERVAL}.whatshap.vcf --reference=${TMPDIR}/${SAMPLE}/${original_reference} ${TMPDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.vcf.gz ${SAMPLE}_${INTERVAL}.ar.bam
@@ -62,7 +62,7 @@ else
 	cp ${root}/input_data/00_Reference_Genome/${original_reference} ${TMPDIR}/${SAMPLE}
 	cp ${root}/input_data/00_Reference_Genome/${original_reference}.fai ${TMPDIR}/${SAMPLE}
 
-	singularity exec ${gwas_tools_image} samtools view -b ${scratch_store}/output_data/08_Phasing/${SAMPLE}.MIC4273_HAP2_NEWREF_MSU618.aligned.duplicate_marked.sorted.bam $INTERVAL > ${TMPDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.ar.bam
+	singularity exec ${gwas_tools_image} samtools view -b ${scratch_store}/output_data/07_Phasing/${SAMPLE}.MIC4273_HAP2_NEWREF_MSU618.aligned.duplicate_marked.sorted.bam $INTERVAL > ${TMPDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.ar.bam
 	singularity exec ${gwas_tools_image} samtools index ${TMPDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.ar.bam
 
 	if ! singularity exec ${gwas_tools_image} whatshap phase -o ${TMPDIR}/${SAMPLE}_${INTERVAL}.whatshap.vcf --reference=${TMPDIR}/${SAMPLE}/${original_reference} ${TMPDIR}/${SAMPLE}/${SAMPLE}_${INTERVAL}.vcf.gz ${SAMPLE}_${INTERVAL}.ar.bam; then
