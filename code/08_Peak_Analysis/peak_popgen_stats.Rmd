@@ -1,0 +1,437 @@
+---
+title: "Overall Popgen Stats"
+output: html_notebook
+params:
+  popgen_prefix: MIC4273_HAP2_NEWREF_MSU618_all_fish_all_sites
+---
+
+```{r setup, include=FALSE}
+root <- rprojroot::find_root(".git/index")
+knitr::opts_knit$set(root.dir = root)
+library(tidyverse)  # Includes ggplot2 and other data manipulation packages
+library(data.table)  # For fread and data manipulation
+library(patchwork)   # For combining plots
+library(stringr)     # String manipulation, used in mutate and case_when
+library(scales)      # For percent_format in scale_y_continuous
+library(riverdist)
+library(sf)
+library(ggrepel)
+```
+
+```{r}
+sampleinfo<-file.path(root,"input_data/01_Terra/data_model/fish_data_2024a.txt")
+metadata<-fread(sampleinfo)
+
+# Step 1: Group by population
+# Step 2 & 3: Summarize to find the most common phenotype and its frequency
+# Step 4: Create the new column with conditions
+
+pop_phenos <- metadata %>%
+  group_by(POP) %>%
+  count(Phenotype) %>%
+  mutate(total = sum(n)) %>%
+  arrange(POP, desc(n)) %>%
+  group_by(POP) %>%
+  mutate(population_phenotype = ifelse(POP == "PMAG", "TP",
+                                       ifelse(max(n) / total > 0.75, first(Phenotype), "mixed"))) %>%
+  ungroup() %>%
+  # Replace NA or empty strings in Phenotype with a placeholder
+  mutate(Phenotype = ifelse(is.na(Phenotype) | Phenotype == "", "Unknown", Phenotype)) %>%
+  pivot_wider(
+    names_from = Phenotype, 
+    values_from = n,
+    values_fill = list(n = 0),
+    names_prefix = "count_"
+  ) %>%
+  select(POP, population_phenotype, everything())
+
+# View the result
+print(pop_phenos)
+
+# View the result
+print(pop_phenos)
+```
+
+```{r}
+pixy_df <- list()
+
+dxy_file=file.path(root,"output_data/05_PopGen/",paste0(params$popgen_prefix,"_dxy.txt"))
+fst_file=file.path(root,"output_data/05_PopGen/",paste0(params$popgen_prefix,"_fst.txt"))
+pi_file=file.path(root,"output_data/05_PopGen/",paste0(params$popgen_prefix,"_pi.txt"))
+
+tajd_file=file.path(root,"output_data/05_PopGen/",paste0(params$popgen_prefix,"_tajd.txt"))
+
+tajd_df<-fread(tajd_file)
+
+tajd_df<-tajd_df %>% arrange(pop1,CHROM,BIN_START)
+
+tajd_df <- tajd_df %>%
+    mutate(window_pos_1=BIN_START+1) %>%
+    mutate(window_pos_2=BIN_START+20000) %>%
+    mutate(chromosome=CHROM) %>%
+    mutate(statistic="avg_tajd") %>%
+    mutate(value=TajimaD) %>%
+    mutate(pop2=NA) %>%
+    select(pop1,  pop2, chromosome, window_pos_1, window_pos_2, statistic, value, ) %>%
+    arrange(pop1,  pop2, chromosome, window_pos_1)
+
+df_pi <- fread(pi_file)
+      
+df_pi <- df_pi %>%
+  gather(-pop, -window_pos_1, -window_pos_2, -chromosome,
+  key = "statistic", value = "value") %>%
+  mutate(pop1= pop) %>%
+  mutate(pop2 = NA) %>%
+  select(pop1, chromosome, window_pos_1, window_pos_2, statistic, value, pop2 )
+
+fst_df <- fread(fst_file)
+
+fst_df <- fst_df %>%
+        gather(-pop1, -pop2, -window_pos_1, -window_pos_2, -chromosome,
+               key = "statistic", value = "value")
+      
+dxy_df <- fread(dxy_file)
+
+dxy_df <- dxy_df %>%
+        gather(-pop1, -pop2, -window_pos_1, -window_pos_2, -chromosome,
+               key = "statistic", value = "value")
+      
+      
+pixy_df[[1]] <- fst_df
+pixy_df[[2]] <- dxy_df
+pixy_df[[3]] <- df_pi
+pixy_df[[4]] <- tajd_df
+
+pixy<-bind_rows(pixy_df) %>%
+    arrange(pop1, pop2, chromosome, window_pos_1, statistic)
+
+```
+
+```{r}
+#Check to make sure fix for calculating tajima's d is working...
+tajd_df %>%
+  dplyr::group_by(pop1, chromosome, window_pos_1) %>%
+  dplyr::filter(dplyr::n() > 1) %>%
+  dplyr::ungroup()
+```
+
+
+```{r}
+#time for some dplyr kung-fu.  easier to calculate rolling means and zfst when the table is wide, therefore...
+
+pixy<-pixy %>% pivot_wider(names_from=statistic,values_from=value) %>% mutate(comparison=paste0(pop1,"_",pop2))
+
+pixy<-pixy %>% group_by(comparison) %>% mutate(zfst=((avg_wc_fst-mean(avg_wc_fst,na.rm=T))/sd(avg_wc_fst,na.rm=T)))
+
+pixy <- pixy %>% 
+  pivot_longer(cols = -c(pop1, pop2, chromosome, window_pos_1, window_pos_2,comparison),
+               names_to = "statistic", values_to = "value")
+```
+
+```{r}
+rm(df_pi,dxy_df,fst_df,pixy_df,tajd_df)
+gc()
+```
+
+```{r, fig.width=24}
+# Calculate the average fst value for each comparison
+average_fst <- pixy %>%
+    filter(statistic == "avg_wc_fst", !is.na(value)) %>%
+    mutate(value = as.numeric(value)) %>%
+    group_by(comparison) %>%
+    summarize(avg_fst = mean(value))
+
+# Join this back to your original dataset
+pixy_with_avg <- pixy %>%
+    filter(statistic == "avg_wc_fst", !is.na(value)) %>%
+    mutate(value = as.numeric(value)) %>%
+    left_join(average_fst, by = "comparison")
+
+# Modify the grouping based on the new criteria
+pixy_with_avg <- pixy_with_avg %>%
+    mutate(group = case_when(
+        !str_starts(pop1, "P") & !str_starts(pop2, "P") ~ "Intraspecies (P. kingsleyae)",
+        str_starts(pop1, "P") & str_starts(pop2, "P") ~ "Interspecies",
+        TRUE ~ NA_character_
+    )) %>%
+    filter(!is.na(group))
+
+# Create a dummy variable for faceting
+pixy_with_avg$facet_group <- ifelse(pixy_with_avg$group == "Interspecies", "Interspecies", "Intraspecies (P. kingsleyae)  ")
+
+# Order the comparison factor based on avg_fst
+pixy_with_avg <- pixy_with_avg %>%
+    mutate(comparison = reorder(comparison, avg_fst))
+
+# Step 1: Create a lookup table for population phenotypes
+phenotype_lookup <- pop_phenos %>% 
+  select(POP, population_phenotype)
+
+# Step 2: Map the phenotypes to pop1 and pop2 in pixy_with_avg
+pixy_with_avg <- pixy_with_avg %>%
+  left_join(phenotype_lookup, by = c("pop1" = "POP")) %>%
+  dplyr::rename(phenotype_pop1 = population_phenotype)
+
+pixy_with_avg <- pixy_with_avg %>%
+  left_join(phenotype_lookup, by = c("pop2" = "POP")) %>%
+  dplyr::rename(phenotype_pop2 = population_phenotype)
+
+
+# Step 3: Determine if the comparison is mixed
+pixy_with_avg <- pixy_with_avg %>%
+  mutate(comparison_type = case_when(
+    phenotype_pop1 == "BP" & phenotype_pop2 == "BP" ~ "BP",
+    phenotype_pop1 == "TP" & phenotype_pop2 == "TP" ~ "TP",
+    TRUE ~ "Mixed"
+  ))
+
+
+save(pixy,file=file.path(root,"output_data/05_PopGen/",paste0(params$popgen_prefix,"_allstats.Rda")))
+```
+
+```{r}
+# Step 4: Create the plot
+fst_plot<-ggplot(pixy_with_avg, aes(x = comparison, y = value, fill = comparison_type)) +
+  geom_boxplot(outlier.shape = NA) +
+  scale_fill_manual(values = c("BP" = "skyblue3", "TP"="coral2", "Mixed" = "mediumorchid1")) +
+  facet_grid(~ group, scales = "free_x", space = "free_x") +
+  theme_minimal() +
+  theme(
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.minor.y = element_blank(),
+    panel.background = element_blank(),
+    strip.text.x = element_text(size = rel(2.1)),
+    axis.text = element_text(size = rel(1.2), family = "Arial",angle = 90, hjust = 1),
+    axis.title.x = element_text(size = rel(2.1), family = "Arial", margin = margin(t = 20)),  # Adjust margin for x-axis title
+    axis.title.y = element_text(size = rel(2.1), family = "Arial", margin = margin(r = 20))   # Adjust margin for y-axis title
+  ) +
+  scale_y_continuous(breaks = c(0, 0.5, 1)) +
+  ylim(0, 1) +
+  xlab("Comparison") +
+  ylab("Weir & Cockerham's Fst") +
+  theme(legend.position = "bottom")
+```
+```{r, fig.width=24}
+pi_plot<-pixy %>%
+    filter(statistic == "avg_pi", !is.na(value)) %>%
+    mutate(value = as.numeric(value) ) %>%  
+    left_join(phenotype_lookup, by = c("pop1" = "POP")) %>%
+    dplyr::rename(phenotype_pop1 = population_phenotype) %>% ggplot(aes(x = pop1, y = value, fill = phenotype_pop1)) +
+    geom_boxplot(outlier.shape = NA) +
+    scale_fill_manual(values = c("BP" = "skyblue3", "TP"="coral2", "mixed" = "mediumorchid1")) +
+    theme_minimal() +
+    theme(
+        legend.position = "bottom",
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        panel.background = element_blank(),
+        axis.text = element_text(size = rel(1.2), family = "Arial"),
+        axis.title.x = element_text(size = rel(2.1), family = "Arial", margin = margin(t = 20)),  # Adjust margin for x-axis title
+        axis.title.y = element_text(size = rel(2.1), family = "Arial", margin = margin(r = 20))   # Adjust margin for y-axis title
+    ) +
+    scale_y_continuous(limits = c(0, .01), breaks=c(0,0.005,0.01), labels = percent_format()) +
+    xlab("Population") +
+    ylab("π (% Nucleotide Diversity) ") 
+
+```
+
+```{r, fig.width=24}
+tajd_plot<-pixy %>%
+    filter(statistic == "avg_tajd", !is.na(value)) %>%
+    mutate(value = as.numeric(value) ) %>%  
+    left_join(phenotype_lookup, by = c("pop1" = "POP")) %>%
+    dplyr::rename(phenotype_pop1 = population_phenotype) %>% ggplot(aes(x = pop1, y = value, fill = phenotype_pop1)) +
+    geom_boxplot(outlier.shape = NA) +
+    scale_fill_manual(values = c("BP" = "skyblue3", "TP"="coral2", "mixed" = "mediumorchid1")) +
+    theme_minimal() +
+    theme(
+        legend.position = "bottom",
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        panel.background = element_blank(),
+        axis.text = element_text(size = rel(1.2), family = "Arial"),
+        axis.title.x = element_text(size = rel(2.1), family = "Arial", margin = margin(t = 20)),  # Adjust margin for x-axis title
+        axis.title.y = element_text(size = rel(2.1), family = "Arial", margin = margin(r = 20))   # Adjust margin for y-axis title
+    ) +
+    scale_y_continuous(limits = c(-2, 4), breaks=c(-2,0,2,4)) +
+    xlab("Population") +
+    ylab("Tajima's D") 
+
+```
+
+```{r, fig.height=24, fig.width=12}
+
+combined_plot <- pi_plot / tajd_plot / fst_plot 
+
+combined_plot <- combined_plot + 
+                 plot_annotation(tag_levels = 'A') &
+                 theme(plot.tag = element_text(size = 48, face="bold"))
+
+# Adjust relative heights of the plots to change the overall aspect ratio
+# Increase the values to make the plots taller
+combined_plot <- combined_plot + 
+                 plot_layout(heights = c(2, 2, 2)) 
+
+# Print the combined plot
+combined_plot
+```
+```{r}
+plot_name<-file.path(root,'output_data/05_PopGen/popstats.svg')
+svg(plot_name, width=12, height = 24)  # Adjust width as needed
+combined_plot
+n<-dev.off()
+```
+
+```{r, fig.width=12}
+
+# Step 1: Filter for zfst statistic
+zfst_data <- pixy %>%
+  filter(statistic == "zfst")
+
+zfst_data$chromosome <- factor(zfst_data$chromosome, levels = unique(zfst_data$chromosome))
+
+zfst_data$chromosome_num <- as.numeric(zfst_data$chromosome)
+
+zfst_data<-zfst_data %>% filter(chromosome_num <25) %>% filter(comparison=="APA_BAM")
+
+# Step 2: Calculate chromosome lengths and create cumulative positions
+chromosome_lengths <- zfst_data %>%
+  group_by(chromosome_num) %>%
+  summarize(chrom_length = max(window_pos_2), .groups = 'drop')
+
+zfst_data <- zfst_data %>%
+  left_join(chromosome_lengths, by = "chromosome_num") %>%
+  arrange(chromosome_num, window_pos_1) %>%
+  mutate(cumulative_pos = cumsum(as.numeric(chrom_length)) - chrom_length + window_pos_1)
+
+chromosome_ends <- zfst_data %>%
+  group_by(chromosome_num) %>%
+  summarize(end_position = max(cumulative_pos), .groups = 'drop')
+
+# Create a data frame for x-axis breaks and labels
+x_breaks_labels <- chromosome_ends %>%
+  mutate(start_position = lag(end_position, default = 0),
+         mid_position = (start_position + end_position) / 2) %>%
+  select(chromosome_num, mid_position)
+
+# Create the Manhattan plot with custom x-axis and vertical lines
+ggplot(zfst_data, aes(x = cumulative_pos, y = value, color = comparison)) +
+  geom_line(alpha = 0.6, size=1) +
+  scale_color_viridis_d() +
+  geom_vline(data = chromosome_ends, aes(xintercept = end_position), color = "grey70", linetype = "dashed") +
+  scale_x_continuous(breaks = x_breaks_labels$mid_position, labels = x_breaks_labels$chromosome_num) +
+  theme_minimal() +
+  labs(title = "Manhattan Plot of zfst values",
+       x = "Chromosome",
+       y = "zfst Value",
+       color = "Comparison") +
+  theme(legend.position = "bottom",
+        axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+```{r}
+load(paste0(root,"/input_data/XX_Mapping/","rivs_cleaned.R"))
+
+kings_riv <- pointshp2segvert(path=paste0(root,"/input_data/XX_Mapping/Ndnde_Network"), layer="collection_sites_kings_only_XYTableToPoint", rivers=rivs_cleaned)
+
+kings_samp_locations<-read.csv(paste0(root,"/input_data/XX_Mapping/collection_sites_kings_only.csv"))
+
+
+hist(kings_riv$snapdist, main="snapping distance (m)")
+```
+
+```{r,fig.height=8}
+topologydots(rivs_cleaned)
+zoomtoseg(seg=c(393,495,692), rivers=rivs_cleaned)
+
+
+points(kings_samp_locations$Lat, kings_samp_locations$Long, pch=16, col="red")
+
+riverpoints(seg=kings_riv$seg, vert=kings_riv$vert, rivers=rivs_cleaned, pch=15, 
+            col="blue")
+```
+
+```{r}
+#zoomtoseg(seg=c(485,674), rivers=rivs_cleaned)
+
+riverdistance(startseg=546, startvert=31, endseg=19, endvert=1, rivers=rivs_cleaned, map=TRUE)
+
+```
+
+```{r}
+dmat <- riverdistancemat(kings_riv$seg,kings_riv$vert,rivs_cleaned, ID=kings_riv$Row_Labels, stopiferror=FALSE)
+
+#colnames(dmat)<-kings_riv$Row_Labels
+#rownames(dmat)<-kings_riv$Row_Labels
+
+dmat
+```
+```{r}
+distance_matrix <- as.data.frame(dmat) %>%  rownames_to_column(var = "pop1") %>%
+  pivot_longer(cols = -pop1, 
+               names_to = "pop2", 
+               values_to = "Distance")
+
+distance_matrix$pop1<-as.factor(distance_matrix$pop1)
+distance_matrix$pop2<-as.factor(distance_matrix$pop2)
+
+levels(distance_matrix$pop1)<-c("IVI","BAM","BAVA","BEN","BIK","BIR","DOG","DOV","COB1","APA","COB1","MOV")
+levels(distance_matrix$pop2)<-c("IVI","BAM","BAVA","BEN","BIK","BIR","DOG","DOV","COB1","APA","COB1","MOV")
+
+
+distance_matrix_reversed <- distance_matrix %>%
+  rename(pop1 = pop2, pop2 = pop1)
+```
+
+
+```{r, fig.width=12}
+average_values <- pixy_with_avg %>%
+  group_by(pop1, pop2) %>%
+  summarise(avg_value = mean(value, na.rm = TRUE))
+
+# Step 3: Merge the distance data with the average values
+average_values_with_distances <- average_values %>%
+  left_join(distance_matrix, by = c("pop1", "pop2"))
+
+average_values_with_distances <- average_values_with_distances %>%
+  left_join(phenotype_lookup, by = c("pop1" = "POP")) %>%
+  dplyr::rename(phenotype_pop1 = population_phenotype)
+
+average_values_with_distances <- average_values_with_distances %>%
+  left_join(phenotype_lookup, by = c("pop2" = "POP")) %>%
+  dplyr::rename(phenotype_pop2 = population_phenotype)
+
+average_values_with_distances <- average_values_with_distances %>%
+  mutate(comparison_type = case_when(
+    phenotype_pop1 == "BP" & phenotype_pop2 == "BP" ~ "BP",
+    phenotype_pop1 == "TP" & phenotype_pop2 == "TP" ~ "TP",
+    TRUE ~ "Mixed"
+  ))
+
+
+# Step 4: Create the scatter plot
+ggplot(average_values_with_distances, aes(x = Distance/1000, y = avg_value)) +
+  geom_point(size=4) +
+  #scale_color_manual(values = c("BP" = "skyblue3", "TP"="coral2", "Mixed" = "mediumorchid1")) +
+  labs(x = "Geographic Distance (km)", y = "Average Weir & Cockerham's Fst ") +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +  # Optional: Add a trend line
+
+  geom_text_repel(aes(label = paste0(pop1," vs ",pop2)), point.size = 4) +  # Add labels from the 'comparison' column 
+  scale_x_log10()+
+  theme_minimal() +
+    theme(
+        legend.position = "bottom",
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        panel.background = element_blank(),
+        axis.text = element_text(size = rel(1.2), family = "Arial"),
+        axis.title.x = element_text(size = rel(2.1), family = "Arial", margin = margin(t = 20)),  # Adjust margin for x-axis title
+        axis.title.y = element_text(size = rel(2.1), family = "Arial", margin = margin(r = 20))   # Adjust margin for y-axis title
+    )
+
+```
