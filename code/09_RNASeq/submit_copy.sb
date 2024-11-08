@@ -1,0 +1,23 @@
+#!/bin/bash --login
+########## Define Resources Needed with SBATCH Lines ##########
+
+#SBATCH --time=01:00:00             # limit of wall clock time - how long the job will run (same as -t)
+#SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
+#SBATCH --cpus-per-task=4           # number of CPUs (or cores) per task (same as -c)
+#SBATCH --mem=2G                    # memory required per node - amount of memory (in bytes)
+#SBATCH --array=0-100               # job array for parallel tasks
+
+########## Command Lines to Run ##########
+
+source $root/pkings_gwas.env
+
+mapfile -t files < "${inputdata}"   # Load the input data into an array
+
+echo "Input data file: ${inputdata}"
+
+outdir="${root}/input_data/09_RNASeq/reads"  # Define the output directory
+
+mkdir -p "${outdir}"  # Ensure the output directory exists
+
+# Copy the file from AWS S3 using singularity
+singularity exec ~/singularity_images/aws_cli.sif aws s3 cp "s3://${bucket}/${files[$SLURM_ARRAY_TASK_ID]}" "${outdir}/"
