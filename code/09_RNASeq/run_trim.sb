@@ -1,0 +1,19 @@
+#!/bin/bash -login
+
+#SBATCH --time=01:00:00
+#SBATCH --nodes=1
+#SBATCH --cpus-per-task=5
+#SBATCH --mem=24gb
+
+module purge
+module load Trimmomatic/0.38-Java-1.8.0_162
+
+tr_outputdir=${OUTNAME}
+forwardreadfile=${READ1}
+reversereadfile=${READ2}
+bname=$(basename "$forwardreadfile" _R1.fastq.gz)
+name=${bname}
+
+#run trimmomatic
+echo java -jar $EBROOTTRIMMOMATIC/trimmomatic-0.38.jar PE -threads 4 -phred33 -baseout $tr_outputdir/tr_${SAMPLE}.fastq.gz $forwardreadfile $reversereadfile ILLUMINACLIP:/opt/software/Trimmomatic/0.39-Java-11/adapters/TruSeq3-PE.fa:2:30:10 LEADING:5 TRAILING:5 SLIDINGWINDOW:4:5 MINLEN:25
+java -jar $EBROOTTRIMMOMATIC/trimmomatic-0.38.jar PE -threads 4 -phred33 -baseout $tr_outputdir/tr_${SAMPLE}.fastq.gz $forwardreadfile $reversereadfile ILLUMINACLIP:/opt/software/Trimmomatic/0.39-Java-11/adapters/TruSeq3-PE.fa:2:30:10 LEADING:5 TRAILING:5 SLIDINGWINDOW:4:5 MINLEN:25 &> $tr_outputdir/${SAMPLE}_trim_results.log
