@@ -56,6 +56,6 @@ bash ${root}/code/05_PopGen/split_popfile.sh ${root}/input_data/05_PopGen/popsfi
 echo "Running Tajima's D Calculations"
 while read j;
 do
-	echo singularity exec --bind $root:/project_root  --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} vcftools --gzvcf /tmp_dir/${VCFBASE}_${SLURM_ARRAY_TASK_ID}.vcf.gz --TajimaD 20000 --keep /tmp_dir/${j}.txt --out /out_dir/${j}_TAJD_chunk_${SLURM_ARRAY_TASK_ID};
-	singularity exec --bind $root:/project_root  --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} vcftools --gzvcf /tmp_dir/${VCFBASE}_${SLURM_ARRAY_TASK_ID}.vcf.gz --TajimaD 20000 --keep /tmp_dir/${j}.txt --out /out_dir/${j}_TAJD_chunk_${SLURM_ARRAY_TASK_ID};
+	echo singularity exec --bind $root:/project_root  --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} vcftools --gzvcf /tmp_dir/${VCFBASE}_${SLURM_ARRAY_TASK_ID}.vcf.gz --TajimaD 5000 --keep /tmp_dir/${j}.txt --out /out_dir/${j}_TAJD_chunk_${SLURM_ARRAY_TASK_ID};
+	singularity exec --bind $root:/project_root  --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} vcftools --gzvcf /tmp_dir/${VCFBASE}_${SLURM_ARRAY_TASK_ID}.vcf.gz --TajimaD 5000 --keep /tmp_dir/${j}.txt --out /out_dir/${j}_TAJD_chunk_${SLURM_ARRAY_TASK_ID};
 done < ${tmpoutdir}/unique_pops.txt
