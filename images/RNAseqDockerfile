@@ -1,0 +1,51 @@
+# Use Debian stable slim as the base image
+FROM debian:stable-slim
+
+# Define build arguments and environment variables
+ARG STAR_VERSION=2.7.11b
+ENV STAR_VERSION=${STAR_VERSION}
+ENV PACKAGES="gcc g++ make wget zlib1g-dev unzip bowtie bowtie2 samtools rsem"
+
+# Install required packages, build STAR, and clean up
+RUN set -ex && \
+	apt-get update && \
+	apt-get install -y vim-common && \
+	apt-get install -y --no-install-recommends ${PACKAGES}  && \
+	g++ --version && \
+	cd /home && \
+	wget --no-check-certificate https://github.com/alexdobin/STAR/archive/${STAR_VERSION}.zip && \
+	unzip ${STAR_VERSION}.zip && \
+	cd STAR-${STAR_VERSION}/source && \
+	make STARstatic && \
+	mkdir -p /home/bin && \
+	cp STAR /home/bin && \
+	cd /home && \
+	rm -rf STAR-${STAR_VERSION} ${STAR_VERSION}.zip && \
+	apt-get clean && \
+	rm -rf /var/lib/apt/lists/*
+
+# Set up environment for Trimmomatic
+ENV SW_NAME=Trimmomatic
+ENV VERSION=0.39
+ENV DEST=/usr/src/${SW_NAME}
+ENV ADAPTERPATH=${DEST}/${VERSION}/${SW_NAME}-${VERSION}/adapters
+
+# Add helper script and install Java
+ADD docker_helper.sh /usr/bin/docker_helper
+RUN chmod +x /usr/bin/docker_helper && \
+	apt-get update --fix-missing && \
+	apt-get install -y --no-install-recommends default-jre && \
+	mkdir -p ${DEST}/${VERSION}
+
+# Install Trimmomatic
+WORKDIR ${DEST}/${VERSION}
+RUN wget https://github.com/usadellab/Trimmomatic/files/5854859/Trimmomatic-0.39.zip -O ${SW_NAME}-${VERSION}.zip && \
+	unzip ${SW_NAME}-${VERSION}.zip && \
+	echo "alias trimmomatic='java -jar ${DEST}/${VERSION}/${SW_NAME}-${VERSION}/trimmomatic-0.39.jar'" >> ~/.bash_aliases && \
+	echo "source ~/.bash_aliases" >> ~/.bashrc
+
+# Update PATH to include STAR binaries
+ENV PATH="/home/bin:${PATH}"
+
+# Set the entrypoint to the helper script
+ENTRYPOINT ["/usr/bin/docker_helper"]
