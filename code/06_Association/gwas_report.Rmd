@@ -2,9 +2,9 @@
 title: "GWAS Report"
 output: html_notebook
 params:
-  data_path: MOV_BIR_DOG_DOV_BAVA_BIK_APA_BEN_TP1_BP2_WOB9
+  data_path: APA_BEN_BAM_TP2_BP0_WOB1
   output_file: NULL
-  MAF_thresh: 0.15
+  MAF_thresh: 0.05
 ---
 
 ```{r setup, include=FALSE}

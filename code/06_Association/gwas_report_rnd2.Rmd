@@ -2,9 +2,9 @@
 title: "GWAS Report"
 output: html_notebook
 params:
-  data_path: DOV_DOG_BEN_APA_BIK_BAVA_BIR_TP1_BP2_WOB9
+  data_path: APA_BEN_BAM_TP1_BP2_WOB9
   output_file: NULL
-  MAF_thresh: NULL
+  MAF_thresh: 0.1
 ---
 
 ```{r setup, include=FALSE}
@@ -18,51 +18,22 @@ require(kableExtra)
 require(GenomicRanges)
 require(rtracklayer)
 require(gggenes)
-require(rentrez)
+require(biomaRt)
+library(BioMartGOGeneSets)
 knitr::opts_chunk$set(dev="png", 
                       dev.args=list(type="cairo"))
 source(file.path(root,"code","06_Association","gemma_gwas_functions.R"))
 
-get_gene_info_in_batches <- function(gene_ids, batch_size = 50, delay = 1) {
-  gene_info_list <- list()
-  
-  # Split gene IDs into batches
-  gene_batches <- split(gene_ids, ceiling(seq_along(gene_ids) / batch_size))
-  
-  # Loop through each batch
-  for (i in seq_along(gene_batches)) {
-    cat("Processing batch", i, "of", length(gene_batches), "\n")
-    
-    # Get the gene summaries for the current batch
-    gene_summaries <- entrez_summary(db = "gene", id = gene_batches[[i]])
-    
-    # Extract relevant information for each gene in the batch
-    batch_info <- lapply(gene_summaries, function(x) {
-      c(GeneID = x$uid, Symbol = x$name, Description = x$title, description = x$description)
-    })
-    
-    # Combine the current batch's info with the rest
-    gene_info_list <- c(gene_info_list, batch_info)
-    
-    # Pause to avoid overwhelming the server
-    Sys.sleep(delay)
-  }
-  
-  return(gene_info_list)
-}
-
 ```
 
 ```{r}
-anno_file<-file.path(root,"input_data","00_Reference_Genome","jordan-mic4273-mb-hirise-20xx3__06-13-2024__final_assembly.fasta.renamed.sorted.genes_only.gff")
+anno_file<-file.path(root,"input_data","00_Reference_Genome","jordan-mic4273-mb-hirise-20xx3__06-13-2024__final_assembly.ensembl.liftoff.renamed.genes_only.gff")
 feat_table_file<-file.path(root,"input_data","00_Reference_Genome","GCF_002872115.1_PKINGS_0.1_feature_table.txt")
 gemma_file<-file.path(root,"output_data","06_Association",params$data_path,paste0(params$data_path,".lmm2.assoc.txt"))
 minpath<-file.path(root,"output_data","06_Association",params$data_path,paste0(params$data_path,"_permution"),"min.txt")
 
 
 annotations<-import(anno_file)
-strand(annotations)<-"*"
-
 
 feat_table<-fread(feat_table_file)
 pk.lmm<- gemma.order(gemma_file, "p_lrt")
@@ -151,6 +122,16 @@ overlap_mapping_unique <- overlap_mapping[!duplicated(overlap_mapping$annotation
 # Merge SNP_A into overlapping_annotations_df
 overlapping_annotations_df <- merge(overlapping_annotations_df, overlap_mapping_unique, by.x = "unique_id", by.y = "annotation_index", all.x = TRUE)
 overlapping_annotations_df<-subset(overlapping_annotations_df,!is.na(PEAK))
+
+gr=getBioMartGenes("pkingsleyae_gene_ensembl")
+
+anno_meta<-as.data.frame(gr)[6:9]
+
+overlapping_annotations_df<-left_join(overlapping_annotations_df,anno_meta,by=c("gene_id"="ensembl_gene_id"))
+
+overlapping_annotations_for_output<-overlapping_annotations_df[c(2,3,4,11,13,27)]
+write.table(overlapping_annotations_for_output,file.path(peak_data_path,paste0(params$data_path,"_GENES_IN_PEAKS.txt")), sep = "\t", quote = F, row.names = F, col.names = T)
+
 ```
 
 ```{r}
@@ -191,8 +172,8 @@ p<-ggplot()+
   geom_hline(yintercept=suggestive, linetype="dashed", color="blue", size=0.5) +
   geom_point(data=index_snps_simp,
              mapping=aes(x=BP_A,y=-log10(p_lrt)),shape=5,size=5,fill="black") +
-  geom_gene_arrow(data=overlapping_annotations_df, mapping=aes(xmin=start,xmax=end,y=-1,fill=gene),show.legend =FALSE) +
-  geom_gene_label(data=overlapping_annotations_df, mapping=aes(xmin=start,xmax=end,y=-1,label=gene),align="left",show.legend = FALSE)+
+  geom_gene_arrow(data=overlapping_annotations_df, mapping=aes(xmin=start,xmax=end,y=-1,fill=gene_id),show.legend =FALSE) +
+  geom_gene_label(data=overlapping_annotations_df, mapping=aes(xmin=start,xmax=end,y=-1,label=external_gene_name),align="left",show.legend = FALSE)+
   scale_x_continuous(labels = function(l) {trans = l /1e6; paste0(trans, "mb")})
   #scale_fill_brewer(palette = "Set3") +
   #theme_genes()
@@ -203,16 +184,16 @@ p+facet_wrap(~PEAK, scales="free_x") + theme(axis.text.x = element_text(angle = 
 
 ## Top Scoring SNPs and Nearest Genes:
 ```{r, echo = FALSE, results='asis'}
-overlapping_annotations_df$gid<-as.numeric(str_split(unlist(overlapping_annotations_df$Dbxref),":",simplify=TRUE)[,2])
 
-# Fetch gene information in batches (adjust batch_size and delay as needed)
-gene_info <- get_gene_info_in_batches(overlapping_annotations_df$gid, batch_size = 50, delay = 1)
+ensembl_112 <- useEnsembl(biomart = "ensembl", version = 112,host="https://may2024.archive.ensembl.org")
+ensembl_112 <-useDataset("pkingsleyae_gene_ensembl",mart=ensembl_112)
 
-# Convert list to data frame for easier viewing/manipulation
-gene_info_df <- do.call(rbind, gene_info)
-rownames(gene_info_df) <- NULL
-gene_info_df<-as.data.frame(gene_info_df)
-gene_info_df$GeneID<-as.numeric(gene_info_df$GeneID)
+# Assuming the attribute 'description' exists, retrieve the gene descriptions
+gene_descriptions <- getBM(values=overlapping_annotations_df$gene_id,
+                                filters = "ensembl_gene_id",
+  attributes = c("ensembl_gene_id", "description"),
+  mart = ensembl_112
+)
 
 
 suggestive_snps<-NULL
@@ -230,9 +211,17 @@ snps_count_per_peak <- suggestive_snps %>%
   summarise(SNP_Count = n())
 
 genes_per_peak <- overlapping_annotations_df %>%
-  left_join(gene_info_df, by = c("gid" = "GeneID")) %>%
+  left_join(gene_descriptions, by = c("gene_id" = "ensembl_gene_id")) %>%
+  mutate(
+    external_gene_name = if_else(is.na(external_gene_name), gene_id, external_gene_name),
+    description.y = gsub("\\[.*?\\]", "", description.y),  # Remove text in brackets
+    description.y = if_else(is.na(description.y) | description.y == "", "Unknown Gene", description.y)  # Replace NA or blank with "Unknown Gene"
+  ) %>%
   group_by(PEAK) %>%
-  summarise(Associated_Genes = toString(Symbol), Names= toString(description))
+  summarise(Associated_Genes = toString(external_gene_name), Names = toString(description.y))
+
+
+
 
 final_report <- index_snps_simp %>%
   select(PEAK, CHR_A, maximum, minimum) %>%
