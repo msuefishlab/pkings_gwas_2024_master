@@ -1,4 +1,4 @@
-FROM bioconductor/bioconductor_docker:3.17
+FROM bioconductor/bioconductor_docker:3.18
 
 # Install R packages
 RUN install2.r --error \
