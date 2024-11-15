@@ -24,14 +24,31 @@ RUN install2.r --error \
 RUN R -e 'BiocManager::install("gdsfmt")'
 RUN R -e 'BiocManager::install("GenomicRanges")'
 RUN R -e 'BiocManager::install("rtracklayer")'
+RUN R -e 'BiocManager::install("SNPRelate")'
 RUN R -e 'BiocManager::install("ggtree")'
 RUN R -e 'BiocManager::install("DESeq2")'
 RUN R -e 'BiocManager::install("biomaRt")'
 RUN R -e 'BiocManager::install("BioMartGOGeneSets")'
 
+RUN mkdir -p /snphylo/bin
 
 RUN apt-get update && \
 	apt-get install -y muscle phylip curl git python2 bcftools vcftools samtools tabix wget build-essential libgsl-dev libblas-dev liblapack-dev zlib1g-dev ruby time parallel coreutils binutils openmpi-bin openmpi-doc libopenmpi-dev 
+
+RUN git clone https://github.com/jasongallant/SNPhylo.git
+
+RUN mv SNPhylo /snphylo
+
+WORKDIR /snphylo/SNPhylo
+
+RUN ln -s $(which /usr/bin/python2.7) /usr/bin/python
+
+COPY dnaml /usr/bin/dnaml
+RUN chmod +x /usr/bin/dnaml
+
+RUN printf "yyymusclenydnamln" | bash setup.sh
+
+RUN chmod -R 777 /snphylo
 
 RUN mkdir -p /pixy
 
@@ -41,7 +58,7 @@ RUN git clone https://github.com/ksamuk/pixy.git
 
 WORKDIR /pixy/pixy
 
-RUN python3 setup.py install
+RUN pip install .
 
 RUN mkdir -p /seqkit
 
