@@ -224,7 +224,7 @@ genes_per_peak <- overlapping_annotations_df %>%
 
 
 final_report <- index_snps_simp %>%
-  select(PEAK, CHR_A, maximum, minimum) %>%
+  dplyr::select(PEAK, CHR_A, maximum, minimum) %>%
   left_join(snps_count_per_peak, by = "PEAK") %>%
   left_join(genes_per_peak, by = "PEAK")
 
