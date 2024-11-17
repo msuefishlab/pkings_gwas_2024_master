@@ -51,6 +51,9 @@ pk.lmm.filt <- pk.lmm %>% filter(log_p > 1) %>% filter(af > params$MAF_thresh) %
 
 pk.lmm.filt<- pk.lmm.filt %>% mutate(new_rs = str_split(rs, ":", simplify = TRUE)[, 1])
 
+peak_data_path<-file.path(root,"output_data","06_Association",params$data_path)
+pk.lmm.peaks.out<-read.table(file.path(peak_data_path,paste0(params$data_path,"_SNPS_IN_PEAKS.txt")),header=T)
+
 ```
 
 ```{r, fig.width=20,fig.height=5}
@@ -113,9 +116,6 @@ gwas_ld_data<-merge(ld_data,pk.lmm.filt,by.x="SNP_B",by.y="new_rs")
 ```
 
 ```{r}
-peak_data_path<-file.path(root,"output_data","06_Association",params$data_path)
-pk.lmm.peaks.out<-read.table(file.path(peak_data_path,paste0(params$data_path,"_SNPS_IN_PEAKS.txt")),header=T)
-
 index_snps <- pk.lmm.peaks.out %>%
   group_by(peak) %>%
   # Filter for rows with the maximum log_p value within each peak
