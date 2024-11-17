@@ -87,7 +87,7 @@ gemma.peak.ROW.bed <- function(peaks.named){
 manc2.labels <- function(df.in, input.var){
   # Assuming df.in is your input dataframe
   chr_breaks <- df.in %>%
-    group_by(chr) %>% 
+    group_by(numeric_chr) %>% 
     dplyr::summarise(chr_breaks = mean(row))
   
   chrom.colors <- data.frame(chr=unique(df.in$chr),
@@ -118,10 +118,11 @@ manc2.labels <- function(df.in, input.var){
     scale_color_manual(values=rep(c("grey30","grey70"))) +
     #scale_color_manual(values = c(rep_len(c("grey30", "red"), length(unique(chr_breaks$chr_ordered))+1))) #+
     #scale_y_continuous(limits=c(0,1),breaks=seq(0,1,0.1),minor_breaks = NULL) +
-    scale_x_continuous(breaks = chr_breaks$chr_breaks, 
-                       labels = function(labels) {
-                         sapply(seq_along(labels), function(i) paste0(ifelse(i %% 2 == 0, '', '\n'), chr_breaks$chr[i]))
-                       }) +
+    scale_x_continuous(
+      breaks = chr_breaks$chr_breaks, 
+      labels = chr_breaks$numeric_chr
+    )+
+  
     labs(y=expression(paste("-log"[10], italic("P"),"-value"))) 
   #scale_x_continuous(breaks=chr_breaks$chr_breaks, 
   #                   labels = chr_breaks$chr_labels)

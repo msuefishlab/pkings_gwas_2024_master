@@ -55,14 +55,54 @@ pk.lmm.filt<- pk.lmm.filt %>% mutate(new_rs = str_split(rs, ":", simplify = TRUE
 
 ```{r, fig.width=20,fig.height=5}
 dynamic_max <- quantile(pk.lmm.filt$log_p, 0.99999)
+
+peak_bounds <- pk.lmm.peaks.out %>%
+  group_by(peak) %>%
+  summarise(
+    xmin = min(row)-10000,
+    xmax = max(row)+10000,
+    ymin = 1,  # Lower limit for the rectangle
+    ymax = dynamic_max # Upper limit (use dynamic_max for finite height in plots)
+  )
+
+
 p.gemma <- manc2.labels(pk.lmm.filt, "log_p")
-p.gemma +
+man_final<-
+    p.gemma +
+
+  geom_rect(
+    data = peak_bounds,
+    aes(
+      xmin = xmin, xmax = xmax,
+      ymin = ymin, ymax = dynamic_max
+    ),
+    fill = "grey", alpha = 0.3, inherit.aes = FALSE   # Avoid inheriting from base plot  # Adjust color and transparency as needed
+  ) +
+  geom_text(
+    data = peak_bounds,
+    aes(
+      x = (xmin + xmax) / 2,    # Center of the rectangle
+      y = dynamic_max + 1,    # Slightly above the dynamic_max
+      label = peak
+    ),
+    inherit.aes = FALSE,
+    size = 4,                  # Adjust size for readability
+    color = "black"            # Adjust color for visibility
+  ) +
   geom_hline(yintercept = suggestive, linetype = 2, color = "blue") +
   geom_hline(yintercept = significant, linetype = 2, color = "red") +
-    geom_point(data = subset(pk.lmm.filt, log_p > suggestive), aes(x = row, y = log_p,size=log_p), color = "red", shape=20,stroke=0.2,alpha=0.25) +
+    geom_point(data = subset(pk.lmm.peaks.out, log_p > suggestive), aes(x = row, y = log_p,size=log_p), color = "red", shape=20,stroke=0.2,alpha=0.25) +
+   
   scale_size_continuous(range = c(0.9, 3)) +
   labs(y = expression(paste("-log"[10], italic("P"),"-value")),x= "Chromosome")+
-  ylim(c(1,dynamic_max))
+  ylim(c(1,dynamic_max+2))+
+  theme(
+    axis.text = element_text(size = 14),  # Adjust tick label font size
+    axis.title.x = element_text(size = 16),      # x-axis label font size
+    axis.title.y = element_text(size = 16)       # y-axis label font size
+    )
+
+man_final
 ```
 
 

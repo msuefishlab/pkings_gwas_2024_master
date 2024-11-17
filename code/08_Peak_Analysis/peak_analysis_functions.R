@@ -21,8 +21,8 @@ create_gwas_plot <- function(pk.lmm, filtered_gwas_ld_data, idx_snp_peak, overla
     geom_hline(yintercept = significant, linetype = "dashed", color = "red", size = 0.5) +
     geom_hline(yintercept = suggestive, linetype = "dashed", color = "blue", size = 0.5) +
     geom_point(data = idx_snp_peak, mapping = aes(x = BP_A, y = -log10(p_lrt)), shape = 5, size = 5, fill = "black") +
-    geom_gene_arrow(data = overlapping_annotations_df, mapping = aes(xmin = start, xmax = end, y = -1, fill = gene), show.legend = FALSE) +
-    geom_gene_label(data = overlapping_annotations_df, mapping = aes(xmin = start, xmax = end, y = -1, label = gene), align = "left", show.legend = FALSE) +
+    geom_gene_arrow(data = overlapping_annotations_df, mapping = aes(xmin = start, xmax = end, y = -1, fill = external_gene_name), show.legend = FALSE) +
+    geom_gene_label(data = overlapping_annotations_df, mapping = aes(xmin = start, xmax = end, y = -1, label = external_gene_name), align = "left", show.legend = FALSE) +
     xlim(start - window_size, end + window_size) +
     ylim(NA, y_min) +  # Set the y-axis lower limit dynamically; upper limit will adjust automatically
     theme_minimal() +
@@ -43,8 +43,8 @@ create_gwas_plot <- function(pk.lmm, filtered_gwas_ld_data, idx_snp_peak, overla
 # Function to create nucleotide diversity (π) plot
 create_pi_plot <- function(pi_peak, df.bed.idx, chr.idx) {
   # Generate a color palette
-  n_bp_populations <- dim(as.data.frame(pi_peak %>% filter(phenotype_pop1=="BP") %>% ungroup()%>% select(pop1) %>% distinct()))[1]
-  n_tp_populations <-dim(as.data.frame(pi_peak %>% filter(phenotype_pop1=="TP") %>% ungroup()%>% select(pop1) %>% distinct()))[1]
+  n_bp_populations <- dim(as.data.frame(pi_peak %>% filter(phenotype_pop1=="BP") %>% ungroup()%>% dplyr::select(pop1) %>% distinct()))[1]
+  n_tp_populations <-dim(as.data.frame(pi_peak %>% filter(phenotype_pop1=="TP") %>% ungroup()%>% dplyr::select(pop1) %>% distinct()))[1]
   bp_colors <- colorRampPalette(RColorBrewer::brewer.pal(9, "Blues")[4:9])(n_bp_populations)  # Darker blues
   tp_colors <- colorRampPalette(RColorBrewer::brewer.pal(9, "Reds")[4:9])(n_tp_populations)  # Darker reds
   
@@ -94,8 +94,8 @@ create_pi_plot <- function(pi_peak, df.bed.idx, chr.idx) {
 create_tajima_plot <- function(tpp_plot, df.bed.idx, chr.idx) {
   
   # Generate a color palette
-  n_bp_populations <- dim(as.data.frame(tpp_plot %>% filter(phenotype_pop1=="BP") %>% ungroup()%>% select(pop1) %>% distinct()))[1]
-  n_tp_populations <-dim(as.data.frame(tpp_plot %>% filter(phenotype_pop1=="TP") %>% ungroup()%>% select(pop1) %>% distinct()))[1]
+  n_bp_populations <- dim(as.data.frame(tpp_plot %>% filter(phenotype_pop1=="BP") %>% ungroup()%>% dplyr::select(pop1) %>% distinct()))[1]
+  n_tp_populations <-dim(as.data.frame(tpp_plot %>% filter(phenotype_pop1=="TP") %>% ungroup()%>% dplyr::select(pop1) %>% distinct()))[1]
   bp_colors <- colorRampPalette(RColorBrewer::brewer.pal(9, "Blues")[4:9])(n_bp_populations)  # Darker blues
   tp_colors <- colorRampPalette(RColorBrewer::brewer.pal(9, "Reds")[4:9])(n_tp_populations)  # Darker reds
   
@@ -138,9 +138,9 @@ create_tajima_plot <- function(tpp_plot, df.bed.idx, chr.idx) {
 create_fst_plot <- function(fpp_plot, df.bed.idx, chr.idx) {
   
   # Generate a color palette
-  same_bp_populations <- dim(as.data.frame(fpp_plot %>% filter(compare_color=="BP-BP") %>% ungroup()%>% select(comparison) %>% distinct()))[1]
-  same_tp_populations <-dim(as.data.frame(fpp_plot %>% filter(compare_color=="TP-TP") %>% ungroup()%>% select(comparison) %>% distinct()))[1]
-  different_populations <- dim(as.data.frame(fpp_plot %>% filter(compare_color=="BP-TP") %>% ungroup()%>% select(comparison) %>% distinct()))[1]
+  same_bp_populations <- dim(as.data.frame(fpp_plot %>% filter(compare_color=="BP-BP") %>% ungroup()%>% dplyr::select(comparison) %>% distinct()))[1]
+  same_tp_populations <-dim(as.data.frame(fpp_plot %>% filter(compare_color=="TP-TP") %>% ungroup()%>% dplyr::select(comparison) %>% distinct()))[1]
+  different_populations <- dim(as.data.frame(fpp_plot %>% filter(compare_color=="BP-TP") %>% ungroup()%>% dplyr::select(comparison) %>% distinct()))[1]
   
   bp_colors <- colorRampPalette(RColorBrewer::brewer.pal(9, "Blues")[4:9])(same_bp_populations)  # Darker blues
   tp_colors <- colorRampPalette(RColorBrewer::brewer.pal(9, "Reds")[4:9])(same_tp_populations)  # Darker reds

@@ -2,11 +2,12 @@
 title: "Peak Report"
 output: html_notebook
 params:
-  data_path: APA_BEN_BAM_TP1_BP2_WOB9
+  data_path: MOV_BIR_DOG_DOV_BAVA_BIK_APA_BEN_TP1_BP2_WOB9
   output_file: NULL
   popgen_prefix: MIC4273_HAP2_NEWREF_MSU618_all_fish_all_sites
   MAF_thresh: 0.05
-  pops: ["APA","BEN","BAM"]
+  pops: ["MOV","BIR","DOG","DOV","BAVA","BIK","APA","BEN"]
+  phenos: ["TP","BP","TP","TP","BP","BP","TP","TP"]
 ---
 
 ```{r setup, include=FALSE}
@@ -23,6 +24,8 @@ require(rtracklayer)
 require(gggenes)
 require(rentrez)
 require(rlang)
+require(biomaRt)
+library(BioMartGOGeneSets)
 
 source(file.path(root,"code","06_Association","gemma_gwas_functions.R"))
 source(file.path(root,"code","08_Peak_Analysis","peak_analysis_functions.R"))
@@ -50,7 +53,7 @@ long_genotype <- df.genos %>%
     names_to = "name",          # Column for the new 'name' variable
     values_to = "geno"          # Column for the new 'geno' variable
   ) %>%
-  select(name, chr = CHROM, pos = POS, geno) # Rename and select columns
+  dplyr::select(name, chr = CHROM, pos = POS, geno) # Rename and select columns
 
 long_genotype<-as.data.frame(long_genotype)
 
@@ -84,7 +87,7 @@ tajd_df <- tajd_df %>%
     mutate(statistic="avg_tajd") %>%
     mutate(value=TajimaD) %>%
     mutate(pop2=NA) %>%
-    select(pop1,  pop2, chromosome, window_pos_1, window_pos_2, statistic, value, ) %>%
+    dplyr::select(pop1,  pop2, chromosome, window_pos_1, window_pos_2, statistic, value, ) %>%
     arrange(pop1,  pop2, chromosome, window_pos_1)
 
 df_pi <- fread(pi_file)
@@ -94,7 +97,7 @@ df_pi <- df_pi %>%
   key = "statistic", value = "value") %>%
   mutate(pop1= pop) %>%
   mutate(pop2 = NA) %>%
-  select(pop1, chromosome, window_pos_1, window_pos_2, statistic, value, pop2 )
+  dplyr::select(pop1, chromosome, window_pos_1, window_pos_2, statistic, value, pop2 )
 
 fst_df <- fread(fst_file)
 
@@ -137,25 +140,9 @@ pixy <- pixy %>%
   ))
 ```
 
-### Load Phenotypic Data
-```{r}
-
-load(file.path(root,"output_data/05_PopGen/",paste0(params$popgen_prefix,"_pop_phenos.Rda")))
-
-phenotypes <- data.frame(
-  POP = c("MOV","BIR","DOG","DOV","BAVA","BIK","APA","BEN"),
-  population_phenotype = c("TP", "BP", "TP","TP","BP","BP","TP","TP")
-)
-
-phenotypes <- data.frame(
-  POP = c("APA","BEN","BAM"),
-  population_phenotype = c("TP", "TP", "BP")
-)
-
-```
-
 ### Filter Population Genetics Statistics
 ```{r}
+phenotypes<-data.frame(POP=params$pops,population_phenotype=params$phenos)
 
 # Dynamically create the filter condition
 filter_expr <- paste0("pop1 == '", params$pops, "'", collapse = " | ")
@@ -215,8 +202,7 @@ fst_plot <- pixy %>%
 
 ### Load SNP Data
 ```{r}
-anno_file<-file.path(root,"input_data","00_Reference_Genome","jordan-mic4273-mb-hirise-20xx3__06-13-2024__final_assembly.fasta.renamed.sorted.genes_only.gff")
-feat_table_file<-file.path(root,"input_data","00_Reference_Genome","GCF_002872115.1_PKINGS_0.1_feature_table.txt")
+anno_file<-file.path(root,"input_data","00_Reference_Genome","jordan-mic4273-mb-hirise-20xx3__06-13-2024__final_assembly.ensembl.liftoff.renamed.genes_only.gff")
 gemma_file<-file.path(root,"output_data","06_Association",params$data_path,paste0(params$data_path,".lmm2.assoc.txt"))
 minpath<-file.path(root,"output_data","06_Association",params$data_path,paste0(params$data_path,"_permution"),"min.txt")
 ldpath<-file.path(root,"output_data","06_Association",params$data_path,paste0(params$data_path,"_index_snps.ld.ld"))
@@ -225,8 +211,6 @@ peak_data_path<-file.path(root,"output_data","06_Association",params$data_path)
 annotations<-import(anno_file)
 strand(annotations)<-"*"
 
-
-feat_table<-fread(feat_table_file)
 pk.lmm<- gemma.order(gemma_file, "p_lrt")
 min_data<-read.csv(minpath,header=F,sep="\t")
 pvals<-sort(min_data$V10, decreasing = F)
@@ -291,10 +275,12 @@ overlap_mapping_unique <- overlap_mapping[!duplicated(overlap_mapping$annotation
 # Merge SNP_A into overlapping_annotations_df
 overlapping_annotations_df <- merge(overlapping_annotations_df, overlap_mapping_unique, by.x = "unique_id", by.y = "annotation_index", all.x = TRUE)
 overlapping_annotations_df<-subset(overlapping_annotations_df,!is.na(PEAK))
-```
 
-```{r}
-fish_data_file<-file.path(root,"input_data/01_Terra/data_model/fish_data_2024a.txt")
+gr=getBioMartGenes("pkingsleyae_gene_ensembl")
+
+anno_meta<-as.data.frame(gr)[6:9]
+
+overlapping_annotations_df<-left_join(overlapping_annotations_df,anno_meta,by=c("gene_id"="ensembl_gene_id"))
 ```
 
 
@@ -305,7 +291,7 @@ fish_data<-read.csv(fish_data_file,row.names=1,sep="\t")
 
 pheno_discrete <- fish_data %>% 
   mutate(Phenotype = factor(Phenotype)) %>%
-  select(Phenotype)
+  dplyr::select(Phenotype)
 
 phenos<-setNames(as.character(pheno_discrete$Phenotype), row.names(pheno_discrete))
 phenos <- gsub("TYPE_II", "TP", phenos)
@@ -355,7 +341,7 @@ for (peak.idx in unique(df.bed$peak)) {
   first_individuals <- df.genos.sub %>%
     group_by(population) %>%
     slice_head(n = 1) %>%  # Select the first individual per population
-    select(name, population)  # Keep only the name and population
+    dplyr::select(name, population)  # Keep only the name and population
   
   # Create a mapping for y-axis labels: Label only the first individual per population
   label_mapping <- setNames(first_individuals$population, first_individuals$name)
@@ -392,221 +378,12 @@ for (peak.idx in unique(df.bed$peak)) {
 
 
 ```
-### Another Approach to Plotting Genotypes
-
-```{r}
-for (peak.idx in unique(df.bed$peak)) {
-  
-  # Take bed file, pull out peak of interest then filter by it
-  df.bed.idx <- df.bed %>% filter(peak == peak.idx)
-  chr.idx <- unique(df.bed.idx$chr)
-  print(paste0("running ", peak.idx, " on ", chr.idx))
-  
-  # Subset geno df by the peak region 
-  df.genos.sub <- long_genotype %>% 
-    filter(chr == chr.idx & pos > min(df.bed.idx$start) & pos < max(df.bed.idx$end)) %>%
-    arrange(name, pos) %>%  # Sort by name and then by position
-    group_by(name) %>%
-    mutate(snp_order_within_individual = row_number()) %>%  # Create sequence number
-    ungroup()
-  
-  df.genos.sub$geno <- factor(ifelse(is.na(df.genos.sub$geno), "NA", as.character(df.genos.sub$geno)),
-                              levels = c("NA", "0", "1", "2"))
-  
-  # Step 1: Extract the population and ensure plotting order
-df.genos.sub <- df.genos.sub %>%
-  mutate(population = sub("_.*", "", name)) %>%  # Extract population from the name
-  arrange(name) %>%  # Sort individuals by name
-  mutate(name = factor(name, levels = rev(unique(name))))  # Reverse the levels for top-to-bottom plotting
-
-  
-  # Step 2: Identify the first individual (from top to bottom) for each population
-  first_individuals <- df.genos.sub %>%
-    group_by(population) %>%
-    slice_head(n = 1) %>%  # Select the first individual per population
-    select(name, population)  # Keep only the name and population
-  
-  # Create a mapping for y-axis labels: Label only the first individual per population
-  label_mapping <- setNames(first_individuals$population, first_individuals$name)
-  
-  # Step 3: Create the ggplot object
-  p <- ggplot(df.genos.sub, aes(x = snp_order_within_individual, y = name, fill = geno)) +
-    geom_tile() +
-    scale_fill_manual(values = c("NA" = "white", "0" = "grey", "1" = "#1a80bb", "2" = "#f2c45f")) +
-    labs(title = paste0("Peak ", peak.idx, " on Chr ", chr.idx),
-         x = "SNP Order within Individual", 
-         y = "Individual",
-         fill = "Genotype") +
-    scale_y_discrete(labels = function(names) {
-      # Only label the first individual per population
-      ifelse(names %in% names(label_mapping), label_mapping[names], "")
-    }) +
-    theme_minimal() +
-    theme(panel.grid = element_blank())
-  
-  # Step 4: Save the plot
-  ggsave(file.path(root, "output_data", "08_Peak_Analysis", params$data_path, 
-                   paste0(params$data_path, "_PEAK", peak.idx, "_CHR", chr.idx, ".png")), 
-         plot = p, width = 8.5, height = 17)
-}
-
-
-```
-
-
-### Alternative Approach to Plotting Genotypes
-```{r}
-for (peak.idx in unique(df.bed$peak)) {
-  
-  # Filter bed file for peak of interest
-  df.bed.idx <- df.bed %>% filter(peak == peak.idx)
-  chr.idx <- unique(df.bed.idx$chr)
-  print(paste0("Running ", peak.idx, " on ", chr.idx))
-  
-  # Subset genotype data
-  df.genos.sub <- long_genotype %>%
-    filter(chr == chr.idx & pos > min(df.bed.idx$start) & pos < max(df.bed.idx$end)) %>%
-    arrange(name, pos) %>%
-    group_by(name) %>%
-    mutate(snp_order_within_individual = row_number()) %>%
-    ungroup()
-  
-  df.genos.sub$geno <- factor(ifelse(is.na(df.genos.sub$geno), "NA", as.character(df.genos.sub$geno)),
-                              levels = c("NA", "0", "1", "2"))
-  
-  # Create a wide-format matrix for clustering
-  geno_matrix <- df.genos.sub %>%
-    pivot_wider(id_cols = name, names_from = snp_order_within_individual, values_from = geno, values_fill = "NA") %>%
-    column_to_rownames("name") %>%
-    mutate_all(as.numeric)
-  
-  # Compute a distance matrix and perform hierarchical clustering
-  geno_dist <- dist(geno_matrix, method = "euclidean")  # Use appropriate distance metric
-  geno_hclust <- hclust(geno_dist, method = "ward.D2")  # Hierarchical clustering
-  
-  # Reorder rows based on clustering
-  ordered_rows <- rownames(geno_matrix)[geno_hclust$order]
-  
-  df.genos.sub <- df.genos.sub %>%
-    mutate(name = factor(name, levels = ordered_rows))
-  
-  # Plot the clustered heatmap
-  p <- ggplot(df.genos.sub, aes(x = snp_order_within_individual, y = name, fill = geno)) +
-    geom_tile() +
-    scale_fill_manual(values = c("NA" = "white", "0" = "grey", "1" = "#1a80bb", "2" = "#f2c45f")) +
-    labs(title = paste0("Peak ", peak.idx, " on Chr ", chr.idx),
-         x = "SNP Order within Individual", 
-         y = "Individual",
-         fill = "Genotype") +
-    theme_minimal() +
-    theme(panel.grid = element_blank())
-  
-  # Save the plot
-  ggsave(file.path(root, "output_data", "08_Peak_Analysis", params$data_path, 
-                   paste0(params$data_path, "_PEAK", peak.idx, "_CHR", chr.idx, ".png")), 
-         plot = p, width = 8.5, height = 17)
-}
-```
-
-
-
-### Plot Popgen Boxplots 
-```{r}
-df.bed$chr<-paste0("chr",df.bed$chr)
-
-# Generate the plot
-pp<-ggplot(pi_plot, aes(x = region_status, y = value, fill = phenotype_pop1)) +
-  geom_boxplot(outlier.shape = NA) +
-  scale_fill_manual(values = c("BP" = "skyblue3", "TP" = "coral2")) +
-  theme_minimal() +
-  theme(
-    legend.position = "bottom",
-    panel.grid.major.x = element_blank(),
-    panel.grid.minor.x = element_blank(),
-    panel.grid.minor.y = element_blank(),
-    panel.background = element_blank(),
-    axis.text = element_text(size = rel(1.2), family = "Arial"),
-    axis.title.x = element_text(size = rel(2.1), family = "Arial", margin = margin(t = 20)),
-    axis.title.y = element_text(size = rel(2.1), family = "Arial", margin = margin(r = 20))
-  ) +
-  scale_y_continuous(limits = c(0, .01), breaks = c(0, 0.005, 0.01), labels = percent_format()) +
-  xlab("Population") +
-  ylab("π (% Nucleotide Diversity) ")
-
-td<-pixy %>%
-    filter(statistic == "avg_tajd", !is.na(value)) %>%
-    filter(pop1=="APA" | pop1=="BAM" | pop1=="BEN") %>%
-    mutate(value = as.numeric(value) ) %>%  
-    left_join(phenotypes, by = c("pop1" = "POP")) %>%
-    dplyr::rename(phenotype_pop1 = population_phenotype) %>% ggplot(aes(x = region_status, y = value, fill = phenotype_pop1)) +
-    geom_boxplot(outlier.shape = NA) +
-    scale_fill_manual(values = c("BP" = "skyblue3", "TP"="coral2", "mixed" = "mediumorchid1")) +
-    theme_minimal() +
-    theme(
-        legend.position = "bottom",
-        panel.grid.major.x = element_blank(),
-        panel.grid.minor.x = element_blank(),
-        panel.grid.minor.y = element_blank(),
-        panel.background = element_blank(),
-        axis.text = element_text(size = rel(1.2), family = "Arial"),
-        axis.title.x = element_text(size = rel(2.1), family = "Arial", margin = margin(t = 20)),  # Adjust margin for x-axis title
-        axis.title.y = element_text(size = rel(2.1), family = "Arial", margin = margin(r = 20))   # Adjust margin for y-axis title
-    ) +
-    scale_y_continuous(limits = c(-2, 4), breaks=c(-2,0,2,4)) +
-    xlab("Population") +
-    ylab("Tajima's D") 
-
-# Step 4: Create the plot
-fp<-ggplot(fst_plot, aes(x = comparison, y = value, fill = region_status)) +
-  geom_boxplot(outlier.shape = NA) +
-  scale_fill_manual(values = c("Inside" = "skyblue3", "Outside"="coral2")) +
-  theme_minimal() +
-  theme(
-    panel.grid.major.x = element_blank(),
-    panel.grid.minor.x = element_blank(),
-    panel.grid.minor.y = element_blank(),
-    panel.background = element_blank(),
-    strip.text.x = element_text(size = rel(2.1)),
-    axis.text = element_text(size = rel(1.2), family = "Arial",angle = 90, hjust = 1),
-    axis.title.x = element_text(size = rel(2.1), family = "Arial", margin = margin(t = 20)),  # Adjust margin for x-axis title
-    axis.title.y = element_text(size = rel(2.1), family = "Arial", margin = margin(r = 20))   # Adjust margin for y-axis title
-  ) +
-  scale_y_continuous(breaks = c(0, 0.5, 1)) +
-  ylim(0, 1) +
-  xlab("Comparison") +
-  ylab("Weir & Cockerham's Fst") +
-  theme(legend.position = "bottom")
-
-```
-
-```{r, fig.height=12, fig.width=8}
-
-combined_plot <- pp / td / fp 
-
-combined_plot <- combined_plot + 
-                 plot_annotation(tag_levels = 'A') &
-                 theme(plot.tag = element_text(size = 48, face="bold"))
-
-# Adjust relative heights of the plots to change the overall aspect ratio
-# Increase the values to make the plots taller
-combined_plot <- combined_plot + 
-                 plot_layout(heights = c(2, 2, 2)) 
-
-# Print the combined plot
-
-plot_name<-file.path(root,'output_data/08_Peak_Analysis/',params$data_path,'peak_stats.svg')
-svg(plot_name, width=12, height = 24)  # Adjust width as needed
-combined_plot
-n<-dev.off()
-```
-
-
 
 ```{r}
 # Main loop
 for (peak.idx in unique(df.bed$peak)) {
   df.bed.idx <- df.bed %>% filter(peak == peak.idx)
-  chr.idx <- unique(df.bed.idx$chr)
+  chr.idx <- paste0("chr",unique(df.bed.idx$chr))
   start <- min(df.bed.idx$start)
   end <- max(df.bed.idx$end)
   
