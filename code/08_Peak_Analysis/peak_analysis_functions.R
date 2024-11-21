@@ -180,4 +180,166 @@ create_fst_plot <- function(fpp_plot, df.bed.idx, chr.idx) {
     facet_wrap(~ comparison_classification, ncol=1)
 }
 
+get_stat_values<-function(df, start, end, population) {
+  df %>%
+    filter(
+      window_pos_1 >= start,
+      window_pos_2 <= end,
+      pop1 == population
+    ) %>%
+    pull(value)
+}
+
+get_data4plot<-function(df.bed,df,stat){
+  # Initialize a list to store results
+  result_list <- list()
+  
+  # Get unique populations from the dataset
+  populations <- unique(df$pop1)
+  
+  # Loop through each peak
+  for (i in 1:nrow(df.bed)) {
+    peak <- df.bed[i, ]
+    chr <- paste0("chr", peak$chr)
+    start <- peak$start
+    end <- peak$end
+    lg <- peak$lg
+    
+    # Pre-filter df for the current chromosome
+    df_chr <- df %>% filter(chromosome == chr)
+    
+    # Extract the statistic for the peak
+    for (pop in populations) {
+      peak_stat <- get_stat_values(df_chr, start, end, pop)
+      
+      # Create a data frame for all values in peak_stat
+      result_list[[length(result_list) + 1]] <- data.frame(
+        peak = rep(i, length(peak_stat)), # Repeat the peak number for each value
+        population = rep(pop, length(peak_stat)), # Repeat the population name
+        stringsAsFactors = FALSE
+      ) %>% mutate(!!stat := peak_stat) # Dynamically name the column using stat
+    }
+    
+    # Generate random intervals restricted to the chromosome for each population
+    max_pos <- max(df_chr$window_pos_2)
+    for (pop in populations) {
+      random_intervals <- data.frame(
+        thestart = sample(1:(max_pos - lg), 100)
+      ) %>%
+        mutate(
+          theend = thestart + lg  # Add lg to thestart to create theend
+        ) %>%
+        filter(theend <= max_pos, thestart < theend)  # Exclude invalid intervals
+      
+      random_stats <- mapply(
+        function(start, end) {
+          get_stat_values(df_chr, start, end, pop)
+        },
+        random_intervals$thestart,
+        random_intervals$theend,
+        SIMPLIFY = FALSE
+      )
+      
+      # Flatten random_stats and create a data frame
+      random_stats_flat <- unlist(random_stats)
+      result_list[[length(result_list) + 1]] <- data.frame(
+        peak = as.factor(rep(i, length(random_stats_flat))), # Repeat the peak number for each value
+        population = rep(paste0(pop, "R"), length(random_stats_flat)), # Assign randomized population name
+        stringsAsFactors = FALSE
+      ) %>% mutate(!!stat := random_stats_flat) # Dynamically name the column using stat
+    }
+  }
+  
+  
+  # Combine all results into a single data frame
+  result_data <- do.call(rbind, result_list)
+  
+  # Dynamically filter out any NA values based on the stat column
+  result_data <- result_data %>%
+    filter(!is.na(!!sym(stat)))
+  
+  return(result_data)
+}
+
+
+get_fst_stat_values<-function(df, start, end, comparison) {
+  df %>%
+    filter(
+      window_pos_1 >= start,
+      window_pos_2 <= end,
+      comparison == comparison
+    ) %>%
+    pull(value)
+}
+
+get_fst_data4plot<-function(df.bed,df,stat="avg_wc_fst"){
+  # Initialize a list to store results
+  result_list <- list()
+  
+  # Get unique populations from the dataset
+  comparisons <- unique(df$comparison)
+  
+  # Loop through each peak
+  for (i in 1:nrow(df.bed)) {
+    peak <- df.bed[i, ]
+    chr <- paste0("chr", peak$chr)
+    start <- peak$start
+    end <- peak$end
+    lg <- peak$lg
+    
+    # Pre-filter df for the current chromosome
+    df_chr <- df %>% filter(chromosome == chr)
+    
+    # Extract the statistic for the peak
+    for (comp in comparisons) {
+      peak_stat <- get_fst_stat_values(df_chr, start, end, comp)
+      
+      # Create a data frame for all values in peak_stat
+      result_list[[length(result_list) + 1]] <- data.frame(
+        peak = rep(i, length(peak_stat)), # Repeat the peak number for each value
+        comparison = rep(comp, length(peak_stat)), # Repeat the population name
+        stringsAsFactors = FALSE
+      ) %>% mutate(!!stat := peak_stat) # Dynamically name the column using stat
+    }
+    
+    # Generate random intervals restricted to the chromosome for each population
+    max_pos <- max(df_chr$window_pos_2)
+    for (comp in comparisons) {
+      random_intervals <- data.frame(
+        thestart = sample(1:(max_pos - lg), 100)
+      ) %>%
+        mutate(
+          theend = thestart + lg  # Add lg to thestart to create theend
+        ) %>%
+        filter(theend <= max_pos, thestart < theend)  # Exclude invalid intervals
+      
+      random_stats <- mapply(
+        function(start, end) {
+          get_fst_stat_values(df_chr, start, end, comp)
+        },
+        random_intervals$thestart,
+        random_intervals$theend,
+        SIMPLIFY = FALSE
+      )
+      
+      # Flatten random_stats and create a data frame
+      random_stats_flat <- unlist(random_stats)
+      result_list[[length(result_list) + 1]] <- data.frame(
+        peak = as.factor(rep(i, length(random_stats_flat))), # Repeat the peak number for each value
+        comparison = rep(paste0(comp, "R"), length(random_stats_flat)), # Assign randomized population name
+        stringsAsFactors = FALSE
+      ) %>% mutate(!!stat := random_stats_flat) # Dynamically name the column using stat
+    }
+  }
+  
+  
+  # Combine all results into a single data frame
+  result_data <- do.call(rbind, result_list)
+  
+  # Dynamically filter out any NA values based on the stat column
+  result_data <- result_data %>%
+    filter(!is.na(!!sym(stat)))
+  
+  return(result_data)
+}
 

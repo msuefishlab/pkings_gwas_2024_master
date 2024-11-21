@@ -194,6 +194,30 @@ nodelabels(
 n <- dev.off() # Close the SVG device
 #knitr::include_graphics(plot_name)
 ```
+```{r, fig.height=8}
+require(ggtree)
+
+p<-ggtree(mormyrotree_pruned) +geom_tiplab(size=2) + coord_cartesian(clip = 'off') + theme_tree2(plot.margin=margin(6, 120, 6, 6))
+
+piedat<- as.data.frame(pd$ace)
+
+piedat$node<-rownames(piedat)
+
+node_piedat <- piedat %>%
+  filter(!is.na(as.numeric(as.character(node))))
+
+tip_piedat <- piedat %>%
+  filter(is.na(as.numeric(as.character(node))))
+
+pies<-nodepie(node_piedat,cols=c("BP","MP","TP"))
+
+pies <- lapply(pies, function(g) g+scale_fill_manual(values = cols))
+
+p + geom_inset(pies, width = .03, height = .03)
+```
+
+
+
 What we see is pretty striking, but not terribly different than what we'd get using maximum parsimony:
 
 ```{r,fig.height=12}

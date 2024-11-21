@@ -1,0 +1,127 @@
+library(ggtree)
+library(phangorn)
+library(tidyverse)
+
+create_phylo_geno_plot<- function(tree,snpdata)
+{
+  old<-tree$tip.label
+  new<-sapply(old,function(x) strsplit(x, "_")[[1]][1])
+  names(new)<-NULL
+  
+  nameframe<-data.frame(old.labels=old,new.labels=new)
+  
+  tree$tip.label[tree$tip.label %in% nameframe$old.labels] <- nameframe$new.labels
+  
+  
+  ### recover pop tree
+  
+  name_to_pop<-snpdata %>% dplyr::select(name,population) %>% unique()
+  name_to_pop <- name_to_pop %>% mutate(population = as.character(population))
+  
+  name_to_pop <- name_to_pop %>%
+    mutate(tip_index = match(population, tree$tip.label))
+  
+  # Function to create a polytomy for individuals in a given population
+  add_polytomy_to_population <- function(tree, individuals, population_label) {
+    # Create a star tree (polytomy) with individuals
+    polytomy <- stree(length(individuals), tip.label = individuals)
+    
+    # Find the current index of the population tip by its label
+    parent_tip_index <- which(tree$tip.label == population_label)
+    
+    # Add the polytomy to the tree
+    new_tree <- bind.tree(tree, polytomy, where = parent_tip_index, position = 0)
+    
+    return(new_tree)
+  }
+  
+  # Add polytomies for each population
+  for (pop in unique(name_to_pop$population)) {
+    # Get individuals for this population
+    individuals <- name_to_pop %>%
+      filter(population == pop) %>%
+      pull(name)
+    
+    # Add the polytomy to the tree
+    tree <- add_polytomy_to_population(tree, individuals, pop)
+  }
+  
+  test_data<-as.data.frame(snpdata)
+  #test_data<-test_data[c(6,1,2,3,4,5,7,8)]
+  nested_test_data<-NULL
+  nested_test_data<-nest(test_data,pos=pos,chr=chr,geno=geno,snp_order_within_individual=snp_order_within_individual)
+  
+  
+  # Create a data frame to identify tips that should be hidden
+  tip_data <- data.frame(
+    label = tree$tip.label,
+    is_polytomy = tree$tip.label %in% name_to_pop$name # Identify tips belonging to polytomies
+  )
+  
+  # Identify ancestor nodes for each population
+  ancestor_nodes <- name_to_pop %>%
+    group_by(population) %>%
+    summarize(ancestor_node = getMRCA(tree, name)) %>%
+    mutate(label = population)
+  
+  # Plot the tree
+  p <- ggtree(tree, color = "white", size = 1)# Makes the branches solid white with no visible borders+
+  
+  
+  p <- p %<+% nested_test_data + geom_tippoint(aes(fill=Phenotype),shape = 22, size = 2, color = "black",stroke=0.2,  position = position_nudge(x = 3)) 
+  
+  population_boundaries <- p$data %>%
+    filter(isTip) %>% # Consider only tips for population boundaries
+    group_by(population) %>%
+    summarize(y_min = min(y), y_max = max(y)) %>%
+    mutate(boundary = y_max + 0.5) # Add a slight offset for the boundary lines
+  
+  p<- p + geom_facet(panel = "SNP", data = td_unnest(c(snp_order_within_individual, geno)),
+                     geom = geom_tile,
+                     mapping = aes(x = snp_order_within_individual, fill = geno))+
+    scale_fill_manual(name = "Legend",values = c( "NA" = "black", "0" = "#cccccc", "1" = "#ffce95", "2" = "#fd7660","BP"="blue","TP"="red","Wobble"="purple"),
+                      labels = c("NA" = "Missing", 
+                                 "0" = "REF", 
+                                 "1" = "HET", 
+                                 "2" = "ALT",
+                                 "BP" = "Biphasic", 
+                                 "TP" = "Triphasic",
+                                 "Wobble" = "Intermediate")
+    )+
+    geom_hline(
+      data = population_boundaries %>% mutate(.panel = "SNP"), # Associate boundaries with "SNP" facet
+      aes(yintercept = boundary),
+      color = "darkgrey", 
+    ) +
+    theme_tree2()+
+    coord_cartesian(clip = "off") + 
+    theme(strip.background = element_blank(), 
+          strip.text = element_blank(),   
+          legend.position = "bottom",          # Move legend to the bottom
+          legend.direction = "horizontal",     # Arrange legend items horizontally
+          legend.box = "horizontal",          # Ensure the legend box aligns horizontally)
+          plot.margin = margin(10, 10, 10, 10)
+    )
+  
+  # Extract ggtree plot data and merge with tip_data
+  p$data <- p$data %>%
+    left_join(tip_data, by = "label") %>%
+    mutate(is_polytomy = ifelse(is.na(is_polytomy), FALSE, is_polytomy)) # Handle NA values
+  
+  # Filter out polytomy tips and branches for plotting
+  non_polytomy_data <- p$data %>% filter(!is_polytomy)
+  
+  # Add population labels to ancestor nodes
+  p <- p + geom_text2(
+    data = p$data %>% filter(node %in% ancestor_nodes$ancestor_node),
+    aes(label = ancestor_nodes$label[match(node, ancestor_nodes$ancestor_node)]),
+    hjust = -0.3,
+    size = 3  # Reduce font size (default is ~3)
+  )
+  
+  # Plot visible branches (non-polytomy)
+  p <- p + geom_tree(data = non_polytomy_data) # Only show non-polytomy branches
+  
+  return(p)
+}
+
