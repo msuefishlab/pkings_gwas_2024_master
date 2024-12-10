@@ -10,6 +10,8 @@ outdir=${root}/output_data/06_Association/${OUTNAME}
 
 mkdir -p ${outdir}
 
+cat ${outdir}/${OUTNAME}_SNPS_IN_PEAKS.txt | cut -f2 | cut -d: -f1 > ${outdir}/${OUTNAME}_all_peak_snps.txt 
+
 ## First Make the PLINK Compatible Files
 echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools_image} /plink/plink \
 --vcf /out_dir/${OUTNAME}_merge_ID.vcf.gz \
@@ -20,7 +22,7 @@ echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_
 --r2 with-freqs \
 --ld-window 10000 \
 --ld-window-kb 10000 \
---ld-snp-list /out_dir/${OUTNAME}_index_snps.txt \
+--ld-snp-list ${outdir}/${OUTNAME}_all_peak_snps.txt \
 --ld-window-r2 0.25 \
 --threads 4
 
@@ -33,6 +35,6 @@ singularity exec --bind $root:/project_root --bind $outdir:/out_dir ${gwas_tools
 --r2 with-freqs \
 --ld-window 10000 \
 --ld-window-kb 10000 \
---ld-snp-list /out_dir/${OUTNAME}_index_snps.txt \
+--ld-snp-list ${outdir}/${OUTNAME}_all_peak_snps.txt \
 --ld-window-r2 0.25 \
 --threads 4
