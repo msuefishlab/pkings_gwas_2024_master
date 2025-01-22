@@ -66,6 +66,7 @@ gemma.peak.bed <- function(peaks.named, log_p_threshold){
               mean.log_p = mean(log_p),
               max.log_p = max(log_p),
               num.snps.above.threshold = sum(log_p > log_p_threshold),
+              most_significant_bp = ps[which.max(log_p)],  # Get the position of the most significant SNP
               .groups = "keep")
   return(peak.bed)
 }

@@ -18,6 +18,32 @@ library(ggrepel)
 library(patchwork)   # For combining plots
 library(biomaRt)
 library(topGO)
+library(ggpubr)
+```
+
+```{r}
+prev_rnaseq_results<-file.path(root, "input_data/09_RNASeq/12862_2019_1572_MOESM6_ESM.csv")
+losilla_complexity_list<-read.csv(prev_rnaseq_results,header=T)
+
+losilla_complexity_list<-losilla_complexity_list %>% filter(type_of_gene=="protein-coding")
+
+
+
+ensembl_112 <- useEnsembl(biomart = "ensembl", version = 112,host="https://may2024.archive.ensembl.org")
+ensembl_112 <-useDataset("pkingsleyae_gene_ensembl",mart=ensembl_112)
+
+
+available_entrez_ids <- getBM(attributes = "entrezgene_id", mart = ensembl_112)
+unmatched_ids <- setdiff(losilla_complexity_list$Pking_Entrez_geneID, available_entrez_ids$entrezgene_id)
+print(unmatched_ids)
+
+
+# Assuming the attribute 'description' exists, retrieve the gene descriptions
+losilla_complexity_list_converted <- getBM(values=losilla_complexity_list$Pking_Entrez_geneID,
+                                filters = "entrezgene_id",
+  attributes = c("entrezgene_id","ensembl_gene_id","external_gene_name", "description"),
+  mart = ensembl_112
+)  
 ```
 
 ```{r}
@@ -37,7 +63,7 @@ pheno_data$Phenotype <- factor(pheno_data$Phenotype)
 ```
 
 ```{r}
-gwas_1_set<-c("APA","BAM","BIK")
+gwas_1_set<-c("APA","BAM","BEN")
 
 gwas_2_set<-c("MOV","BIR","DOG","DOV","BAVA","BIK","APA","BEN")
 
@@ -112,14 +138,14 @@ gw1_sig <- gw1_res[!is.na(gw1_res$padj) & !is.na(gw1_res$log2FoldChange) &
                    gw1_res$padj <= pCutoff & gw1_res$log2FoldChange >= FCcutoff, ]
 
 # Filter gw1_sig based on IDs in overlapping_annotations_df
-filtered_gw1_sig <- gw1_sig[gw1_sig$ID %in% g1_overlapping_annotations_df$ID, ]
+filtered_gw1_sig <- gw1_sig[rownames(gw1_sig) %in% g1_overlapping_annotations_df$gene_id, ]
 
 # Filter the results
 gw2_sig <- gw2_res[!is.na(gw2_res$padj) & !is.na(gw2_res$log2FoldChange) & 
                    gw2_res$padj <= pCutoff & gw2_res$log2FoldChange >= FCcutoff, ]
 
 # Filter gw1_sig based on IDs in overlapping_annotations_df
-filtered_gw2_sig <- gw2_sig[gw2_sig$ID %in% g2_overlapping_annotations_df$ID, ]
+filtered_gw2_sig <- gw2_sig[rownames(gw2_sig) %in% g2_overlapping_annotations_df$gene_id, ]
 
 ```
 
@@ -129,10 +155,17 @@ gw1_res4plot<-as.data.frame(gw1_res)
 gw1_res4plot$gene_id <- rownames(gw1_res4plot)
 gw1_res4plot <- merge(gw1_res4plot, g1_overlapping_annotations_df[, c("gene_id", "external_gene_name")],
                  by.x = "gene_id", by.y = "gene_id", all.x = TRUE)
-gw1_res4plot$color_group <- ifelse(gw1_res4plot$gene_id %in% g1_overlapping_annotations_df$gene_id, "highlight", "normal")
+gw1_res4plot <- gw1_res4plot %>%
+  mutate(label_name = ifelse(is.na(external_gene_name), gene_id, external_gene_name))
+
+gw1_res4plot$color_group <- case_when(
+  gw1_res4plot$gene_id %in% g1_overlapping_annotations_df$gene_id ~ "highlight",
+  gw1_res4plot$gene_id %in% losilla_complexity_list_converted$ensembl_gene_id ~ "previous",
+  TRUE ~ "normal"
+)
 
 g1_plot <- ggplot(data = gw1_res4plot) +
-  geom_vline(xintercept = c(-0.6, 0.6), col = "gray", linetype = 'dashed') +
+  geom_vline(xintercept = 0, col = "gray", linetype = 'dashed') +
   geom_hline(yintercept = -log10(0.05), col = "gray", linetype = 'dashed') +
   # First layer: black points (normal)
   geom_point(data = subset(gw1_res4plot, color_group == "normal"), 
@@ -142,9 +175,12 @@ g1_plot <- ggplot(data = gw1_res4plot) +
   geom_point(data = subset(gw1_res4plot, color_group == "highlight"), 
              aes(x = log2FoldChange, y = -log10(padj)), 
              color = "red", size = 2, alpha = 0.4) +
+  # geom_point(data = subset(gw1_res4plot, color_group == "previous"), 
+  #            aes(x = log2FoldChange, y = -log10(padj)), 
+  #            color = "blue", size = 2, alpha = 0.4) +
   # Add labels for red points using geom_text_repel
   geom_text_repel(data = subset(gw1_res4plot, color_group == "highlight"),
-                  aes(x = log2FoldChange, y = -log10(padj), label = external_gene_name),
+                  aes(x = log2FoldChange, y = -log10(padj), label = label_name),
                   size = 3, 
                   min.segment.length = 0, 
                   max.overlaps = Inf, 
@@ -177,10 +213,14 @@ gw2_res4plot<-as.data.frame(gw2_res)
 gw2_res4plot$gene_id <- rownames(gw2_res4plot)
 gw2_res4plot <- merge(gw2_res4plot, g2_overlapping_annotations_df[, c("gene_id", "external_gene_name")],
                  by.x = "gene_id", by.y = "gene_id", all.x = TRUE)
+
+gw2_res4plot <- gw2_res4plot %>%
+  mutate(label_name = ifelse(is.na(external_gene_name), gene_id, external_gene_name))
+
 gw2_res4plot$color_group <- ifelse(gw2_res4plot$gene_id %in% g2_overlapping_annotations_df$gene_id, "highlight", "normal")
 
 g2_plot<-ggplot(data = gw2_res4plot) +
-  geom_vline(xintercept = c(-0.6, 0.6), col = "gray", linetype = 'dashed') +
+  geom_vline(xintercept = 0, col = "gray", linetype = 'dashed') +
   geom_hline(yintercept = -log10(0.05), col = "gray", linetype = 'dashed') +
   # First layer: black points (normal)
   geom_point(data = subset(gw2_res4plot, color_group == "normal"), 
@@ -190,9 +230,12 @@ g2_plot<-ggplot(data = gw2_res4plot) +
   geom_point(data = subset(gw2_res4plot, color_group == "highlight"), 
              aes(x = log2FoldChange, y = -log10(padj)), 
              color = "red", size = 2, alpha = 0.4) +
+  # geom_point(data = subset(gw1_res4plot, color_group == "previous"), 
+  #            aes(x = log2FoldChange, y = -log10(padj)), 
+  #            color = "blue", size = 2, alpha = 0.4) +
   # Add labels for red points using geom_text_repel
- geom_text_repel(data = subset(gw2_res4plot, color_group == "highlight" & padj < 0.1 ),
-                  aes(x = log2FoldChange, y = -log10(padj), label = external_gene_name),
+ geom_text_repel(data = subset(gw2_res4plot, color_group == "highlight" & abs(log2FoldChange) > 0.6 ),
+                  aes(x = log2FoldChange, y = -log10(padj), label = label_name),
                   size = 3,
                   min.segment.length = 0,
                   max.overlaps = Inf,
@@ -243,7 +286,31 @@ ggsave(
   )
   
 ```
+```{r, fig.width=12}
 
+hilights<-as.list(gw2_res4plot %>% filter(color_group=="highlight") %>% dplyr::select(label_name))
+
+test_plot<-
+ggmaplot(
+  gw2_res4plot,
+  fdr = 0.1,
+  fc = 0.5,
+  size = 4,
+  alpha = 0.5,
+  genenames = as.vector(gw2_res4plot$label_name),
+  font.label = c(12, "plain", "black"),
+  label.rectangle = TRUE,
+  palette = c("#B31B21", "#1465AC", "darkgray"),
+  top = 0,
+  label.select = hilights$label_name,
+  main = NULL,
+  xlab = "Log2 mean expression",
+  ylab = "Log2 fold change",
+  ggtheme = theme_classic()
+)
+
+print(test_plot)
+```
 
 ```{r, fig.height=8}
 # Connect to Ensembl release 112 for Paramormyrops kingsleyae
@@ -278,7 +345,7 @@ names(gene_list) <- names(gene_to_go)
 # Create a topGOdata object
 go_data <- new(
     "topGOdata",
-    ontology = "BP",                     # Ontology type: "BP", "MF", or "CC"
+    ontology = "CC",                     # Ontology type: "BP", "MF", or "CC"
     allGenes = gene_list,                # Named vector of genes
     geneSelectionFun = function(x) x == 1,  # Function to select DE genes
     annot = annFUN.gene2GO,              # Use gene-to-GO mapping
@@ -301,7 +368,7 @@ all_results <- GenTable(
 all_results$classicFisher <- as.numeric(all_results$classicFisher)
 
 # Filter for p-value < 0.01
-filtered_results <- all_results[all_results$classicFisher < 0.001, ]
+filtered_results <- all_results[all_results$classicFisher < 0.05, ]
 
 # Display the filtered results
 print(filtered_results)

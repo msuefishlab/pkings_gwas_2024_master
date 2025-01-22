@@ -2,7 +2,7 @@
 title: "GWAS Report"
 output: html_notebook
 params:
-  data_path: APA_BEN_BAM_TP1_BP2_WOB9
+  data_path: MOV_BIR_DOG_DOV_BAVA_BIK_APA_BEN_TP1_BP2_WOB9
   output_file: NULL
   MAF_thresh: 0.15
 ---
@@ -21,8 +21,6 @@ source(file.path(root,"code","06_Association","gemma_gwas_functions.R"))
 
 # Load Data
 ```{r}
-anno_file<-file.path(root,"input_data","00_Reference_Genome","MIC4273_HAP1_MSU618.liftoff.renamed.sorted.genes_only.gff")
-feat_table_file<-file.path(root,"input_data","00_Reference_Genome","GCF_002872115.1_PKINGS_0.1_feature_table.txt")
 gemma_file<-file.path(root,"output_data","06_Association",params$data_path,paste0(params$data_path,".lmm2.assoc.txt"))
 minpath<-file.path(root,"output_data","06_Association",params$data_path,paste0(params$data_path,"_permution"),"min.txt")
 ```
@@ -62,7 +60,7 @@ pk.lmm.filt %>%
 
 pk.lmm.bed.f <- pk.lmm.bed %>% 
   filter(max.log_p > suggestive ) %>% 
-  filter(num.snps.above.threshold > 20 ) %>% 
+  filter(num.snps.above.threshold > 15 ) %>% 
   ungroup() %>% 
   arrange(numeric_chr, start) %>% #arrange by chr order
   mutate(peak.original = peak, #new col for original peak name
@@ -118,7 +116,7 @@ pk.lmm.bed %>% dplyr::select(numeric_chr,start,end, peak) %>%
   write.table(file.path(peak_data_path,paste0(params$data_path,"_PEAKS_unfiltered.bed")), sep = "\t", quote = F, row.names = F, col.names = F)
 
 #output bed file of peaks
-pk.lmm.bed.f %>% dplyr::select(numeric_chr,start,end, peak) %>% 
+pk.lmm.bed.f %>% dplyr::arrange(max.log_p) %>% dplyr::select(numeric_chr,start,end, peak,max.log_p,most_significant_bp) %>% 
   write.table(file.path(peak_data_path,paste0(params$data_path,"_PEAKS.bed")), sep = "\t", quote = F, row.names = F, col.names = F)
 
 ```

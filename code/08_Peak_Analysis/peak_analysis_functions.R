@@ -267,7 +267,7 @@ get_fst_stat_values<-function(df, start, end, comparison) {
     filter(
       window_pos_1 >= start,
       window_pos_2 <= end,
-      comparison == comparison
+      comparison == !!comparison
     ) %>%
     pull(value)
 }
@@ -312,7 +312,7 @@ get_fst_data4plot<-function(df.bed,df,stat="avg_wc_fst"){
           theend = thestart + lg  # Add lg to thestart to create theend
         ) %>%
         filter(theend <= max_pos, thestart < theend)  # Exclude invalid intervals
-      
+
       random_stats <- mapply(
         function(start, end) {
           get_fst_stat_values(df_chr, start, end, comp)
@@ -321,7 +321,7 @@ get_fst_data4plot<-function(df.bed,df,stat="avg_wc_fst"){
         random_intervals$theend,
         SIMPLIFY = FALSE
       )
-      
+
       # Flatten random_stats and create a data frame
       random_stats_flat <- unlist(random_stats)
       result_list[[length(result_list) + 1]] <- data.frame(
@@ -343,3 +343,89 @@ get_fst_data4plot<-function(df.bed,df,stat="avg_wc_fst"){
   return(result_data)
 }
 
+generate_palette_alpha <- function(pops, phenos, phenotype_palettes) {
+  # Initialize an empty palette
+  palette <- c()
+  
+  # Get unique phenotypes and their associated populations
+  unique_phenos <- unique(phenos)
+  
+  for (pheno in unique_phenos) {
+    # Get the Brewer palette for the phenotype
+    brewer_palette <- phenotype_palettes[[pheno]]
+    if (is.null(brewer_palette)) {
+      stop(paste("Phenotype", pheno, "not recognized!"))
+    }
+    
+    # Get populations belonging to this phenotype
+    group_indices <- which(phenos == pheno)
+    group_pops <- pops[group_indices]
+    num_pops <- length(group_pops)
+    
+    # Generate a palette with enough distinct shades, reversed
+    base_colors <- rev(brewer.pal(min(max(3, num_pops), 9), brewer_palette)) # Reverse for darkest first
+    
+    # If more populations than colors, interpolate additional colors
+    if (num_pops > length(base_colors)) {
+      base_colors <- rev(colorRampPalette(base_colors)(num_pops)) # Reverse interpolated palette
+    }
+    
+    # Assign colors for each population
+    for (i in seq_along(group_pops)) {
+      pop <- group_pops[i]
+      
+      # Dark color for the main population
+      color <- base_colors[i]
+      
+      # Assign the same color for "R" but with reduced alpha
+      palette[pop] <- color
+      palette[paste0(pop, "R")] <- scales::alpha(color, 0.4) # Lower opacity
+    }
+  }
+  
+  return(palette)
+}
+
+
+# Function to generate FST palette with alpha
+generate_fst_palette_alpha <- function(comparisons, compare_colors) {
+  # Initialize an empty palette
+  palette <- c()
+  
+  # Get unique compare_color groups
+  unique_compare_colors <- unique(comparisons$compare_color)
+  
+  for (compare_color in unique_compare_colors) {
+    # Get the Brewer palette for the compare_color group
+    brewer_palette <- compare_colors[[compare_color]]
+    if (is.null(brewer_palette)) {
+      stop(paste("Compare_color", compare_color, "not recognized!"))
+    }
+    
+    # Get rows corresponding to this compare_color
+    rows <- which(comparisons$compare_color == compare_color)
+    num_rows <- length(rows)
+    
+    # Generate a palette with enough distinct shades, reversed
+    base_colors <- rev(brewer.pal(min(max(3, num_rows), 9), brewer_palette)) # Reverse for darkest first
+    
+    # If more comparisons than colors, interpolate additional colors
+    if (num_rows > length(base_colors)) {
+      base_colors <- rev(colorRampPalette(base_colors)(num_rows)) # Reverse interpolated palette
+    }
+    
+    # Assign colors for each comparison
+    for (i in seq_along(rows)) {
+      comparison <- comparisons$comparison[rows[i]]
+      
+      # Dark color for the main comparison
+      color <- base_colors[i]
+      
+      # Assign the same color for "R" but with reduced alpha
+      palette[comparison] <- color
+      palette[paste0(comparison, "R")] <- scales::alpha(color, 0.4)
+    }
+  }
+  
+  return(palette)
+}

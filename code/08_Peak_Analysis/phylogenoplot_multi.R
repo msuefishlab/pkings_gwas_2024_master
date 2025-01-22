@@ -2,7 +2,7 @@ library(ggtree)
 library(phangorn)
 library(tidyverse)
 
-create_phylo_geno_plot_multi<- function(tree,snpdata)
+create_phylo_geno_plot_multi<- function(tree,snpdata,peaks_per_plot = 4)
 {
   old<-tree$tip.label
   new<-sapply(old,function(x) strsplit(x, "_")[[1]][1])
@@ -47,7 +47,7 @@ create_phylo_geno_plot_multi<- function(tree,snpdata)
   }
   
   test_data<-as.data.frame(snpdata)
-  pheno_data<-test_data[c(1,7,8)]
+  pheno_data<-test_data[c(1,9,10)]
   
   
   
@@ -63,6 +63,14 @@ create_phylo_geno_plot_multi<- function(tree,snpdata)
     summarize(ancestor_node = getMRCA(tree, name)) %>%
     mutate(label = population)
   
+  ordered_levels <- test_data$peak[order(-test_data$maxp)]
+  test_data$peak <- factor(test_data$peak, levels = unique(ordered_levels))
+  
+  peak_levels <- levels(test_data$peak)
+  peak_groups <- split(peak_levels, ceiling(seq_along(peak_levels) / peaks_per_plot))
+  plot_list <- list()
+  
+  for (group in peak_groups) {
   # Plot the tree
   p <- ggtree(tree, color = "white", size = 1)
   
@@ -77,8 +85,8 @@ create_phylo_geno_plot_multi<- function(tree,snpdata)
     mutate(boundary = y_max + 0.5)
   
   # Create heatmaps for each peak
-  for (i in levels(test_data$peak)) {
-      filtered_test_data<- test_data %>% dplyr::select(-Phenotype,-population) %>% filter(peak==i)
+  for (i in group) {
+      filtered_test_data<- test_data %>% dplyr::select(-Phenotype,-population,-maxp) %>% filter(peak==i)
       nested_test_data<-NULL
       nested_test_data<-nest(filtered_test_data,pos=pos,chr=chr,geno=geno,snp_order_within_individual=snp_order_within_individual)
       p <- p %<+% nested_test_data
@@ -92,16 +100,17 @@ create_phylo_geno_plot_multi<- function(tree,snpdata)
           name = "Legend",
           values = c("NA" = "black", "0" = "#cccccc", "1" = "#ffce95", "2" = "#fd7660", "BP" = "blue", "TP" = "red", "Wobble" = "purple"),
           labels = c("NA" = "Missing", "0" = "REF", "1" = "HET", "2" = "ALT", "BP" = "Biphasic", "TP" = "Triphasic", "Wobble" = "Intermediate")
-        ) +
-        geom_hline(
-          data = population_boundaries %>% mutate(.panel = paste0("Peak ", i)),
-          aes(yintercept = boundary),
-          color = "darkgrey"
-        )
+        ) 
       print(i)
       p$data<-p$data %>% dplyr::select(-peak,-pos,-chr,-geno,-snp_order_within_individual)
   }
   
+  p<-p+
+    geom_hline(
+      data = population_boundaries %>% mutate(.panel = paste0("Peak ", i)),
+      aes(yintercept = boundary),
+      color = "darkgrey"
+    )
   # Extract ggtree plot data and merge with tip_data
   p$data <- p$data %>%
     left_join(tip_data, by = "label") %>%
@@ -128,10 +137,10 @@ create_phylo_geno_plot_multi<- function(tree,snpdata)
           legend.box = "horizontal",          # Ensure the legend box aligns horizontally)
           plot.margin = margin(10, 10, 10, 10)
     )
+  plot_list <- c(plot_list, list(p))
+  }
   
-  # Return the combined plot
-  p
-  
-  return(p)
+
+  return(plot_list)
 }
 
