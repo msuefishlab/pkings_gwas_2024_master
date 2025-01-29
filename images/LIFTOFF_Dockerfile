@@ -1,0 +1,12 @@
+FROM continuumio/miniconda3 
+
+# 1. Install system dependencies
+
+RUN conda install -y -c conda-forge ncbi-datasets-cli
+
+RUN conda install -y -c bioconda blast
+
+RUN conda install -y -c bioconda ragtag
+
+RUN conda install -y -c bioconda liftoff
+

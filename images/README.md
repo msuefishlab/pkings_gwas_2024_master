@@ -25,3 +25,21 @@
 
     cd images/
     singularity build rnaseq_tools.sif docker://jasongallant/rnaseq_tools:latest
+
+## RMATs
+
+    docker build --platform linux/amd64 -t rmats_turbo -f ./RMATS_Dockerfile .
+    docker tag rmats_turbo jasongallant/rmats_turbo
+    docker push jasongallant/rmats_turbo
+
+    cd images/
+    singularity build rmats_turbo.sif docker://jasongallant/rmats_turbo:latest
+
+## Liftoff
+
+    docker build --platform linux/amd64 -t liftoff -f ./LIFTOFF_Dockerfile .
+    docker tag liftoff jasongallant/liftoff
+    docker push jasongallant/liftoff
+
+    cd images/
+    singularity build liftoff.sif docker://jasongallant/liftoff:latest
