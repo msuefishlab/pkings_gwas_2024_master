@@ -1,0 +1,47 @@
+#!/bin/bash --login
+
+########## Define Resources Needed with SBATCH Lines ##########
+
+#SBATCH --time=04:00:00             # limit of wall clock time - how long the job will run (same as -t)
+#SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
+#SBATCH --cpus-per-task=32           # number of CPUs (or cores) per task (same as -c)
+#SBATCH --mem=200G                    # memory required per node - amount of memory (in bytes)
+#SBATCH --job-name RMATS_PREP      # you can give your job a name for easier identification (same as -J)
+#SBATCH --output=slurm-%x.%j.out
+#SBATCH -A data-machine
+########## Command Lines to Run ##########
+
+root="$(git rev-parse --show-toplevel)"
+source $root/"pkings_gwas.env"
+
+mkdir -p ${OUTDIR}/prep
+
+echo singularity exec ${rmats_image} python /rmats/rmats.py \
+--gtf ${root}/input_data/00_Reference_Genome/${annotation_gff} \
+--tmp ${OUTDIR}/prep \
+--od ${OUTDIR}/post \
+--readLength 151 \
+--b1 ${BG1} \
+--b2 ${BG2} \
+-t paired \
+--anchorLength 1 \
+--nthread 32 \
+--libType fr-unstranded \
+--task both \
+--variable-read-length \
+--novelSS
+
+singularity exec ${rmats_image} python /rmats/rmats.py \
+--gtf ${root}/input_data/00_Reference_Genome/${annotation_gff} \
+--tmp ${OUTDIR}/prep \
+--od ${OUTDIR}/post \
+--readLength 151 \
+--b1 ${BG1} \
+--b2 ${BG2} \
+-t paired \
+--anchorLength 1 \
+--nthread 32 \
+--libType fr-unstranded \
+--task both \
+--variable-read-length \
+--novelSS

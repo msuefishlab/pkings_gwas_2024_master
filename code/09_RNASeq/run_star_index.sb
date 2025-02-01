@@ -1,0 +1,21 @@
+#!/bin/bash --login
+
+########## Define Resources Needed with SBATCH Lines ##########
+
+#SBATCH --time=04:00:00             # limit of wall clock time - how long the job will run (same as -t)
+#SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
+#SBATCH --cpus-per-task=17           # number of CPUs (or cores) per task (same as -c)
+#SBATCH --mem=50G                    # memory required per node - amount of memory (in bytes)
+#SBATCH --job-name STAR_CREATE_INDEX      # you can give your job a name for easier identification (same as -J)
+#SBATCH --output=slurm-%x.%j.out
+########## Command Lines to Run ##########
+
+root="$(git rev-parse --show-toplevel)"
+source $root/"pkings_gwas.env"
+
+mkdir -p ${root}/output_data/09_RNASeq/star_index/
+
+singularity exec ${rnaseq_tools_image} rsem-prepare-reference -gtf ${root}/input_data/00_Reference_Genome/${annotation_gff} \
+${root}/input_data/00_Reference_Genome/${reference} \
+${root}/output_data/09_RNASeq/star_index/pk_latest_transcriptome \
+--star --star-sjdboverhang 149 -p 16
