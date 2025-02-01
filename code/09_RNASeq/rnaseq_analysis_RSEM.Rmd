@@ -17,8 +17,8 @@ require(rtracklayer)
 library(ggrepel)
 library(patchwork)   # For combining plots
 library(biomaRt)
-library(topGO)
 library(ggpubr)
+source(file.path(root,"code","09_RNASeq","go_analysis.R"))
 ```
 
 ```{r}
@@ -53,10 +53,10 @@ coldata <- read.table(sample_data,header = T)
 
 pheno_data<-coldata %>% dplyr::select(c(-R1,-R2)) %>% unique()
 
-#values_to_drop <- c("PK1", "PK2", "PK3")
+values_to_drop <- c("PK1", "PK2", "PK3")
 
-#pheno_data<- pheno_data  %>%
-  #filter(!SpecNo %in% values_to_drop)
+pheno_data<- pheno_data  %>%
+  filter(!SpecNo %in% values_to_drop)
 
 pheno_data$Population <- factor(pheno_data$Population)
 pheno_data$Phenotype <- factor(pheno_data$Phenotype)
@@ -113,8 +113,11 @@ gw2_dds <- DESeq(gw2_dds)
 ```{r}
 #A positive log2 fold change for a comparison of TP vs BP means that gene expression in TP is larger in comparison to BP.
 
-gw1_res <- results(gw1_dds, name = "Phenotype_TP_vs_BP", alpha = 0.1)
-gw2_res <- results(gw2_dds, name = "Phenotype_TP_vs_BP", alpha = 0.1)
+gw1_res_o <- results(gw1_dds, name = "Phenotype_TP_vs_BP", alpha = 0.1)
+gw2_res_o <- results(gw2_dds, name = "Phenotype_TP_vs_BP", alpha = 0.1)
+
+gw1_res = lfcShrink(dds=gw1_dds, coef="Phenotype_TP_vs_BP", type = "ashr")
+gw2_res = lfcShrink(dds=gw2_dds, coef="Phenotype_TP_vs_BP", type = "ashr")
 
 summary(gw1_res)
 summary(gw2_res)
@@ -131,72 +134,100 @@ g2_overlapping_annotations_df<-read.table(file.path(peak_data_path,paste0(params
 
 ```{r}
 pCutoff = .1
-FCcutoff = 1.0
+FCcutoff = 0.5
 
 # Filter the results
 gw1_sig <- gw1_res[!is.na(gw1_res$padj) & !is.na(gw1_res$log2FoldChange) & 
-                   gw1_res$padj <= pCutoff & gw1_res$log2FoldChange >= FCcutoff, ]
+                   gw1_res$padj <= pCutoff & abs(gw1_res$log2FoldChange) >= FCcutoff, ]
 
 # Filter gw1_sig based on IDs in overlapping_annotations_df
 filtered_gw1_sig <- gw1_sig[rownames(gw1_sig) %in% g1_overlapping_annotations_df$gene_id, ]
 
 # Filter the results
 gw2_sig <- gw2_res[!is.na(gw2_res$padj) & !is.na(gw2_res$log2FoldChange) & 
-                   gw2_res$padj <= pCutoff & gw2_res$log2FoldChange >= FCcutoff, ]
+                   gw2_res$padj <= pCutoff & abs(gw2_res$log2FoldChange) >= FCcutoff, ]
 
 # Filter gw1_sig based on IDs in overlapping_annotations_df
 filtered_gw2_sig <- gw2_sig[rownames(gw2_sig) %in% g2_overlapping_annotations_df$gene_id, ]
 
 ```
 
+```{r}
+ensembl_112 <- useEnsembl(biomart = "ensembl", version = 112,host="https://may2024.archive.ensembl.org")
+ensembl_112 <-useDataset("pkingsleyae_gene_ensembl",mart=ensembl_112)
+
+# Assuming the attribute 'description' exists, retrieve the gene descriptions
+gene_descriptions <- getBM(values=rownames(gw1_res),
+                                filters = "ensembl_gene_id",
+  attributes = c("ensembl_gene_id", "description","external_gene_name"),
+  mart = ensembl_112
+)
+
+gw1_res$ensembl_gene_id=rownames(gw1_res)
+gw1_res<-as.data.frame(gw1_res)
+gw1_res<- gw1_res %>% left_join(gene_descriptions,by="ensembl_gene_id")
+gw1_res<-gw1_res[order(gw1_res$log2FoldChange, decreasing = TRUE), ]
+
+# Assuming the attribute 'description' exists, retrieve the gene descriptions
+gene_descriptions <- getBM(values=rownames(gw2_res),
+                                filters = "ensembl_gene_id",
+  attributes = c("ensembl_gene_id", "description","external_gene_name"),
+  mart = ensembl_112
+)
+
+gw2_res$ensembl_gene_id=rownames(gw2_res)
+gw2_res<-as.data.frame(gw2_res)
+gw2_res<- gw2_res %>% left_join(gene_descriptions,by="ensembl_gene_id")
+gw2_res<-gw2_res[order(gw2_res$log2FoldChange, decreasing = TRUE), ]
+```
+
 
 ```{r}
 gw1_res4plot<-as.data.frame(gw1_res)
-gw1_res4plot$gene_id <- rownames(gw1_res4plot)
-gw1_res4plot <- merge(gw1_res4plot, g1_overlapping_annotations_df[, c("gene_id", "external_gene_name")],
-                 by.x = "gene_id", by.y = "gene_id", all.x = TRUE)
 gw1_res4plot <- gw1_res4plot %>%
-  mutate(label_name = ifelse(is.na(external_gene_name), gene_id, external_gene_name))
+  mutate(label_name = ifelse(is.na(external_gene_name), ensembl_gene_id, external_gene_name))
 
 gw1_res4plot$color_group <- case_when(
-  gw1_res4plot$gene_id %in% g1_overlapping_annotations_df$gene_id ~ "highlight",
-  gw1_res4plot$gene_id %in% losilla_complexity_list_converted$ensembl_gene_id ~ "previous",
+  gw1_res4plot$ensembl_gene_id %in% g1_overlapping_annotations_df$gene_id ~ "highlight",
+  #gw1_res4plot$ensembl_gene_id %in% losilla_complexity_list_converted$ensembl_gene_id ~ "previous",
   TRUE ~ "normal"
 )
 
+gw1_res4plot[gw1_res4plot$ensembl_gene_id=="ENSPKIG00000008497",]$label_name<-"cntnap5b"
+
 g1_plot <- ggplot(data = gw1_res4plot) +
-  geom_vline(xintercept = 0, col = "gray", linetype = 'dashed') +
-  geom_hline(yintercept = -log10(0.05), col = "gray", linetype = 'dashed') +
+  geom_vline(xintercept = -0.5, col = "gray", linetype = 'dashed') +
+    geom_vline(xintercept = .5, col = "gray", linetype = 'dashed') +
+  geom_hline(yintercept = 0.1, col = "gray", linetype = 'dashed') +
   # First layer: black points (normal)
   geom_point(data = subset(gw1_res4plot, color_group == "normal"), 
              aes(x = log2FoldChange, y = -log10(padj)), 
              color = "grey", size = 2, alpha = 0.5) +
   # Second layer: red points (highlight)
-  geom_point(data = subset(gw1_res4plot, color_group == "highlight"), 
+    geom_point(data = subset(gw1_res4plot, log2FoldChange<(-0.5) & -log10(padj)>0.1), 
+             aes(x = log2FoldChange, y = -log10(padj)), 
+             color = "blue", size = 2, alpha = 0.4) +
+  geom_point(data = subset(gw1_res4plot, log2FoldChange>0.5 & -log10(padj)>0.1), 
              aes(x = log2FoldChange, y = -log10(padj)), 
              color = "red", size = 2, alpha = 0.4) +
-  # geom_point(data = subset(gw1_res4plot, color_group == "previous"), 
-  #            aes(x = log2FoldChange, y = -log10(padj)), 
-  #            color = "blue", size = 2, alpha = 0.4) +
-  # Add labels for red points using geom_text_repel
-  geom_text_repel(data = subset(gw1_res4plot, color_group == "highlight"),
+  #Add labels for red points using geom_text_repel
+ geom_text_repel(data = subset(gw1_res4plot, color_group == "highlight" & -log10(padj)>0.1 & abs(log2FoldChange)>0.5),
                   aes(x = log2FoldChange, y = -log10(padj), label = label_name),
-                  size = 3, 
-                  min.segment.length = 0, 
-                  max.overlaps = Inf, 
-                  box.padding = 0.5, 
-                  segment.size = 0.2, 
-                  force = 2, 
-                  force_pull = 1, 
-                  point.padding = 0.5, 
-                  max.time = 2) +
-  coord_cartesian(ylim = c(0, 15), xlim = c(-8, 8)) +
+                 size = 4,
+                  min.segment.length = 0,
+                  max.overlaps = Inf,
+                  box.padding = 0.5,
+                  segment.size = 0.2,
+                  force = 2,  # Increase repulsion force
+                  force_pull = 1,  # Fine-tune pull-back force
+                  max.time = 2)+  # Allow more time for resolving overlaps
+  coord_cartesian(ylim = c(0, 15), xlim = c(-6, 6)) +
   labs(color = 'Gene Highlight',
        x = expression("log"[2]*"FC"), y = expression("-log"[10]*"p-value")) +
-  scale_x_continuous(breaks = seq(-10, 10, 2)) +
+  scale_x_continuous(breaks = seq(-6, 6, 2)) +
   # Add annotations
-  annotate("text", x = -7.5, y = 14, label = "Higher in BP", hjust = 0, size = 4, color = "black") +
-  annotate("text", x = 7.5, y = 14, label = "Higher in TP", hjust = 1, size = 4, color = "black") +
+  annotate("text", x = -6, y = 14, label = "Higher in BP", hjust = 0, size = 4, color = "black") +
+  annotate("text", x = 6, y = 14, label = "Higher in TP", hjust = 1, size = 4, color = "black") +
   #ggtitle('Apassa, Bengue, and Bambomo Creeks') +
   # Custom theme for title size, removing background and grid lines
   theme(
@@ -210,48 +241,44 @@ g1_plot <- ggplot(data = gw1_res4plot) +
   )
 
 gw2_res4plot<-as.data.frame(gw2_res)
-gw2_res4plot$gene_id <- rownames(gw2_res4plot)
-gw2_res4plot <- merge(gw2_res4plot, g2_overlapping_annotations_df[, c("gene_id", "external_gene_name")],
-                 by.x = "gene_id", by.y = "gene_id", all.x = TRUE)
 
 gw2_res4plot <- gw2_res4plot %>%
-  mutate(label_name = ifelse(is.na(external_gene_name), gene_id, external_gene_name))
+  mutate(label_name = ifelse(is.na(external_gene_name), ensembl_gene_id, external_gene_name))
 
-gw2_res4plot$color_group <- ifelse(gw2_res4plot$gene_id %in% g2_overlapping_annotations_df$gene_id, "highlight", "normal")
+gw2_res4plot$color_group <- ifelse(gw2_res4plot$ensembl_gene_id %in% g2_overlapping_annotations_df$gene_id, "highlight", "normal")
 
 g2_plot<-ggplot(data = gw2_res4plot) +
-  geom_vline(xintercept = 0, col = "gray", linetype = 'dashed') +
-  geom_hline(yintercept = -log10(0.05), col = "gray", linetype = 'dashed') +
+  geom_vline(xintercept = -.5, col = "gray", linetype = 'dashed') +
+    geom_vline(xintercept = .5, col = "gray", linetype = 'dashed') +
+  geom_hline(yintercept = 0.1, col = "gray", linetype = 'dashed') +
   # First layer: black points (normal)
   geom_point(data = subset(gw2_res4plot, color_group == "normal"), 
              aes(x = log2FoldChange, y = -log10(padj)), 
              color = "grey", size = 2, alpha = 0.5) +
   # Second layer: red points (highlight)
-  geom_point(data = subset(gw2_res4plot, color_group == "highlight"), 
+  geom_point(data = subset(gw2_res4plot, log2FoldChange<(-0.5) & -log10(padj)>0.1), 
+             aes(x = log2FoldChange, y = -log10(padj)), 
+             color = "blue", size = 2, alpha = 0.4) +
+  geom_point(data = subset(gw2_res4plot, log2FoldChange>0.5 & -log10(padj)>0.1), 
              aes(x = log2FoldChange, y = -log10(padj)), 
              color = "red", size = 2, alpha = 0.4) +
-  # geom_point(data = subset(gw1_res4plot, color_group == "previous"), 
-  #            aes(x = log2FoldChange, y = -log10(padj)), 
-  #            color = "blue", size = 2, alpha = 0.4) +
   # Add labels for red points using geom_text_repel
- geom_text_repel(data = subset(gw2_res4plot, color_group == "highlight" & abs(log2FoldChange) > 0.6 ),
+ geom_text_repel(data = subset(gw2_res4plot, color_group == "highlight" & -log10(padj)>0.1 & abs(log2FoldChange)>0.5 ),
                   aes(x = log2FoldChange, y = -log10(padj), label = label_name),
-                  size = 3,
+                  size = 4,
                   min.segment.length = 0,
                   max.overlaps = Inf,
                   box.padding = 0.5,
-                  #segment.size = 0.2,
+                  segment.size = 0.2,
                   force = 2,  # Increase repulsion force
                   force_pull = 1,  # Fine-tune pull-back force
-                  #point.padding = 0.5,  # Space labels from points
                   max.time = 2)+  # Allow more time for resolving overlaps
-                  #direction = "y") +  # Allow vertical adjustment for better spacing
-  coord_cartesian(ylim = c(0, 15), xlim = c(-8, 8)) +
+  coord_cartesian(ylim = c(0, 15), xlim = c(-6, 6)) +
   labs(color = 'Gene Highlight',
        x = expression("log"[2]*"FC"), y = expression("-log"[10]*"p-value")) +
-  scale_x_continuous(breaks = seq(-10, 10, 2)) +
-    annotate("text", x = -7.5, y = 14, label = "Higher in BP", hjust = 0, size = 4, color = "black") +
-  annotate("text", x = 7.5, y = 14, label = "Higher in TP", hjust = 1, size = 4, color = "black")+
+  scale_x_continuous(breaks = seq(-6, 6, 2)) +
+  annotate("text", x = -6, y = 14, label = "Higher in BP", hjust = 0, size = 4, color = "black") +
+  annotate("text", x = 6, y = 14, label = "Higher in TP", hjust = 1, size = 4, color = "black") +
   #ggtitle("Mouvanga, Douengi, Dovalou,Apassa, Bengue, Biroundou, Bavavela and Bikagala Creeks")+
   theme(
     plot.title = element_text(size = 12, face = "bold", hjust = 0.5), # Control title size and alignment
@@ -264,55 +291,97 @@ g2_plot<-ggplot(data = gw2_res4plot) +
   )
 ```
 
-```{r, fig.width=8}
 
-combined_plot <- g1_plot + g2_plot
+```{r, fig.width=24}
+genes_of_interest<-c("ENSPKIG00000008497","ENSPKIG00000008545","ENSPKIG00000004799","ENSPKIG00000004648","ENSPKIG00000000098","ENSPKIG00000009096","ENSPKIG00000006520","ENSPKIG00000025014","ENSPKIG00000004553","ENSPKIG00000005195","ENSPKIG00000000155","ENSPKIG00000006468")
+names_of_interest<-c("cntnap5b","gypc","sptbn4b","itpr3","htt","itih3a.1","slc7a10b","slx4","frs3","mustn1a","rgs12b","slc7a9")
 
-combined_plot <- combined_plot + 
-                 plot_annotation(tag_levels = 'A') &
-                 theme(plot.tag = element_text(size = 24, face="bold"))
+genes_of_interest<-c("ENSPKIG00000008497","ENSPKIG00000009096")
+names_of_interest<-c("cntnap5b","itih3a.1")
 
-# Adjust relative heights of the plots to change the overall aspect ratio
-# Increase the values to make the plots taller
-combined_plot <- combined_plot + 
-                 plot_layout(ncol=2) 
+gene_name_mapping <- setNames(names_of_interest, genes_of_interest)
 
-# Print the combined plot
-combined_plot
+gene_name_mapping<-gene_name_mapping %>% as.data.frame() %>% rownames_to_column(var="ensembl_gene_id")
+colnames(gene_name_mapping)<-c("ensembl_gene_id","genename")
 
-ggsave(
-    file.path(root, "output_data", "09_RNASeq", "volcano_plot_RNAseq.svg"),
-    plot = combined_plot, width = 12, height = 8
-  )
-  
+# Extract TPM data from tximport object (genes as rows, samples as columns)
+#gw1_tpm_data <- as.data.frame(gw1_genes.rsem$abundance)
+#gw2_tpm_data <- as.data.frame(gw2_genes.rsem$abundance)
+
+gw1_normalized_counts<-counts(gw1_dds,normalized=TRUE)
+gw2_normalized_counts<-counts(gw2_dds,normalized=TRUE)
+# Extract TPM values for matching transcripts
+gw1_tpm_filtered <- gw1_normalized_counts[rownames(gw1_normalized_counts) %in% genes_of_interest, , drop = FALSE]
+gw2_tpm_filtered <- gw2_normalized_counts[rownames(gw2_normalized_counts) %in% genes_of_interest, , drop = FALSE]
+
+# Add gene_id for annotation
+gw1_tpm_filtered <- data.frame(ensembl_gene_id = rownames(gw1_tpm_filtered), gw1_tpm_filtered)
+gw1_tpm_filtered <- left_join(gw1_tpm_filtered, gene_name_mapping, by = "ensembl_gene_id")
+
+gw2_tpm_filtered <- data.frame(ensembl_gene_id = rownames(gw2_tpm_filtered), gw2_tpm_filtered)
+gw2_tpm_filtered <- left_join(gw2_tpm_filtered, gene_name_mapping, by = "ensembl_gene_id")
+
+pheno_data$Sample<-paste0(pheno_data$Population,"_",pheno_data$SpecNo)
+
+# Pivot data longer: Each row represents a gene-sample combination
+gw1_tpm_long <- gw1_tpm_filtered %>%
+  pivot_longer(cols = c(-ensembl_gene_id,-genename) , names_to = "Sample", values_to = "Normalized Counts")
+
+# Join the tissue information
+gw1_tpm_long <- gw1_tpm_long %>%
+  left_join(pheno_data, by = "Sample")
+
+
+# Pivot data longer: Each row represents a gene-sample combination
+gw2_tpm_long <- gw2_tpm_filtered %>%
+  pivot_longer(cols = c(-ensembl_gene_id,-genename) , names_to = "Sample", values_to = "Normalized Counts")
+
+# Join the tissue information
+gw2_tpm_long <- gw2_tpm_long %>%
+  left_join(pheno_data, by = "Sample")
+
+tpm_long<-rbind(gw1_tpm_long,gw2_tpm_long)
+
+# Plot the data
+cntn<-ggplot(subset(tpm_long, ensembl_gene_id=="ENSPKIG00000008497"), aes(x = Population, y = `Normalized Counts`, fill=Phenotype)) +
+  geom_boxplot() +
+  facet_wrap(~ genename, scales = "free") +
+  theme_minimal() +
+theme(
+    legend.position = "none",  # Hide legend if needed
+    panel.grid.major.x = element_blank(),  # Remove major vertical grid lines
+    panel.grid.minor.x = element_blank(),  # Remove minor vertical grid lines
+    axis.text.x = element_text(angle = 45, hjust = 1),  # Rotate x-axis text
+    axis.title.y = element_text(margin = margin(r = 0)),
+    strip.text = element_text(size = 14, face = "bold"),  # Increase facet label size and make bold
+  ) +
+  scale_fill_manual(values = c("BP" = "blue", "TP" = "red")) +  # Set manual colors
+  #scale_y_log10() +
+  labs(
+       x = "Population",
+       y = "Normalized Counts",
+       fill = "Tissue") 
+
+ith<-ggplot(subset(tpm_long, ensembl_gene_id=="ENSPKIG00000009096"), aes(x = Population, y = `Normalized Counts`, fill=Phenotype)) +
+  geom_boxplot() +
+  facet_wrap(~ genename, scales = "free") +
+  theme_minimal() +
+  theme(
+    legend.position = "none",  # Hide legend if needed
+    panel.grid.major.x = element_blank(),  # Remove major vertical grid lines
+    panel.grid.minor.x = element_blank(),  # Remove minor vertical grid lines
+    axis.text.x = element_text(angle = 45, hjust = 1),  # Rotate x-axis text
+    strip.text = element_text(size = 14, face = "bold")  # Increase facet label size and make bold
+  ) +
+    scale_fill_manual(values = c("BP" = "blue", "TP" = "red")) +  # Set manual colors
+    #scale_y_log10() +
+  labs(
+       x = "Population",
+       y = "Normalized Counts",
+       fill = "Tissue")
 ```
-```{r, fig.width=12}
 
-hilights<-as.list(gw2_res4plot %>% filter(color_group=="highlight") %>% dplyr::select(label_name))
-
-test_plot<-
-ggmaplot(
-  gw2_res4plot,
-  fdr = 0.1,
-  fc = 0.5,
-  size = 4,
-  alpha = 0.5,
-  genenames = as.vector(gw2_res4plot$label_name),
-  font.label = c(12, "plain", "black"),
-  label.rectangle = TRUE,
-  palette = c("#B31B21", "#1465AC", "darkgray"),
-  top = 0,
-  label.select = hilights$label_name,
-  main = NULL,
-  xlab = "Log2 mean expression",
-  ylab = "Log2 fold change",
-  ggtheme = theme_classic()
-)
-
-print(test_plot)
-```
-
-```{r, fig.height=8}
+```{r}
 # Connect to Ensembl release 112 for Paramormyrops kingsleyae
 ensembl_112 <- useEnsembl(
     biomart = "ensembl", 
@@ -334,81 +403,74 @@ go_annotations <- go_annotations[go_annotations$go_id != "", ]
 
 # Create a named list mapping genes to GO terms
 gene_to_go <- split(go_annotations$go_id, go_annotations$ensembl_gene_id)
+```
 
-# Example list of DE ENSEMBL IDs
-de_genes <- rownames(gw1_res %>% subset(abs(log2FoldChange) > 1 & padj <0.1))
+```{r}
+# Define gene sets based on log2 fold change.
+up_genes <- gw1_sig$ensembl_gene_id[gw1_sig$log2FoldChange > 0]
+down_genes <- gw1_sig$ensembl_gene_id[gw1_sig$log2FoldChange < 0]
 
-# Create a named vector: 1 for DE genes, 0 for non-DE genes
-gene_list <- factor(as.integer(names(gene_to_go) %in% de_genes))
-names(gene_list) <- names(gene_to_go)
-
-# Create a topGOdata object
-go_data <- new(
-    "topGOdata",
-    ontology = "CC",                     # Ontology type: "BP", "MF", or "CC"
-    allGenes = gene_list,                # Named vector of genes
-    geneSelectionFun = function(x) x == 1,  # Function to select DE genes
-    annot = annFUN.gene2GO,              # Use gene-to-GO mapping
-    gene2GO = gene_to_go
+# Run GO analysis for upregulated genes.
+filtered_results_up <- run_go_analysis(
+  de_genes = up_genes,
+  gene_to_go = gene_to_go,
+  ontology = "CC",       # Change to "BP" or "MF" if desired.
+  p_threshold = 0.05
 )
 
-# Run the analysis
-go_results <- runTest(go_data, algorithm = "classic", statistic = "fisher")
-
-# Retrieve all results
-all_results <- GenTable(
-    go_data,
-    classicFisher = go_results,
-    orderBy = "classicFisher",
-    ranksOf = "classicFisher",
-    topNodes = length(score(go_results))  # Include all nodes
+# Run GO analysis for downregulated genes.
+filtered_results_down <- run_go_analysis(
+  de_genes = down_genes,
+  gene_to_go = gene_to_go,
+  ontology = "CC",
+  p_threshold = 0.05
 )
 
-# Convert p-values to numeric
-all_results$classicFisher <- as.numeric(all_results$classicFisher)
+gw1_go<-plot_combined_go_results(subset(filtered_results_up, Significant > 2), subset(filtered_results_down, Significant > 2))
 
-# Filter for p-value < 0.01
-filtered_results <- all_results[all_results$classicFisher < 0.05, ]
-
-# Display the filtered results
-print(filtered_results)
-
-
+gw1_go
 ```
-```{r, fig.height=8}
-ggplot(filtered_results, aes(x = -log10(classicFisher), y = reorder(Term, -classicFisher), size = Significant, color = -log10(classicFisher))) +
-    geom_point() +
-    scale_size_binned(name = "Gene Count",n.breaks=8) +
-    labs(
-        title = "GO Enrichment Dot Plot",
-        x = "Degree of Enrichment (-log10(P-value))",
-        y = "GO Terms"
-    ) +
-    theme_minimal() +
-    theme(
-        axis.text.y = element_text(size = 10),
-        plot.title = element_text(hjust = 0.5, size = 14)
-    )
-```
-
 ```{r}
-plotCounts(gw_dds,"LOC111845409",intgroup="Phenotype")
+# Define gene sets based on log2 fold change.
+up_genes <- gw2_sig$ensembl_gene_id[gw2_sig$log2FoldChange > 0]
+down_genes <- gw2_sig$ensembl_gene_id[gw2_sig$log2FoldChange < 0]
+
+# Run GO analysis for upregulated genes.
+filtered_results_up <- run_go_analysis(
+  de_genes = up_genes,
+  gene_to_go = gene_to_go,
+  ontology = "CC",       # Change to "BP" or "MF" if desired.
+  p_threshold = 0.05
+)
+
+# Run GO analysis for downregulated genes.
+filtered_results_down <- run_go_analysis(
+  de_genes = down_genes,
+  gene_to_go = gene_to_go,
+  ontology = "CC",
+  p_threshold = 0.05
+)
+
+gw2_go<-plot_combined_go_results(subset(filtered_results_up, Significant > 2), subset(filtered_results_down, Significant > 2))
+
+gw2_go
 ```
 
+```{r, fig.width=24, fig.height=8}
 
+p1 <- (g1_plot / cntn + plot_layout(heights = c(2, 1))) | gw1_go + 
+      plot_layout(widths = c(2, 1))
 
-```{r}
-rld<-rlog(dds)
-rld_mat<-assay(rld)
-pca<-prcomp(t(rld_mat))
-df<-cbind(pheno_data,pca$x)
+p2 <- (g2_plot / ith + plot_layout(heights = c(2, 1))) | gw2_go + 
+      plot_layout(widths = c(2, 1))
 
-ggplot(df, aes(x=PC1, y=PC2, color = Population, label=rownames(df))) + geom_text()
-```
-```{r, fig.width=12}
-plotCounts(dds,"gene-sptbn4.4",intgroup=c("Phenotype","Population"), normalized=T, transform=F,returnData = F)
-```
+final_plot <- wrap_elements(p1) + wrap_elements(p2) + plot_layout(ncol = 2)
 
-```{r}
-summary(res)
+final_plot
+
+ggsave(
+    file.path(root, "output_data", "09_RNASeq", "volcano_plot_RNAseq.svg"),
+    plot = final_plot, width = 24, height = 8
+ )
+
 ```

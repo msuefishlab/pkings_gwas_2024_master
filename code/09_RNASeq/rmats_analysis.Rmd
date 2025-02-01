@@ -1,0 +1,456 @@
+---
+title: "RMATS Report"
+output: html_notebook
+params:
+  g1_data_path: APA_BEN_BAM_TP1_BP2_WOB9
+  g2_data_path: MOV_BIR_DOG_DOV_BAVA_BIK_APA_BEN_TP1_BP2_WOB9
+---
+
+```{r setup, include=FALSE}
+root<-rprojroot::find_root(".git/index")
+knitr::opts_knit$set(root.dir = root)
+library(tidyverse)
+library(fs)
+library(patchwork)
+source(file.path(root,"code","09_RNASeq","rmats_filtering.R"))
+```
+
+```{r}
+
+# Define event and count types
+event_array <- c("SE", "MXE", "RI", "A5SS", "A3SS")
+counttype_array <- c("JC")
+
+row_counts_list <- list()
+
+# Loop through events and count types
+for (event in event_array) {
+  for (counttype in counttype_array) {
+    input_file <- file.path(root, "output_data/09_RNASeq/rmats_filtered/gw1/",
+                            paste0("filtered_", event, ".MATS.", counttype, ".txt"))
+    
+    if (file.exists(input_file)) {
+      # Use read_lines() to count the number of rows efficiently
+      num_rows <- length(read_lines(input_file)) - 1  # Subtract 1 to exclude header
+
+      # Store the row count in a dataframe
+      row_counts_list[[paste(event, counttype, sep = "_")]] <- tibble(
+        EventType = event,
+        CountType = counttype,
+        RowCount = num_rows
+      )
+    } else {
+      cat(sprintf("File not found: %s\n", input_file))
+    }
+  }
+}
+
+# Combine all row count data into one dataframe
+all_row_counts <- bind_rows(row_counts_list)
+
+# Display the final counts
+print(all_row_counts)
+
+```
+
+
+```{r, fig.width=4}
+# Plot a pie chart using ggplot2
+ggplot(all_row_counts, aes(x = "", y = RowCount, fill = EventType)) +
+  geom_bar(stat = "identity", width = 1, color = "white") +
+  coord_polar(theta = "y") +
+  theme_minimal() +
+  labs(title = "Event Type Distribution (JC CountType)", x = NULL, y = NULL) +
+  theme(axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid = element_blank(),
+        plot.title = element_text(hjust = 0.5)) +
+  scale_fill_brewer(palette = "Set3")  # Optional color palette
+```
+```{r}
+# Define event and count types
+event_array <- c("SE", "MXE", "RI", "A5SS", "A3SS")
+counttype_array <- c("JC")
+
+sig_row_counts_list <- list()
+
+# Loop through events and count types
+for (event in event_array) {
+  for (counttype in counttype_array) {
+    input_file <- file.path(root, "output_data/09_RNASeq/rmats_filtered/gw1/",
+                            paste0("up_", event, ".MATS.", counttype, ".txt"))
+    
+    if (file.exists(input_file)) {
+      # Use read_lines() to count the number of rows efficiently
+      num_rows <- length(read_lines(input_file)) - 1  # Subtract 1 to exclude header
+      
+      input_file <- file.path(root, "output_data/09_RNASeq/rmats_filtered/gw1/",
+                            paste0("dn_", event, ".MATS.", counttype, ".txt"))
+      
+      num_rows2 <- length(read_lines(input_file)) - 1  # Subtract 1 to exclude header
+
+      # Store the row count in a dataframe
+      sig_row_counts_list[[paste(event, counttype, sep = "_")]] <- tibble(
+        EventType = event,
+        CountType = counttype,
+        RowCount = num_rows+num_rows2
+      )
+    } else {
+      cat(sprintf("File not found: %s\n", input_file))
+    }
+  }
+}
+
+# Combine all row count data into one dataframe
+sig_row_counts_list <- bind_rows(sig_row_counts_list)
+
+# Display the final counts
+print(sig_row_counts_list)
+```
+
+```{r, fig.width=4}
+# Plot a pie chart using ggplot2
+ggplot(sig_row_counts_list, aes(x = "", y = RowCount, fill = EventType)) +
+  geom_bar(stat = "identity", width = 1, color = "white") +
+  coord_polar(theta = "y") +
+  theme_minimal() +
+  labs(title = "Event Type Distribution (JC CountType)", x = NULL, y = NULL) +
+  theme(axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid = element_blank(),
+        plot.title = element_text(hjust = 0.5)) +
+  scale_fill_brewer(palette = "Set3")  # Optional color palette
+```
+```{r}
+peak_data_path<-file.path(root,"output_data","06_Association",params$g1_data_path)
+g1_overlapping_annotations_df<-read.table(file.path(peak_data_path,paste0(params$g1_data_path,"_GENES_IN_PEAKS.txt")),header=T)
+
+
+peak_data_path<-file.path(root,"output_data","06_Association",params$g2_data_path)
+g2_overlapping_annotations_df<-read.table(file.path(peak_data_path,paste0(params$g2_data_path,"_GENES_IN_PEAKS.txt")),header=T)
+
+```
+
+
+```{r, fig.width=8}
+# load data
+dfp<-file.path(root, "output_data/09_RNASeq/rmats_filtered/gw1/filtered_SE.MATS.JC.txt")
+mydf = read.table(dfp, header = T, row.names = 1, sep = '\t', stringsAsFactors = FALSE, check.names = FALSE)
+up_fp<-file.path(root, "output_data/09_RNASeq/rmats_filtered/gw1/up_SE.MATS.JC.txt")
+up = read.table(up_fp, header = T, row.names = 1, sep = '\t', stringsAsFactors = FALSE, check.names = FALSE)
+dn_fp<-file.path(root, "output_data/09_RNASeq/rmats_filtered/gw1/dn_SE.MATS.JC.txt")
+dn = read.table(dn_fp, header = T, row.names = 1, sep = '\t', stringsAsFactors = FALSE, check.names = FALSE)
+
+mydf$col = 'Background'
+mydf$col[mydf$ID %in% up$ID] = 'High in BP'
+mydf$col[mydf$ID %in% dn$ID] = 'High in TP'
+mydf$col = factor(mydf$col, levels = c('Background', 'High in BP', 'High in TP'))
+
+mydf$color_group = 'Normal'
+mydf$color_group[mydf$GeneID %in% g1_overlapping_annotations_df$gene_id] = 'Highlight'
+mydf$color_group[mydf$GeneID %in% g2_overlapping_annotations_df$gene_id] = 'Highlight'
+mydf$color_group = factor(mydf$color_group, levels = c('Normal', 'Highlight'))
+
+xlab = 'delta PSI (BP-TP)'
+
+# process data
+mydf$logFDR = -log10(mydf$FDR); 
+mydf[which(is.infinite(mydf$logFDR) | mydf$logFDR > 15), 'logFDR'] = 15
+
+# plot
+p <- ggplot(mydf) + 
+    geom_point(aes(x = -IncLevelDifference, y = logFDR, col = col)) +
+    geom_hline(yintercept = 2, linetype="dotdash", color = "black", size = 1) +
+    geom_vline(xintercept = -0.05, linetype="dotdash", color = "black", size = 1) +
+    geom_vline(xintercept = 0.05, linetype="dotdash", color = "black", size = 1) +
+    scale_color_manual(name = NULL,
+                       labels = c('Not significant', 
+                                  paste0(levels(mydf$col)[2], ' (n=', format(table(mydf$col)[levels(mydf$col)[2]], big.mark = ','), ')'), 
+                                  paste0(levels(mydf$col)[3], ' (n=', format(table(mydf$col)[levels(mydf$col)[3]], big.mark = ','), ')')),
+                       values = c('darkgrey', '#0571B0','#CA0020'), 
+                       guide = 'legend') +
+  #Add labels for red points using geom_text_repel
+  geom_text_repel(data = subset(mydf, color_group == "Highlight" & col!="Background"),
+                  aes(x = -IncLevelDifference, y = logFDR, label = GeneID),
+                  size = 3, 
+                  min.segment.length = 0, 
+                  max.overlaps = Inf, 
+                  box.padding = 0.5, 
+                  segment.size = 0.2, 
+                  force = 2, 
+                  force_pull = 1, 
+                  point.padding = 0.5, 
+                  max.time = 2) +
+    coord_cartesian(ylim = c(0, 15), expand = T) +
+    labs(title="Skipped Exon Events", x = xlab, y = "-log10(FDR)") +
+    scale_y_continuous(breaks = c(0, 5, 10, 15), labels=c('0', '5', '10', expression(phantom(y) >=15))) +
+    theme_classic(base_size = 15) + 
+    theme(aspect.ratio = 1,
+          panel.border = element_rect(colour = "black", fill=NA, size=1),
+          axis.line = element_blank(),
+          axis.text = element_text(color = 'black'),
+          legend.text = element_text(size = 15, color = 'black'))
+
+print(p)
+```
+
+```{r, fig.width=8}
+# load data
+dfp<-file.path(root, "output_data/09_RNASeq/rmats_filtered/gw1/filtered_A3SS.MATS.JC.txt")
+mydf = read.table(dfp, header = T, row.names = 1, sep = '\t', stringsAsFactors = FALSE, check.names = FALSE)
+up_fp<-file.path(root, "output_data/09_RNASeq/rmats_filtered/gw1/up_A3SS.MATS.JC.txt")
+up = read.table(up_fp, header = T, row.names = 1, sep = '\t', stringsAsFactors = FALSE, check.names = FALSE)
+dn_fp<-file.path(root, "output_data/09_RNASeq/rmats_filtered/gw1/dn_A3SS.MATS.JC.txt")
+dn = read.table(dn_fp, header = T, row.names = 1, sep = '\t', stringsAsFactors = FALSE, check.names = FALSE)
+
+mydf$col = 'Background'
+mydf$col[mydf$ID %in% up$ID] = 'High in BP'
+mydf$col[mydf$ID %in% dn$ID] = 'High in TP'
+mydf$col = factor(mydf$col, levels = c('Background', 'High in BP', 'High in TP'))
+
+mydf$color_group = 'Normal'
+mydf$color_group[mydf$GeneID %in% g1_overlapping_annotations_df$gene_id] = 'Highlight'
+mydf$color_group[mydf$GeneID %in% g2_overlapping_annotations_df$gene_id] = 'Highlight'
+mydf$color_group = factor(mydf$color_group, levels = c('Normal', 'Highlight'))
+
+
+xlab = 'delta PSI (BP-TP)'
+
+# process data
+mydf$logFDR = -log10(mydf$FDR); 
+mydf[which(is.infinite(mydf$logFDR) | mydf$logFDR > 15), 'logFDR'] = 15
+
+# plot
+q <- ggplot(mydf) + 
+    geom_point(aes(x = -IncLevelDifference, y = logFDR, col = col)) +
+    geom_hline(yintercept = 2, linetype="dotdash", color = "black", size = 1) +
+    geom_vline(xintercept = -0.05, linetype="dotdash", color = "black", size = 1) +
+    geom_vline(xintercept = 0.05, linetype="dotdash", color = "black", size = 1) +
+    scale_color_manual(name = NULL,
+                       labels = c('Not significant', 
+                                  paste0(levels(mydf$col)[2], ' (n=', format(table(mydf$col)[levels(mydf$col)[2]], big.mark = ','), ')'), 
+                                  paste0(levels(mydf$col)[3], ' (n=', format(table(mydf$col)[levels(mydf$col)[3]], big.mark = ','), ')')),
+                       values = c('darkgrey', '#0571B0','#CA0020'), 
+                       guide = 'legend') +
+  #Add labels for red points using geom_text_repel
+  geom_text_repel(data = subset(mydf, color_group == "Highlight" & col!="Background"),
+                  aes(x = -IncLevelDifference, y = logFDR, label = GeneID),
+                  size = 3, 
+                  min.segment.length = 0, 
+                  max.overlaps = Inf, 
+                  box.padding = 0.5, 
+                  segment.size = 0.2, 
+                  force = 2, 
+                  force_pull = 1, 
+                  point.padding = 0.5, 
+                  max.time = 2) +
+    coord_cartesian(ylim = c(0, 15), expand = T) +
+    labs(title="Alternative 3' Splice Sites", x = xlab, y = "-log10(FDR)") +
+    scale_y_continuous(breaks = c(0, 5, 10, 15), labels=c('0', '5', '10', expression(phantom(y) >=15))) +
+    theme_classic(base_size = 15) + 
+    theme(aspect.ratio = 1,
+          panel.border = element_rect(colour = "black", fill=NA, size=1),
+          axis.line = element_blank(),
+          axis.text = element_text(color = 'black'),
+          legend.text = element_text(size = 15, color = 'black'))
+
+print(q)
+```
+
+```{r}
+# load data
+dfp<-file.path(root, "output_data/09_RNASeq/rmats_filtered/gw1/filtered_A5SS.MATS.JC.txt")
+mydf = read.table(dfp, header = T, row.names = 1, sep = '\t', stringsAsFactors = FALSE, check.names = FALSE)
+up_fp<-file.path(root, "output_data/09_RNASeq/rmats_filtered/gw1/up_A5SS.MATS.JC.txt")
+up = read.table(up_fp, header = T, row.names = 1, sep = '\t', stringsAsFactors = FALSE, check.names = FALSE)
+dn_fp<-file.path(root, "output_data/09_RNASeq/rmats_filtered/gw1/dn_A5SS.MATS.JC.txt")
+dn = read.table(dn_fp, header = T, row.names = 1, sep = '\t', stringsAsFactors = FALSE, check.names = FALSE)
+
+mydf$col = 'Background'
+mydf$col[mydf$ID %in% up$ID] = 'High in BP'
+mydf$col[mydf$ID %in% dn$ID] = 'High in TP'
+mydf$col = factor(mydf$col, levels = c('Background', 'High in BP', 'High in TP'))
+
+mydf$color_group = 'Normal'
+mydf$color_group[mydf$GeneID %in% g1_overlapping_annotations_df$gene_id] = 'Highlight'
+mydf$color_group[mydf$GeneID %in% g2_overlapping_annotations_df$gene_id] = 'Highlight'
+mydf$color_group = factor(mydf$color_group, levels = c('Normal', 'Highlight'))
+
+xlab = 'delta PSI (BP-TP)'
+
+# process data
+mydf$logFDR = -log10(mydf$FDR); 
+mydf[which(is.infinite(mydf$logFDR) | mydf$logFDR > 15), 'logFDR'] = 15
+
+# plot
+r <- ggplot(mydf) + 
+    geom_point(aes(x = -IncLevelDifference, y = logFDR, col = col)) +
+    geom_hline(yintercept = 2, linetype="dotdash", color = "black", size = 1) +
+    geom_vline(xintercept = -0.05, linetype="dotdash", color = "black", size = 1) +
+    geom_vline(xintercept = 0.05, linetype="dotdash", color = "black", size = 1) +
+    scale_color_manual(name = NULL,
+                       labels = c('Not significant', 
+                                  paste0(levels(mydf$col)[2], ' (n=', format(table(mydf$col)[levels(mydf$col)[2]], big.mark = ','), ')'), 
+                                  paste0(levels(mydf$col)[3], ' (n=', format(table(mydf$col)[levels(mydf$col)[3]], big.mark = ','), ')')),
+                       values = c('darkgrey', '#0571B0','#CA0020'), 
+                       guide = 'legend') +
+  #Add labels for red points using geom_text_repel
+  geom_text_repel(data = subset(mydf, color_group == "Highlight" & col!="Background"),
+                  aes(x = -IncLevelDifference, y = logFDR, label = GeneID),
+                  size = 3, 
+                  min.segment.length = 0, 
+                  max.overlaps = Inf, 
+                  box.padding = 0.5, 
+                  segment.size = 0.2, 
+                  force = 2, 
+                  force_pull = 1, 
+                  point.padding = 0.5, 
+                  max.time = 2) +
+    coord_cartesian(ylim = c(0, 15), expand = T) +
+    labs(title="Alternative 5' Splice Sites", x = xlab, y = "-log10(FDR)") +
+    scale_y_continuous(breaks = c(0, 5, 10, 15), labels=c('0', '5', '10', expression(phantom(y) >=15))) +
+    theme_classic(base_size = 15) + 
+    theme(aspect.ratio = 1,
+          panel.border = element_rect(colour = "black", fill=NA, size=1),
+          axis.line = element_blank(),
+          axis.text = element_text(color = 'black'),
+          legend.text = element_text(size = 15, color = 'black'))
+
+print(r)
+```
+
+```{r}
+# load data
+dfp<-file.path(root, "output_data/09_RNASeq/rmats_filtered/gw1/filtered_MXE.MATS.JC.txt")
+mydf = read.table(dfp, header = T, row.names = 1, sep = '\t', stringsAsFactors = FALSE, check.names = FALSE)
+up_fp<-file.path(root, "output_data/09_RNASeq/rmats_filtered/gw1/up_MXE.MATS.JC.txt")
+up = read.table(up_fp, header = T, row.names = 1, sep = '\t', stringsAsFactors = FALSE, check.names = FALSE)
+dn_fp<-file.path(root, "output_data/09_RNASeq/rmats_filtered/gw1/dn_MXE.MATS.JC.txt")
+dn = read.table(dn_fp, header = T, row.names = 1, sep = '\t', stringsAsFactors = FALSE, check.names = FALSE)
+
+mydf$col = 'Background'
+mydf$col[mydf$ID %in% up$ID] = 'High in BP'
+mydf$col[mydf$ID %in% dn$ID] = 'High in TP'
+mydf$col = factor(mydf$col, levels = c('Background', 'High in BP', 'High in TP'))
+
+mydf$color_group = 'Normal'
+mydf$color_group[mydf$GeneID %in% g1_overlapping_annotations_df$gene_id] = 'Highlight'
+mydf$color_group[mydf$GeneID %in% g2_overlapping_annotations_df$gene_id] = 'Highlight'
+mydf$color_group = factor(mydf$color_group, levels = c('Normal', 'Highlight'))
+
+
+xlab = 'delta PSI (BP-TP)'
+
+# process data
+mydf$logFDR = -log10(mydf$FDR); 
+mydf[which(is.infinite(mydf$logFDR) | mydf$logFDR > 15), 'logFDR'] = 15
+
+# plot
+s <- ggplot(mydf) + 
+    geom_point(aes(x = -IncLevelDifference, y = logFDR, col = col)) +
+    geom_hline(yintercept = 2, linetype="dotdash", color = "black", size = 1) +
+    geom_vline(xintercept = -0.05, linetype="dotdash", color = "black", size = 1) +
+    geom_vline(xintercept = 0.05, linetype="dotdash", color = "black", size = 1) +
+    scale_color_manual(name = NULL,
+                       labels = c('Not significant', 
+                                  paste0(levels(mydf$col)[2], ' (n=', format(table(mydf$col)[levels(mydf$col)[2]], big.mark = ','), ')'), 
+                                  paste0(levels(mydf$col)[3], ' (n=', format(table(mydf$col)[levels(mydf$col)[3]], big.mark = ','), ')')),
+                       values = c('darkgrey', '#0571B0','#CA0020'), 
+                       guide = 'legend') +
+  #Add labels for red points using geom_text_repel
+  geom_text_repel(data = subset(mydf, color_group == "Highlight" & col!="Background"),
+                  aes(x = -IncLevelDifference, y = logFDR, label = GeneID),
+                  size = 3, 
+                  min.segment.length = 0, 
+                  max.overlaps = Inf, 
+                  box.padding = 0.5, 
+                  segment.size = 0.2, 
+                  force = 2, 
+                  force_pull = 1, 
+                  point.padding = 0.5, 
+                  max.time = 2) +
+    coord_cartesian(ylim = c(0, 15), expand = T) +
+    labs(title="Mutually Exclusive Exons", x = xlab, y = "-log10(FDR)") +
+    scale_y_continuous(breaks = c(0, 5, 10, 15), labels=c('0', '5', '10', expression(phantom(y) >=15))) +
+    theme_classic(base_size = 15) + 
+    theme(aspect.ratio = 1,
+          panel.border = element_rect(colour = "black", fill=NA, size=1),
+          axis.line = element_blank(),
+          axis.text = element_text(color = 'black'),
+          legend.text = element_text(size = 15, color = 'black'))
+
+print(s)
+```
+
+```{r}
+# load data
+dfp<-file.path(root, "output_data/09_RNASeq/rmats_filtered/gw1/filtered_RI.MATS.JC.txt")
+mydf = read.table(dfp, header = T, row.names = 1, sep = '\t', stringsAsFactors = FALSE, check.names = FALSE)
+up_fp<-file.path(root, "output_data/09_RNASeq/rmats_filtered/gw1/up_RI.MATS.JC.txt")
+up = read.table(up_fp, header = T, row.names = 1, sep = '\t', stringsAsFactors = FALSE, check.names = FALSE)
+dn_fp<-file.path(root, "output_data/09_RNASeq/rmats_filtered/gw1/dn_RI.MATS.JC.txt")
+dn = read.table(dn_fp, header = T, row.names = 1, sep = '\t', stringsAsFactors = FALSE, check.names = FALSE)
+
+mydf$col = 'Background'
+mydf$col[mydf$ID %in% up$ID] = 'High in BP'
+mydf$col[mydf$ID %in% dn$ID] = 'High in TP'
+mydf$col = factor(mydf$col, levels = c('Background', 'High in BP', 'High in TP'))
+
+mydf$color_group = 'Normal'
+mydf$color_group[mydf$GeneID %in% g1_overlapping_annotations_df$gene_id] = 'Highlight'
+mydf$color_group[mydf$GeneID %in% g2_overlapping_annotations_df$gene_id] = 'Highlight'
+mydf$color_group = factor(mydf$color_group, levels = c('Normal', 'Highlight'))
+
+
+xlab = 'delta PSI (BP-TP)'
+
+# process data
+mydf$logFDR = -log10(mydf$FDR); 
+mydf[which(is.infinite(mydf$logFDR) | mydf$logFDR > 15), 'logFDR'] = 15
+
+# plot
+t <- ggplot(mydf) + 
+    geom_point(aes(x = -IncLevelDifference, y = logFDR, col = col)) +
+    geom_hline(yintercept = 2, linetype="dotdash", color = "black", size = 1) +
+    geom_vline(xintercept = -0.05, linetype="dotdash", color = "black", size = 1) +
+    geom_vline(xintercept = 0.05, linetype="dotdash", color = "black", size = 1) +
+    scale_color_manual(name = NULL,
+                       labels = c('Not significant', 
+                                  paste0(levels(mydf$col)[2], ' (n=', format(table(mydf$col)[levels(mydf$col)[2]], big.mark = ','), ')'), 
+                                  paste0(levels(mydf$col)[3], ' (n=', format(table(mydf$col)[levels(mydf$col)[3]], big.mark = ','), ')')),
+                       values = c('darkgrey', '#0571B0','#CA0020'), 
+                       guide = 'legend') +
+  #Add labels for red points using geom_text_repel
+  geom_text_repel(data = subset(mydf, color_group == "Highlight" & col!="Background"),
+                  aes(x = -IncLevelDifference, y = logFDR, label = GeneID),
+                  size = 3, 
+                  min.segment.length = 0, 
+                  max.overlaps = Inf, 
+                  box.padding = 0.5, 
+                  segment.size = 0.2, 
+                  force = 2, 
+                  force_pull = 1, 
+                  point.padding = 0.5, 
+                  max.time = 2) +
+    coord_cartesian(ylim = c(0, 15), expand = T) +
+    labs(title="Retained Intron", x = xlab, y = "-log10(FDR)") +
+    scale_y_continuous(breaks = c(0, 5, 10, 15), labels=c('0', '5', '10', expression(phantom(y) >=15))) +
+    theme_classic(base_size = 15) + 
+    theme(aspect.ratio = 1,
+          panel.border = element_rect(colour = "black", fill=NA, size=1),
+          axis.line = element_blank(),
+          axis.text = element_text(color = 'black'),
+          legend.text = element_text(size = 15, color = 'black'))
+
+print(t)
+```
+
+```{r, fig.height=12}
+
+# Assuming p, q, r, s, and t are your ggplot objects
+combined_plot <- p + q + r + s + t + plot_layout(nrow = 2)
+
+# Display the combined plot
+print(combined_plot)
+
+```
