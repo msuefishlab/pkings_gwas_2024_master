@@ -274,14 +274,20 @@ index_snps_simp <- index_snps[, c(16, 2, 1, 3, 10)]
 colnames(index_snps_simp) <- c("PEAK", "SNP_A", "CHR_A", "BP_A", "p_lrt")
 
 # Define Windows for Display / Analysis
-index_snps_simp$maximum <- index_snps_simp$BP_A + 25000
-index_snps_simp$minimum <- index_snps_simp$BP_A - 25000
+index_snps_simp$maximum <- index_snps_simp$BP_A + 50000
+index_snps_simp$minimum <- index_snps_simp$BP_A - 50000
 
 # One of the SNPs is near an assembly gap, so let's manually adjust that window to see it.
 index_snps_simp <- index_snps_simp %>%
   mutate(
     maximum = ifelse(SNP_A == "chr8_15781018_T_A", 16.1e6, maximum),
     minimum = ifelse(SNP_A == "chr8_15781018_T_A", 15.65e6, minimum)
+  )
+
+index_snps_simp <- index_snps_simp %>%
+  mutate(
+    minimum = ifelse(SNP_A == "chr16_10915940_C_A", 10.84e6, minimum),
+    maximum = ifelse(SNP_A == "chr16_10915940_C_A", 11.04e6, maximum)
   )
 
 #Keep LD Values only associated with the index SNP
@@ -454,7 +460,7 @@ df.genos.sub$name <- as.character(df.genos.sub$name)
 # The output data frame now includes the peak information for faceting
 
   # Step 4: Create the ggplot object
-  geno_plot<-create_phylo_geno_plot_multi(tree,df.genos.sub,peaks_per_plot = 3)
+  geno_plot<-create_phylo_geno_plot_multi(tree,df.genos.sub,peaks_per_plot = 4)
   
   print(geno_plot)
 ```
@@ -489,7 +495,7 @@ compare_colors <- list(
 
 fst_palette <- generate_fst_palette_alpha(pw_fst_comparisions, compare_colors)
 
-peaks_per_plot <- 3
+peaks_per_plot <- 4
 
 # Extract unique peaks and split into groups
 
@@ -536,7 +542,7 @@ for (group in peak_groups) {
   # Create the base plot
   bxp <- ggplot(pi_res_group, aes(x = population, y = avg_pi)) +
   geom_boxplot(aes(fill = phenotype_pop1, alpha=category), outlier.shape = NA) +
-  facet_wrap(~peak, ncol = 3) +
+  facet_wrap(~peak, ncol = 4) +
   scale_fill_manual(values = c("BP" = "blue", "TP" = "red")) +  # Custom fill colors
     scale_alpha_manual(
     values = c("random" = 0.2, "peak" = 1.0)  # Set alpha based on category
@@ -573,7 +579,7 @@ for (group in peak_groups) {
     values = c("random" = 0.2, "peak" = 1.0)  # Set alpha based on category
   ) +
   labs(y=expression("Tajima's D"))+
-    facet_wrap(~peak, ncol = 3) +
+    facet_wrap(~peak, ncol = 4) +
     
   #coord_cartesian(ylim = c(quantile(td_res$avg_tajd, 0.01), quantile(td_res$avg_tajd, 0.99)))
   theme_minimal()+
@@ -616,7 +622,7 @@ for (group in peak_groups) {
     
     bxf<-ggplot(fst_res_group, aes(x = comparison, y = avg_wc_fst, fill = compare_color,alpha=type)) +
       geom_boxplot(outlier.shape = NA) +  # Narrower box plots
-      facet_wrap(~ peak, scales = "free_x",ncol=3) +
+      facet_wrap(~ peak, scales = "free_x",ncol=4) +
       scale_fill_manual(values = c("BP-BP" = "blue", "BP-TP" = "purple", "TP-TP" = "red")) +  # Custom fill colors
       scale_alpha_manual(
         values = c("random" = 0.2, "peak" = 1.0)  # Set alpha based on category
@@ -663,7 +669,7 @@ overlapping_annotations_df <- overlapping_annotations_df %>%
   mutate(label_name = ifelse(is.na(external_gene_name), gene_id, external_gene_name)) %>%
   mutate(label_direction = ifelse(row_number() %% 2 == 0, "up", "down"))  # Alternate "up" and "down"
 
-peaks_per_plot <- 3
+peaks_per_plot <- 4
 
 # Extract unique peaks and split into groups
   ordered_levels <- index_snps_simp$PEAK[order(index_snps_simp$p_lrt)]
@@ -704,23 +710,23 @@ for (group in peak_groups) {
       name = expression(R^2)                  # Label the legend for R²
     ) +
     scale_x_continuous(expand = c(0.01, 0), name = "Chromosome Position (Mb)",  breaks = scales::breaks_extended(n = 4)) +
-    facet_wrap(~ PEAK, scales = "free_x",ncol=3) +
+    facet_wrap(~ PEAK, scales = "free_x",ncol=4) +
     geom_hline(yintercept = significant, linetype = "dashed", color = "red", size = 0.5) +
     geom_hline(yintercept = suggestive, linetype = "dashed", color = "blue", size = 0.5) +
     geom_gene_arrow(data = overlapping_annotations_df_group, 
-                    mapping = aes(xmin = start / 1e6, xmax = end / 1e6, y = maxp+2,forward = forward),
+                    mapping = aes(xmin = start / 1e6, xmax = end / 1e6, y = ypos,forward = forward),
                     fill = "darkgreen",
                     alpha=0.4,
                     show.legend = FALSE) +
     # Upward-moving labels
   geom_text_repel(
     data = overlapping_annotations_df_group %>% filter(label_direction == "up"),
-    aes(x = (start / 1e6 + end / 1e6) / 2, y = maxp + 2, label = label_name),
+    aes(x = (start / 1e6 + end / 1e6) / 2, y = ypos, label = label_name),
     nudge_y = 1,  # Move upward
     inherit.aes = FALSE,
     arrow = arrow(length = unit(0.1, "cm")),
     segment.color = "black",
-    size = 3,
+    size = 5,
     force = 2,
     max.overlaps = Inf,
     box.padding = 0.6,
@@ -729,12 +735,12 @@ for (group in peak_groups) {
   # Downward-moving labels
   geom_text_repel(
     data = overlapping_annotations_df_group %>% filter(label_direction == "down"),
-    aes(x = (start / 1e6 + end / 1e6) / 2, y = maxp + 2, label = label_name),
+    aes(x = (start / 1e6 + end / 1e6) / 2, y = ypos-1, label = label_name),
     nudge_y = -1,  # Move downward
     inherit.aes = FALSE,
     arrow = arrow(length = unit(0.1, "cm")),
     segment.color = "black",
-    size = 3,
+    size = 5,
     force = 2,
     max.overlaps = Inf,
     box.padding = 0.5,
@@ -749,11 +755,12 @@ for (group in peak_groups) {
       panel.grid.minor.y = element_blank(),
       axis.line.x = element_line(color = "black", size = 0.5),
       axis.ticks.x = element_line(color = "black", size = 0.5),
-      axis.text.x = element_text(size = rel(1.2), family = "Arial", angle = 90, hjust = 1),
-      axis.text.y = element_text(size = rel(1.2), family = "Arial", angle = 0, hjust = 1),
-      axis.title.x = element_text(size = rel(1.2), family = "Arial", margin = margin(t = 20)),
-      axis.title.y = element_text(size = rel(1.2), family = "Arial", margin = margin(r = 20)),
+      axis.text.x = element_text(size = rel(2), family = "Arial", angle = 90, hjust = 1),
+      axis.text.y = element_text(size = rel(2), family = "Arial", angle = 0, hjust = 1),
+      axis.title.x = element_text(size = rel(2), family = "Arial", margin = margin(t = 20)),
+      axis.title.y = element_text(size = rel(2), family = "Arial", margin = margin(r = 20)),
       legend.position = "right",
+      legend.text = element_text(size=rel(1.2), family = "Arial"),
       panel.spacing = unit(2, "lines")
     ) +
     labs(y = expression("-log"[10] * " p-value"))
@@ -764,29 +771,52 @@ for (group in peak_groups) {
 
 print(snp_plot_list)
 ```
-
 ```{r, fig.width=24}
-
 # Assuming snp_plot, geno_plot, and combined_peak_stats are lists of equal length
 thebigplot_list <- list()
 
 for (i in seq_along(snp_plot_list)) {
   thebigplot_list[[i]] <- wrap_plots(
-    (wrap_plots(snp_plot_list[[i]], geno_plot[[i]], ncol = 1, heights = c(0.75, 2))), # Left stack
-    bxp_plot_list[[i]],                                                   # Right stack
-    widths = c(2, 1)                                                            # Left vs. right proportions
+    (wrap_plots(snp_plot_list[[i]], geno_plot[[i]], ncol = 1, heights = c(1, 2))), # Left stack
+    widths = 1                                                            # Left vs. right proportions
   ) +
     plot_annotation(tag_levels = 'A') &
     theme(plot.tag = element_text(size = 24, face = "bold"))
 }
 
 for (i in seq_along(snp_plot_list)) {
-  ggsave(file.path(root,"output_data/08_Peak_Analysis",params$data_path,paste0(params$data_path,".peak_analysis_",i,".svg")),plot=thebigplot_list[[i]],limitsize = FALSE,width = 36, height=24)
+  ggsave(file.path(root,"output_data/08_Peak_Analysis",params$data_path,paste0(params$data_path,".peak_analysis_",i,".svg")),plot=thebigplot_list[[i]],limitsize = FALSE,width = 24, height=14)
+}
+
+# Save or print the plots
+print(thebigplot_list)
+
+```
+
+
+```{r, fig.width=14}
+
+# Assuming snp_plot, geno_plot, and combined_peak_stats are lists of equal length
+thebigplot_list <- list()
+
+for (i in seq_along(snp_plot_list)) {
+  thebigplot_list[[i]] <- wrap_plots(
+    bxp_plot_list[[i]],                                                   # Right stack
+    widths = 1                                                            # Left vs. right proportions
+  ) +
+    plot_annotation(tag_levels = 'A') &
+    theme(plot.tag = element_text(size = 24, face = "bold"))
+}
+
+for (i in seq_along(snp_plot_list)) {
+  ggsave(file.path(root,"output_data/08_Peak_Analysis",params$data_path,paste0(params$data_path,".popgen_",i,".svg")),plot=thebigplot_list[[i]],limitsize = FALSE,width = 8, height=14)
 }
 
 # Save or print the plots
 print(thebigplot_list)
 ```
+
+
 
 ```{r, echo = FALSE, results='asis'}
 

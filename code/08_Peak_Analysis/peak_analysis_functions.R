@@ -183,8 +183,8 @@ create_fst_plot <- function(fpp_plot, df.bed.idx, chr.idx) {
 get_stat_values<-function(df, start, end, population) {
   df %>%
     filter(
-      window_pos_1 >= start,
-      window_pos_2 <= end,
+      window_pos_2 >= start,
+      window_pos_1 <= end,
       pop1 == population
     ) %>%
     pull(value)
@@ -265,8 +265,8 @@ get_data4plot<-function(df.bed,df,stat){
 get_fst_stat_values<-function(df, start, end, comparison) {
   df %>%
     filter(
-      window_pos_1 >= start,
-      window_pos_2 <= end,
+      window_pos_2 >= start,
+      window_pos_1 <= end,
       comparison == !!comparison
     ) %>%
     pull(value)

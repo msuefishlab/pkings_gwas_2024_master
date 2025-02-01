@@ -75,7 +75,7 @@ create_phylo_geno_plot_multi<- function(tree,snpdata,peaks_per_plot = 4)
   p <- ggtree(tree, color = "white", size = 1)
   
   
-  p <- p %<+% pheno_data + geom_tippoint(aes(fill=Phenotype),shape = 22, size = 2, color = "black",stroke=0.2,  position = position_nudge(x = 3))
+  p <- p %<+% pheno_data + geom_tippoint(aes(fill=Phenotype),shape = 22, size = 1, color = "black",stroke=0.02,  position = position_nudge(x = 3))
   
   # Extract population boundaries for all peaks
   population_boundaries <- p$data %>%
@@ -109,7 +109,7 @@ create_phylo_geno_plot_multi<- function(tree,snpdata,peaks_per_plot = 4)
     geom_hline(
       data = population_boundaries %>% mutate(.panel = paste0("Peak ", i)),
       aes(yintercept = boundary),
-      color = "darkgrey"
+      color = "black"
     )
   # Extract ggtree plot data and merge with tip_data
   p$data <- p$data %>%
@@ -124,15 +124,14 @@ create_phylo_geno_plot_multi<- function(tree,snpdata,peaks_per_plot = 4)
     data = p$data %>% filter(node %in% ancestor_nodes$ancestor_node),
     aes(label = ancestor_nodes$label[match(node, ancestor_nodes$ancestor_node)]),
     hjust = -0.3,
-    size = 3
+    size = 4
   )
   
   # Plot visible branches (non-polytomy)
   p <- p + geom_tree(data = non_polytomy_data)+theme_tree2()+
     coord_cartesian(clip = "off") + 
     theme(strip.background = element_blank(), 
-          strip.text = element_blank(),   
-          legend.position = "bottom",          # Move legend to the bottom
+          legend.position = "right",          # Move legend to the bottom
           legend.direction = "horizontal",     # Arrange legend items horizontally
           legend.box = "horizontal",          # Ensure the legend box aligns horizontally)
           plot.margin = margin(10, 10, 10, 10)
