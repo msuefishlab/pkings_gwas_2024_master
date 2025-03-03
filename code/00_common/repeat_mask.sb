@@ -1,0 +1,26 @@
+#!/bin/bash -login
+
+#SBATCH --time=12:00:00
+#SBATCH --nodes=1
+#SBATCH --cpus-per-task=128
+#SBATCH --mem=0
+#SBATCH -A data-machine
+
+
+## DO THIS BEFORE RUNNING:
+
+#singularity pull tetools.sif docker://dfam/tetools:1.86
+#singularity exec --bind $PWD --pwd $PWD tetools.sif cp -r /opt/RepeatMasker/Libraries ./
+#tar -x -f RepBaseRepeatMaskerEdition-20181026.tar.gz 
+#singularity exec  --bind $PWD --pwd $PWD tetools.sif addRepBase.pl -libdir Libraries/
+#singularity exec --bind $PWD --pwd $PWD tetools.sif famdb.py -i RepeatMaskerLib.h5 families --format fasta_name --include-class-in-name --ancestors --descendants 'Vertebrata' > insect.lib
+#singularity exec --bind $PWD --pwd $PWD tetools.sif famdb.py -i Libraries/RepeatMaskerLib.h5 families --format fasta_name --include-class-in-name --ancestors --descendants 'Actinopterygii' > actinopterygii.lib
+#cat actinopterygii.lib GCF_002872115.1.rmsk.customLib.fa > rm_pkings_actinopt_custom.lib
+
+module purge; module load RepeatMasker
+
+cd /mnt/research/efish/pkings_gwas_2024_master/input_data/00_Reference_Genome
+
+#RepeatMasker -pa 32 -lib /mnt/research/efish/repbase_custom/rm_pkings_actinopt_custom.lib -gff -dir rm_output jordan-mic4273-mb-hirise-20xx3__06-13-2024__final_assembly.fasta.renamed.fa
+
+RepeatMasker -pa 32 -lib /mnt/research/efish/repbase_custom/rm_pkings_actinopt_custom.lib -gff -dir rm_output_nanopore ragtag.scaffold.fasta
