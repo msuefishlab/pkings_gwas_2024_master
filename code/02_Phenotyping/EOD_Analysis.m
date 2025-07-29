@@ -1,6 +1,6 @@
 root=get_root();
 
-tsvFilename = fullfile(root,'input_data/01_Terra/data_model/fish_data_2023.txt'); % Replace with your actual TSV file name
+tsvFilename = fullfile(root,'input_data/09_RNASeq/rnaseq_metadata.txt'); % Replace with your actual TSV file name
 [subjectlist,samplenamelist] = getSubjectListFromTSV(tsvFilename);
 
 normalized_eods = {};
@@ -10,8 +10,10 @@ a = 1;
 for b = 1:length(subjectlist)
     if subjectlist{b} == "ND"
         continue
+    elseif isempty(subjectlist{b})
+        continue
     else
-        filename = fullfile(root,'input_data/02_Phenotyping/eods',subjectlist{b}); % Assuming full path is provided in the TSV
+        filename = fullfile(root,'input_data/09_RNASeq/rnaseq_eods',subjectlist{b}); % Assuming full path is provided in the TSV
         samplename=samplenamelist{b};
         eod = loadEODData(filename);
         if isempty(eod)

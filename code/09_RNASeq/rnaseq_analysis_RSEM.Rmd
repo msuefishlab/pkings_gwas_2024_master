@@ -18,6 +18,7 @@ library(ggrepel)
 library(patchwork)   # For combining plots
 library(biomaRt)
 library(ggpubr)
+library(openxlsx)
 source(file.path(root,"code","09_RNASeq","go_analysis.R"))
 ```
 
@@ -53,10 +54,10 @@ coldata <- read.table(sample_data,header = T)
 
 pheno_data<-coldata %>% dplyr::select(c(-R1,-R2)) %>% unique()
 
-values_to_drop <- c("PK1", "PK2", "PK3")
+#values_to_drop <- c("PK1", "PK2", "PK3")
 
-pheno_data<- pheno_data  %>%
-  filter(!SpecNo %in% values_to_drop)
+#pheno_data<- pheno_data  %>%
+  #filter(!SpecNo %in% values_to_drop)
 
 pheno_data$Population <- factor(pheno_data$Population)
 pheno_data$Phenotype <- factor(pheno_data$Phenotype)
@@ -113,7 +114,7 @@ gw2_dds <- DESeq(gw2_dds)
 ```{r}
 #A positive log2 fold change for a comparison of TP vs BP means that gene expression in TP is larger in comparison to BP.
 
-gw1_res_o <- results(gw1_dds, name = "Phenotype_TP_vs_BP", alpha = 0.1)
+gw1_res_o <- results(gw1_dds, name = "Phenotype_TP_vs_BP", alpha = 0.1) 
 gw2_res_o <- results(gw2_dds, name = "Phenotype_TP_vs_BP", alpha = 0.1)
 
 gw1_res = lfcShrink(dds=gw1_dds, coef="Phenotype_TP_vs_BP", type = "ashr")
@@ -140,12 +141,17 @@ FCcutoff = 0.5
 gw1_sig <- gw1_res[!is.na(gw1_res$padj) & !is.na(gw1_res$log2FoldChange) & 
                    gw1_res$padj <= pCutoff & abs(gw1_res$log2FoldChange) >= FCcutoff, ]
 
+gw1_sig$ensembl_gene_id<-rownames(gw1_sig)
+
 # Filter gw1_sig based on IDs in overlapping_annotations_df
 filtered_gw1_sig <- gw1_sig[rownames(gw1_sig) %in% g1_overlapping_annotations_df$gene_id, ]
 
 # Filter the results
 gw2_sig <- gw2_res[!is.na(gw2_res$padj) & !is.na(gw2_res$log2FoldChange) & 
                    gw2_res$padj <= pCutoff & abs(gw2_res$log2FoldChange) >= FCcutoff, ]
+
+gw2_sig$ensembl_gene_id<-rownames(gw2_sig)
+
 
 # Filter gw1_sig based on IDs in overlapping_annotations_df
 filtered_gw2_sig <- gw2_sig[rownames(gw2_sig) %in% g2_overlapping_annotations_df$gene_id, ]
@@ -473,4 +479,105 @@ ggsave(
     plot = final_plot, width = 24, height = 8
  )
 
+```
+
+
+```{r} 
+# Create a data frame with the ensembl_gene_id and a concatenated string of GO terms
+go_df <- data.frame(
+  ensembl_gene_id = names(gene_to_go),
+  go_terms = sapply(gene_to_go, function(x) paste(x, collapse = "; ")),
+  stringsAsFactors = FALSE
+)
+
+gw1_res_table <- subset(gw1_res, abs(log2FoldChange) > 0.5 & padj < 0.1) %>%
+  left_join(go_df, by = "ensembl_gene_id") %>%
+  dplyr::select(
+    # Select columns 6-8 by their names
+    all_of(names(gw1_res)[6:8]),
+    # Then select all remaining columns; they won't duplicate the ones already selected
+    everything()
+  )
+
+gw2_res_table <- subset(gw2_res, abs(log2FoldChange) > 0.5 & padj < 0.1) %>%
+  left_join(go_df, by = "ensembl_gene_id") %>%
+  dplyr::select(
+    # Select columns 6-8 by their names
+    all_of(names(gw2_res)[6:8]),
+    # Then select all remaining columns; they won't duplicate the ones already selected
+    everything()
+  )
+
+gw1_sig_genes <- file.path(root, "output_data/09_RNASeq/r1_sig_genes.xlsx")
+gw2_sig_genes <- file.path(root, "output_data/09_RNASeq/r2_sig_genes.xlsx")
+
+
+write.xlsx(gw1_res_table, file = gw1_sig_genes, sheetName = "R1 Significant Genes", overwrite = TRUE)
+write.xlsx(gw2_res_table, file = gw2_sig_genes, sheetName = "R2 Significant Genes", overwrite = TRUE)
+
+```
+
+```{r}
+#— your “universe” of all genes tested in RNA-seq
+universe    <- rownames(gw1_res)
+
+#— your set of DE genes
+de_genes    <- rownames(gw1_sig)
+
+#— your GWAS hits (replace with your 4 gene names)
+gwas_genes  <- g1_overlapping_annotations_df$gene_id
+
+#— observed overlap
+obs_overlap <- length(intersect(de_genes, gwas_genes))
+
+#— number of permutations
+n_perm      <- 10000
+
+set.seed(42)  # for reproducibility
+
+#— run permutations
+perm_overlaps <- replicate(
+  n_perm,
+  sum(sample(universe, length(de_genes)) %in% gwas_genes)
+)
+
+#— empirical p-value (chance of ≥ observed overlap)
+p_value <- mean(perm_overlaps >= obs_overlap)
+
+#— summary
+cat("Observed overlap:", obs_overlap, "\n",
+    "Mean permuted overlap:", mean(perm_overlaps), "\n",
+    "Permutation-based p-value:", p_value, "\n")
+```
+```{r}
+#— your “universe” of all genes tested in RNA-seq
+universe    <- rownames(gw2_res)
+
+#— your set of DE genes
+de_genes    <- rownames(gw2_sig)
+
+#— your GWAS hits (replace with your 4 gene names)
+gwas_genes  <- g2_overlapping_annotations_df$gene_id
+
+#— observed overlap
+obs_overlap <- length(intersect(de_genes, gwas_genes))
+
+#— number of permutations
+n_perm      <- 10000
+
+set.seed(42)  # for reproducibility
+
+#— run permutations
+perm_overlaps <- replicate(
+  n_perm,
+  sum(sample(universe, length(de_genes)) %in% gwas_genes)
+)
+
+#— empirical p-value (chance of ≥ observed overlap)
+p_value <- mean(perm_overlaps >= obs_overlap)
+
+#— summary
+cat("Observed overlap:", obs_overlap, "\n",
+    "Mean permuted overlap:", mean(perm_overlaps), "\n",
+    "Permutation-based p-value:", p_value, "\n")
 ```

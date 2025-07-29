@@ -3,6 +3,7 @@ for i=1:length(averaged_eods)
 
 measurement_data(i)=standard_eod_measurement(averaged_eods(i).wave,averaged_eods(i).sampRate,averaged_eods(i).sample_name);
 
+disp("Creating Figure.  Ready for Plotting!")
     
 figure('units','normalized','outerposition',[0 0 1 1]);
 set(gcf,'units','normalized')
@@ -89,30 +90,15 @@ subplot(2,2,4);
     set(mark,'MarkerSize',15);
     axis( [ time(measurement_data(i).iZC1)-1 (time(measurement_data(i).iZC1)+1) -4e-3 3e-3])
     hold off;
-
-%% Plot Power Spectrum
-% subplot(2,3,6);
-% a = semilogx(measurment_data.F,measurement_data.PdB,'b');
-% b = get(a,'parent');
-% set(b,'box','off', 'Fontname', 'Arial', 'Fontsize', 10);
-% set(a,'LineWidth',1);
-% xlabel ('frequency');
-% title(['Power spectrum of current wave'], 'fontsize', 10);
-% axis([0 10000 -60 0]);
-% hold on;
-% plot(measurment_data.Fmax,measurment_data.Pmax,'r+');
-% plot(measurment_data.Flow,measurment_data.Plow,'r+');
-% plot(measurment_data.Fhigh,measurment_data.Phigh,'r+');
     
 %% Export PDF
 pdfprinfig=gcf;
- set(pdfprinfig,'PaperOrientation','landscape'); % Setting tpdfprinfige orientation to Landscape
- set(pdfprinfig,'PaperUnits','normalized');
- set(pdfprinfig,'PaperPosition', [0 0 1 1]);
- pdffilename=['PSZAB_EOD_OUTPUT' averaged_eods(i).sample_name];
- print(pdfprinfig, '-dpdf', strjoin(pdffilename,"/")+".pdf"); % Printing tpdfprinfige figure to file
- 
+
+file_name = strcat(averaged_eods(i).sample_name, '.png'); % Ensure it's a single string
+file_path = fullfile('EOD_Plots', file_name);
+print(pdfprinfig, '-dpng', file_path); 
 close(pdfprinfig)
+disp("Closed Figure.  Ready for Next!")
 
 end
 
@@ -123,7 +109,7 @@ measurement_data = orderfields(measurement_data, colnames);
 colnames=fieldnames(measurement_data)';
 ds=squeeze(struct2cell(measurement_data))';
 ds_f=vertcat(colnames,ds);
-fid = fopen('PMAG_EOD_OUTPUT/measurement_data.csv','wt');
+fid = fopen('EOD_Plots/measurement_data.csv','wt');
 
 if fid>0
  for k=1:size(ds_f,1)

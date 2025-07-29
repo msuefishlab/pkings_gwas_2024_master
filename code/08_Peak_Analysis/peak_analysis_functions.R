@@ -190,7 +190,7 @@ get_stat_values<-function(df, start, end, population) {
     pull(value)
 }
 
-get_data4plot<-function(df.bed,df,stat){
+get_data4plot <- function(df.bed, df, stat) {
   # Initialize a list to store results
   result_list <- list()
   
@@ -208,48 +208,57 @@ get_data4plot<-function(df.bed,df,stat){
     # Pre-filter df for the current chromosome
     df_chr <- df %>% filter(chromosome == chr)
     
-    # Extract the statistic for the peak
+    ## Process the peak region ##
     for (pop in populations) {
+      # Obtain the statistic values for the peak region
       peak_stat <- get_stat_values(df_chr, start, end, pop)
       
-      # Create a data frame for all values in peak_stat
-      result_list[[length(result_list) + 1]] <- data.frame(
-        peak = rep(i, length(peak_stat)), # Repeat the peak number for each value
-        population = rep(pop, length(peak_stat)), # Repeat the population name
-        stringsAsFactors = FALSE
-      ) %>% mutate(!!stat := peak_stat) # Dynamically name the column using stat
+      # Only add to result if there is at least one value
+      if (length(peak_stat) > 0) {
+        result_list[[length(result_list) + 1]] <- data.frame(
+          peak = rep(i, length(peak_stat)),        # Peak number repeated
+          population = rep(pop, length(peak_stat)),  # Population name repeated
+          interval = rep(paste("peak", i, sep = "_"), length(peak_stat)),
+          stringsAsFactors = FALSE
+        ) %>% mutate(!!stat := peak_stat)  # Dynamically name the statistic column
+      }
     }
     
-    # Generate random intervals restricted to the chromosome for each population
+    ## Process random intervals ##
+    # Determine the maximum possible position for random interval selection
     max_pos <- max(df_chr$window_pos_2)
     for (pop in populations) {
+      # Generate a data frame of random intervals (100 per population for the current peak)
       random_intervals <- data.frame(
         thestart = sample(1:(max_pos - lg), 100)
       ) %>%
         mutate(
-          theend = thestart + lg  # Add lg to thestart to create theend
+          theend = thestart + lg  # Create the end position of each interval
         ) %>%
         filter(theend <= max_pos, thestart < theend)  # Exclude invalid intervals
       
-      random_stats <- mapply(
-        function(start, end) {
-          get_stat_values(df_chr, start, end, pop)
-        },
-        random_intervals$thestart,
-        random_intervals$theend,
-        SIMPLIFY = FALSE
-      )
+      # Initialize a list to store data frames for each random interval
+      random_dfs <- list()
+      for (j in 1:nrow(random_intervals)) {
+        # For each random interval, get the statistic values
+        stat_values <- get_stat_values(df_chr, random_intervals$thestart[j], random_intervals$theend[j], pop)
+        # Only create a data frame if stat_values is non-empty
+        if (length(stat_values) > 0) {
+          random_dfs[[length(random_dfs) + 1]] <- data.frame(
+            peak = as.factor(i),
+            population = rep(paste0(pop, "R"), length(stat_values)),
+            interval = rep(paste("random", i, j, sep = "_"), length(stat_values)),
+            stringsAsFactors = FALSE
+          ) %>% mutate(!!stat := stat_values)
+        }
+      }
       
-      # Flatten random_stats and create a data frame
-      random_stats_flat <- unlist(random_stats)
-      result_list[[length(result_list) + 1]] <- data.frame(
-        peak = as.factor(rep(i, length(random_stats_flat))), # Repeat the peak number for each value
-        population = rep(paste0(pop, "R"), length(random_stats_flat)), # Assign randomized population name
-        stringsAsFactors = FALSE
-      ) %>% mutate(!!stat := random_stats_flat) # Dynamically name the column using stat
+      # Only add the combined random interval data if there is any
+      if (length(random_dfs) > 0) {
+        result_list[[length(result_list) + 1]] <- do.call(rbind, random_dfs)
+      }
     }
   }
-  
   
   # Combine all results into a single data frame
   result_data <- do.call(rbind, result_list)
@@ -262,6 +271,7 @@ get_data4plot<-function(df.bed,df,stat){
 }
 
 
+
 get_fst_stat_values<-function(df, start, end, comparison) {
   df %>%
     filter(
@@ -272,11 +282,21 @@ get_fst_stat_values<-function(df, start, end, comparison) {
     pull(value)
 }
 
-get_fst_data4plot<-function(df.bed,df,stat="avg_wc_fst"){
+get_fst_stat_values <- function(df, start, end, comparison) {
+  df %>%
+    filter(
+      window_pos_2 >= start,
+      window_pos_1 <= end,
+      comparison == !!comparison
+    ) %>%
+    pull(value)
+}
+
+get_fst_data4plot <- function(df.bed, df, stat = "avg_wc_fst") {
   # Initialize a list to store results
   result_list <- list()
   
-  # Get unique populations from the dataset
+  # Get unique comparisons from the dataset
   comparisons <- unique(df$comparison)
   
   # Loop through each peak
@@ -290,48 +310,55 @@ get_fst_data4plot<-function(df.bed,df,stat="avg_wc_fst"){
     # Pre-filter df for the current chromosome
     df_chr <- df %>% filter(chromosome == chr)
     
-    # Extract the statistic for the peak
+    ## Process the peak region ##
     for (comp in comparisons) {
+      # Obtain the FST values for the peak region
       peak_stat <- get_fst_stat_values(df_chr, start, end, comp)
       
-      # Create a data frame for all values in peak_stat
-      result_list[[length(result_list) + 1]] <- data.frame(
-        peak = rep(i, length(peak_stat)), # Repeat the peak number for each value
-        comparison = rep(comp, length(peak_stat)), # Repeat the population name
-        stringsAsFactors = FALSE
-      ) %>% mutate(!!stat := peak_stat) # Dynamically name the column using stat
+      # Only add to results if any values were found
+      if (length(peak_stat) > 0) {
+        result_list[[length(result_list) + 1]] <- data.frame(
+          peak = rep(i, length(peak_stat)),
+          comparison = rep(comp, length(peak_stat)),
+          interval = rep(paste("peak", i, sep = "_"), length(peak_stat)),
+          stringsAsFactors = FALSE
+        ) %>% mutate(!!stat := peak_stat)
+      }
     }
     
-    # Generate random intervals restricted to the chromosome for each population
+    ## Process random intervals ##
+    # Determine the maximum possible position for random interval selection
     max_pos <- max(df_chr$window_pos_2)
     for (comp in comparisons) {
+      # Generate a data frame of 100 random intervals for the current peak and comparison
       random_intervals <- data.frame(
         thestart = sample(1:(max_pos - lg), 100)
       ) %>%
         mutate(
-          theend = thestart + lg  # Add lg to thestart to create theend
+          theend = thestart + lg
         ) %>%
-        filter(theend <= max_pos, thestart < theend)  # Exclude invalid intervals
-
-      random_stats <- mapply(
-        function(start, end) {
-          get_fst_stat_values(df_chr, start, end, comp)
-        },
-        random_intervals$thestart,
-        random_intervals$theend,
-        SIMPLIFY = FALSE
-      )
-
-      # Flatten random_stats and create a data frame
-      random_stats_flat <- unlist(random_stats)
-      result_list[[length(result_list) + 1]] <- data.frame(
-        peak = as.factor(rep(i, length(random_stats_flat))), # Repeat the peak number for each value
-        comparison = rep(paste0(comp, "R"), length(random_stats_flat)), # Assign randomized population name
-        stringsAsFactors = FALSE
-      ) %>% mutate(!!stat := random_stats_flat) # Dynamically name the column using stat
+        filter(theend <= max_pos, thestart < theend)
+      
+      # Loop over each random interval so we can tag its origin
+      for (j in 1:nrow(random_intervals)) {
+        stat_values <- get_fst_stat_values(
+          df_chr, 
+          random_intervals$thestart[j], 
+          random_intervals$theend[j], 
+          comp
+        )
+        # Only add to results if there are statistic values
+        if (length(stat_values) > 0) {
+          result_list[[length(result_list) + 1]] <- data.frame(
+            peak = rep(i, length(stat_values)),
+            comparison = rep(paste0(comp, "R"), length(stat_values)),
+            interval = rep(paste("random", i, j, sep = "_"), length(stat_values)),
+            stringsAsFactors = FALSE
+          ) %>% mutate(!!stat := stat_values)
+        }
+      }
     }
   }
-  
   
   # Combine all results into a single data frame
   result_data <- do.call(rbind, result_list)

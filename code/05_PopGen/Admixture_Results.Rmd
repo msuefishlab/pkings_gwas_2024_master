@@ -44,7 +44,7 @@ admix_data <- merge(admix_data, phenos_df, by = "Sample", all.x = TRUE)
 ```{r}
 ggplot(cv_errors, aes(K,CV)) +
   geom_line()+
-  geom_vline(xintercept = 7,linetype='dotted', col = 'red')
+  geom_vline(xintercept = 8,linetype='dotted', col = 'red')
 ```
 
 ```{r, fig.width=12, fig.height=4}
@@ -62,7 +62,7 @@ custom_colors <- c(
 )
 
 
-p1<-ggplot(subset(admix_data,MAXK==7), aes(factor(Sample), Q, fill = factor(GROUP))) +
+p1<-ggplot(subset(admix_data,MAXK==8), aes(factor(Sample), Q, fill = factor(GROUP))) +
   geom_col(color = "gray", size = 0.1) +
   facet_grid(~fct_inorder(Pop), switch = "x", scales = "free", space = "free") +
   theme_minimal() + labs(x = "Individuals", y = "Ancestry") +
@@ -78,14 +78,14 @@ p1<-ggplot(subset(admix_data,MAXK==7), aes(factor(Sample), Q, fill = factor(GROU
     scale_fill_manual(values = custom_colors) 
 
 
-p2 <- ggplot(subset(admix_data, MAXK == 7), aes(x = factor(Sample), y = 0.5, fill = factor(Phenotype))) +
+p2 <- ggplot(subset(admix_data, MAXK == 8), aes(x = factor(Sample), y = 0.5, fill = factor(Phenotype))) +
   geom_col(position="identity",color = "gray", size = 0.1) +
   scale_fill_manual(values = col.pheno) +
   facet_grid(~fct_inorder(Pop), switch = "x", scales = "free", space = "free") +
   scale_y_continuous(expand = c(0, 0)) +
   scale_x_discrete(expand = expand_scale(add = 1)) +
   theme_minimal() +
-  labs(title = "K=7") +
+  labs(title = "K=8") +
    theme(
     panel.spacing.x = unit(0.1, "lines"),
     axis.text.x = element_blank(),  # Hides x-axis text

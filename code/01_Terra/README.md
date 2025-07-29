@@ -66,9 +66,9 @@ rm ./uifiles2.txt
    conda activate gcloud
 
    gsutil -m -o GSUtil:parallel_composite_upload_threshold=150M cp -n ./unpadded_intervals_file.txt gs://${bucket}/
-    gsutil -m -o GSUtil:parallel_composite_upload_threshold=150M cp -n ./scattered-intervals-file.txt gs://${bucket}/
+   gsutil -m -o GSUtil:parallel_composite_upload_threshold=150M cp -n ./scattered-intervals-file.txt gs://${bucket}/
    gsutil -m -o GSUtil:parallel_composite_upload_threshold=150M cp -r -n ./interval-files gs://${bucket}/
-    gsutil -m -o GSUtil:parallel_composite_upload_threshold=150M cp -r -n ./chrom-interval-files gs://${bucket}/
+   gsutil -m -o GSUtil:parallel_composite_upload_threshold=150M cp -r -n ./chrom-interval-files gs://${bucket}/
 
 ## Setup Workspace
 
@@ -95,10 +95,10 @@ rm ./uifiles2.txt
 1. Download The "sample.tsv" from FireCloud
 2.
 3. Run this code:
-   mv sample.tsv input*data/01_Terra/data_model/
+   mv sample.tsv input\*data/01*Terra/data_model/
    cd input_data/01_Terra/data_model/
    mkdir sample_metadata
-   awk -F "\t" '{file = "./sample_metadata/unaligned_bams_" $12 ".txt"; print $13 >> file; close(file)}' samples_ubam_complete.tsv
+   awk -F "\t" '{file = "./sample_metadata/unaligned_bams*" $12 ".txt"; print $13 >> file; close(file)}' samples_ubam_complete.tsv
 
    # You need to edit the 'participants' table to point to the unaligned bam file path at this point
 

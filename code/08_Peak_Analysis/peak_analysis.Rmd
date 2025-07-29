@@ -2,12 +2,12 @@
 title: "Peak Report"
 output: html_notebook
 params:
-  data_path: MOV_BIR_DOG_DOV_BAVA_BIK_APA_BEN_TP1_BP2_WOB9
+  data_path: APA_BEN_BAM_TP1_BP2_WOB9
   output_file: NULL
   popgen_prefix: MIC4273_HAP2_NEWREF_MSU618_all_fish_all_sites
   MAF_thresh: 0.15
-  pops: ["MOV","BIR","DOG","BAVA","BIK","APA","BEN"]
-  phenos: ["TP","BP","TP","BP","BP","TP","TP"]
+  pops: ["APA","BAM","BEN"]
+  phenos: ["TP","BP","TP"]
 ---
 #data_path: MOV_BIR_DOG_DOV_BAVA_BIK_APA_BEN_TP1_BP2_WOB9
 #pops: ["MOV","BIR","DOG","BAVA","BIK","APA","BEN"]
@@ -45,6 +45,10 @@ library(RColorBrewer)
 library(ggrepel)
 library(flextable)
 library(officer)
+library(lme4)
+library(lmerTest)
+library(purrr)
+library(broom.mixed)
 
 source(file.path(root,"code","06_Association","gemma_gwas_functions.R"))
 source(file.path(root,"code","08_Peak_Analysis","peak_analysis_functions.R"))
@@ -509,6 +513,7 @@ peaks_per_plot <- 4
 
 bxp_plot_list <- list()  # Initialize an empty list to store plots
 
+
 for (group in peak_groups) {
   # Filter data for the current group of peaks
   pi_res_group <- pi_res %>% filter(paste0("peak",peak) %in% group)
@@ -558,6 +563,15 @@ for (group in peak_groups) {
     axis.title.y = element_text(size = rel(1.2), family = "Arial", margin = margin(r = 20))
   ) +
   coord_cartesian(ylim = c(quantile(pi_res_group$avg_pi, 0.01), quantile(pi_res_group$avg_pi, 0.98)))
+  
+  pi_res_group$phenotype_pop1 <- factor(pi_res_group$phenotype_pop1, levels = c("TP", "BP"))
+  pi_res_group$category<-factor(pi_res_group$category,levels=c("random","peak"))
+
+  pi_model <- lmer(avg_pi ~ category * phenotype_pop1 + (1| population) + (1 | peak) + (1 | interval), data=pi_res_group)
+  model_summary <- capture.output(summary(pi_model))
+  
+  #print(model_summary)
+  #writeLines(model_summary, con = file.path(root,"output_data/08_Peak_Analysis",params$data_path,paste0(params$data_path,"_pi_model",paste(group,collapse="_"),".txt")))
 
   #plot tajim'as d
   td_res_group <- td_res_group %>%
@@ -592,6 +606,16 @@ for (group in peak_groups) {
       axis.title.y = element_text(size = rel(1.2), family = "Arial", margin = margin(r = 20))
     )
   
+  td_res_group$phenotype_pop1 <- factor(td_res_group$phenotype_pop1, levels = c("TP", "BP"))
+  td_res_group$category<-factor(td_res_group$category,levels=c("random","peak"))
+
+  td_model <- lmer(avg_tajd ~ category * phenotype_pop1 + (1 | population) + (1 | peak) + (1 | interval), data=td_res_group)
+  model_summary <- capture.output(summary(td_model))
+  
+  #print(model_summary)
+  
+  #writeLines(model_summary, con = file.path(root,"output_data/08_Peak_Analysis",params$data_path,paste0(params$data_path,"_tajimad_model",paste(group,collapse="_"),".txt")))
+  
   
 # plot fst
 
@@ -618,9 +642,9 @@ for (group in peak_groups) {
     
     fst_res_group<- fst_res_group %>% dplyr::select(-compare_color)
     fst_res_group<-fst_res_group %>% left_join(compare_lut_2, by="comparison")
-    fst_res_group<-fst_res_group %>% filter(compare_color=="BP-TP")
+    #fst_res_group<-fst_res_group %>% filter(compare_color=="BP-TP")
     
-    bxf<-ggplot(fst_res_group, aes(x = comparison, y = avg_wc_fst, fill = compare_color,alpha=type)) +
+    bxf<-ggplot(subset(fst_res_group,compare_color=="BP-TP"), aes(x = comparison, y = avg_wc_fst, fill = compare_color,alpha=type)) +
       geom_boxplot(outlier.shape = NA) +  # Narrower box plots
       facet_wrap(~ peak, scales = "free_x",ncol=4) +
       scale_fill_manual(values = c("BP-BP" = "blue", "BP-TP" = "purple", "TP-TP" = "red")) +  # Custom fill colors
@@ -642,13 +666,37 @@ for (group in peak_groups) {
           axis.title.x = element_text(size = rel(1.2), family = "Arial", margin = margin(t = 20)),
           axis.title.y = element_text(size = rel(1.2), family = "Arial", margin = margin(r = 20))
     )
+    
+    fst_res_group$compare_color <- factor(fst_res_group$compare_color, levels = c("TP-TP","BP-BP","BP-TP"))
+    fst_res_group$type<-factor(fst_res_group$type,levels=c("random","peak"))
+    fst_model <- lmer(avg_wc_fst ~ type * compare_color + (1 | comparison) + (1 | peak) + (1 | interval), data=fst_res_group)
+    model_summary <- capture.output(summary(fst_model))
+  
+  #print(model_summary)
+  
+  #writeLines(model_summary, con = file.path(root,"output_data/08_Peak_Analysis",params$data_path,paste0(params$data_path,"_fst_model",paste(group,collapse="_"),".txt")))
 
     combined_peak_plot <- bxp / bxt / bxf  +
     plot_annotation( tag_levels = 'A') &
     theme(plot.tag = element_text(size = 24, face = "bold"))
   # Add the plot to the list
   bxp_plot_list <- c(bxp_plot_list, list(combined_peak_plot))
+  
+  model_list <- list(
+  "avg_pi" = pi_model, 
+  "avg_tajd" = td_model, 
+  "avg_wc_fst" = fst_model
+)
+  model_output <- map_df(model_list, 
+                        ~ tidy(.x, effects = c("fixed","ran_pars")), 
+                        .id = "model")
+
+print(model_output)
+  write.csv(model_output, file.path(root,"output_data/08_Peak_Analysis",params$data_path,paste0(params$data_path,"_model_output_",paste(group,collapse="_"),".txt")),quote = F,row.names = F)
+
 }
+
+
 
 # Print each plot in the list
 for (plot in bxp_plot_list) {
@@ -656,6 +704,7 @@ for (plot in bxp_plot_list) {
 }
 
 ```
+
 
 ```{r, fig.width=12}
 

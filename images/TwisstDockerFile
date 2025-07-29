@@ -1,0 +1,47 @@
+# Start from slim Python (includes pip)
+FROM python:3.9-slim
+
+# Install minimal system deps for building C extensions, git, and your bioinformatics tools
+RUN set -eux; \
+	apt-get update; \
+	apt-get install -y --no-install-recommends \
+	git \
+	build-essential \
+	zlib1g-dev \
+	libbz2-dev \
+	liblzma-dev \
+	bcftools \
+	vcftools \
+	gzip \
+	phyml \
+	; \
+	rm -rf /var/lib/apt/lists/*
+
+# Install the pure‑Python packages
+RUN pip install --no-cache-dir \
+	ete3 \
+	numpy \
+	cyvcf2 \
+	tskit \
+	six
+
+# Clone Simon Martin’s repos into /opt
+RUN mkdir -p /opt && cd /opt && \
+	git clone https://github.com/simonhmartin/genomics_general.git && \
+	git clone https://github.com/simonhmartin/twisst2.git       && \
+	git clone https://github.com/simonhmartin/twisst.git        && \
+	git clone https://github.com/simonhmartin/sticcs.git
+
+# Install the editable packages that provide console scripts
+RUN cd /opt/sticcs && pip install -e . \
+	&& cd /opt/twisst2 && pip install -e .
+
+# Expose all their script directories on PATH
+ENV PATH="/opt/genomics_general/scripts:\
+	/opt/twisst2:\
+	/opt/twisst:\
+	/opt/sticcs:\
+	${PATH}"
+
+# Drop into bash by default
+CMD ["bash"]

@@ -43,3 +43,12 @@
 
     cd images/
     singularity build liftoff.sif docker://jasongallant/liftoff:latest
+
+## TWISST
+
+    docker build --platform linux/amd64 -f TwisstDockerFile -t twisst_tools .
+    docker tag twisst_tools jasongallant/twisst_tools
+    docker push jasongallant/twisst_tools
+
+    cd images
+    singularity build twisst_tools.sif docker://jasongallant/twisst_tools:latest

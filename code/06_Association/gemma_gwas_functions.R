@@ -1,3 +1,5 @@
+library(ggrastr)
+
 # functions inspired by erik enbody, with modifications
 
 ##USED##
@@ -115,7 +117,7 @@ manc2.labels <- function(df.in, input.var){
           axis.text = element_text(size=6),
           axis.ticks.x=element_blank(),
           axis.ticks.y=element_line(size=0.2)) +
-    geom_point(shape=20,stroke=0.2,alpha=0.25) +
+    ggrastr::geom_point_rast(shape = 20, stroke = 0.2, alpha = 0.25) +
     scale_color_manual(values=rep(c("grey30","grey70"))) +
     #scale_color_manual(values = c(rep_len(c("grey30", "red"), length(unique(chr_breaks$chr_ordered))+1))) #+
     #scale_y_continuous(limits=c(0,1),breaks=seq(0,1,0.1),minor_breaks = NULL) +

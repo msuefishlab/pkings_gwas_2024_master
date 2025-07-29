@@ -99,13 +99,13 @@ measurement_data.aP1 = (sum(wave(measurement_data.iT1:measurement_data.iZC2)))/s
 measurement_data.aP2 = (sum(wave(measurement_data.iZC2:measurement_data.iT2)))/s_rate;
 
 %% --calculate the power spectrum-------
-PS=power_spectrum_eod(wave,s_rate);	%call to func that plots power spectr & calcs fftstats
-
-measurement_data.Fmax = PS.Fmax;
-measurement_data.Pmax = PS.Pmax;
-measurement_data.Flow = PS.Flow;
-measurement_data.Plow = PS.Plow;
-measurement_data.Fhigh = PS.Fhigh;
-measurement_data.Phigh = PS.Phigh;
-measurement_data.Bndwidth = PS.Fhigh - PS.Flow;
+% PS=power_spectrum_eod(wave,s_rate);	%call to func that plots power spectr & calcs fftstats
+% 
+% measurement_data.Fmax = PS.Fmax;
+% measurement_data.Pmax = PS.Pmax;
+% measurement_data.Flow = PS.Flow;
+% measurement_data.Plow = PS.Plow;
+% measurement_data.Fhigh = PS.Fhigh;
+% measurement_data.Phigh = PS.Phigh;
+% measurement_data.Bndwidth = PS.Fhigh - PS.Flow;
 measurement_data.sample_name=string(samp_name);
