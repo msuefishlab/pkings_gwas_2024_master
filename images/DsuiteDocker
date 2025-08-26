@@ -1,0 +1,37 @@
+# Start from slim Python (includes pip)
+FROM python:3.9-slim
+
+# Install minimal system deps for building C extensions, git, and your bioinformatics tools
+RUN set -eux; \
+	apt-get update; \
+	apt-get install -y --no-install-recommends \
+	git \
+	build-essential \
+	zlib1g-dev \
+	libbz2-dev \
+	liblzma-dev \
+	bcftools \
+	vcftools \
+	gzip \
+	; \
+	rm -rf /var/lib/apt/lists/*
+
+# Install the pure‑Python packages
+RUN pip install --no-cache-dir \
+	pandas \
+	matplotlib 
+
+# Clone repos into /opt
+RUN mkdir -p /opt && cd /opt && \
+	git clone https://github.com/millanek/Dsuite.git 
+
+# Install the editable packages that provide console scripts
+RUN cd /opt/Dsuite && make 
+
+# Expose all their script directories on PATH
+ENV PATH="/opt/Dsuite/utils:\
+	/opt/Dsuite/Build:\
+	${PATH}"
+
+# Drop into bash by default
+CMD ["bash"]

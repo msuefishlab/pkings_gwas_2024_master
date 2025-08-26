@@ -52,3 +52,21 @@
 
     cd images
     singularity build twisst_tools.sif docker://jasongallant/twisst_tools:latest
+
+## DSuite
+
+    docker build --platform linux/amd64 -f DsuiteDocker -t dsuite_tools .
+    docker tag dsuite_tools jasongallant/dsuite_tools
+    docker push jasongallant/dsuite_tools
+
+    cd images
+    singularity build dsuite_tools.sif docker://jasongallant/dsuite_tools:latest
+
+## Dadi
+
+    docker build --platform linux/amd64 -f DadiDocker -t dadi_tools .
+    docker tag dadi_tools jasongallant/dadi_tools
+    docker push jasongallant/dadi_tools
+
+    cd images
+    singularity build dadi_tools.sif docker://jasongallant/dadi_tools:latest

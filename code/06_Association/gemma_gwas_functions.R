@@ -87,46 +87,112 @@ gemma.peak.ROW.bed <- function(peaks.named){
   return(peak.bed)
 }
 
-manc2.labels <- function(df.in, input.var){
-  # Assuming df.in is your input dataframe
+# manc2.labels <- function(df.in, input.var){
+#   # Assuming df.in is your input dataframe
+#   chr_breaks <- df.in %>%
+#     group_by(numeric_chr) %>% 
+#     dplyr::summarise(chr_breaks = mean(row))
+#   
+#   chrom.colors <- data.frame(chr=unique(df.in$chr),
+#                              color.num = rep(1:2,length(unique(df.in$chr)))) %>% 
+#     distinct(chr, .keep_all = T)
+#   
+#   df.in2 <- df.in %>%
+#     left_join(chrom.colors, by = "chr") %>% 
+#     mutate(color.num = as.factor(color.num))
+#   
+#   df.in2 %>%
+#     ggplot(aes_string(x = "row", y = input.var, col = "color.num",size=input.var)) + theme_bw() +
+#     theme(legend.position="none",
+#           #panel.border=element_blank(),
+#           panel.border = element_blank(), axis.line.x = element_line(), axis.line.y = element_line(),
+#           #axis.title.x=element_blank(),
+#           #axis.text.x = element_text(angle = 45, color = "black"),
+#           #axis.text.x = element_blank(),
+#           panel.grid = element_blank(),
+#           panel.background = element_blank(),
+#           panel.grid.major.y=element_blank(),
+#           panel.grid.minor.y=element_blank(),
+#           axis.title.y = element_text(size=6),
+#           axis.text = element_text(size=6),
+#           axis.ticks.x=element_blank(),
+#           axis.ticks.y=element_line(size=0.2)) +
+#     ggrastr::geom_point_rast(shape = 20, stroke = 0.2, alpha = 0.25) +
+#     scale_color_manual(values=rep(c("grey30","grey70"))) +
+#     #scale_color_manual(values = c(rep_len(c("grey30", "red"), length(unique(chr_breaks$chr_ordered))+1))) #+
+#     #scale_y_continuous(limits=c(0,1),breaks=seq(0,1,0.1),minor_breaks = NULL) +
+#     scale_x_continuous(
+#       breaks = chr_breaks$chr_breaks, 
+#       labels = chr_breaks$numeric_chr
+#     )+
+#   
+#     labs(y=expression(paste("-log"[10], italic("P"),"-value"))) 
+#   #scale_x_continuous(breaks=chr_breaks$chr_breaks, 
+#   #                   labels = chr_breaks$chr_labels)
+# }
+
+manc2.labels <- function(df.in, input.var, chr.in = NULL, start = NULL, end = NULL) {
+  library(dplyr)
+  library(ggplot2)
+  library(ggrastr)
+  
+  # 1) Subset by chromosome if requested
+  if (!is.null(chr.in)) {
+    df.in <- df.in %>% filter(chr == chr.in)
+  }
+  
+  # 2) Subset by window if both start and end are given
+  if (!is.null(start) && !is.null(end)) {
+    df.in <- df.in %>% filter(row >= start, row <= end)
+  }
+  
+  # 3) Compute the x-axis breaks for whatever remains
   chr_breaks <- df.in %>%
     group_by(numeric_chr) %>% 
-    dplyr::summarise(chr_breaks = mean(row))
+    summarize(chr_breaks = mean(row), .groups = "drop")
   
-  chrom.colors <- data.frame(chr=unique(df.in$chr),
-                             color.num = rep(1:2,length(unique(df.in$chr)))) %>% 
-    distinct(chr, .keep_all = T)
+  # 4) Recompute colors (will alternate grey30/grey70)
+  chrom.colors <- tibble(
+    chr      = unique(df.in$chr),
+    color.num = rep(1:2, length.out = length(unique(df.in$chr)))
+  )
   
   df.in2 <- df.in %>%
     left_join(chrom.colors, by = "chr") %>% 
-    mutate(color.num = as.factor(color.num))
+    mutate(color.num = factor(color.num))
   
-  df.in2 %>%
-    ggplot(aes_string(x = "row", y = input.var, col = "color.num",size=input.var)) + theme_bw() +
-    theme(legend.position="none",
-          #panel.border=element_blank(),
-          panel.border = element_blank(), axis.line.x = element_line(), axis.line.y = element_line(),
-          #axis.title.x=element_blank(),
-          #axis.text.x = element_text(angle = 45, color = "black"),
-          #axis.text.x = element_blank(),
-          panel.grid = element_blank(),
-          panel.background = element_blank(),
-          panel.grid.major.y=element_blank(),
-          panel.grid.minor.y=element_blank(),
-          axis.title.y = element_text(size=6),
-          axis.text = element_text(size=6),
-          axis.ticks.x=element_blank(),
-          axis.ticks.y=element_line(size=0.2)) +
-    ggrastr::geom_point_rast(shape = 20, stroke = 0.2, alpha = 0.25) +
-    scale_color_manual(values=rep(c("grey30","grey70"))) +
-    #scale_color_manual(values = c(rep_len(c("grey30", "red"), length(unique(chr_breaks$chr_ordered))+1))) #+
-    #scale_y_continuous(limits=c(0,1),breaks=seq(0,1,0.1),minor_breaks = NULL) +
+  # 5) Build the ggplot
+  p <- ggplot(df.in2, aes_string(
+    x    = "row",
+    y    = input.var,
+    col  = "color.num",
+    size = input.var
+  )) +
+    theme_bw() +
+    theme(
+      legend.position   = "none",
+      panel.border      = element_blank(),
+      axis.line.x       = element_line(),
+      axis.line.y       = element_line(),
+      panel.grid        = element_blank(),
+      axis.title.y      = element_text(size = 6),
+      axis.text         = element_text(size = 6),
+      axis.ticks.x      = element_blank(),
+      axis.ticks.y      = element_line(size = 0.2)
+    ) +
+    ggrastr::geom_point_rast(
+      shape = 20, stroke = 0.2, alpha = 0.25
+    ) +
+    scale_color_manual(
+      values = rep(c("grey30", "grey70"), length.out = nrow(chr_breaks))
+    ) +
     scale_x_continuous(
-      breaks = chr_breaks$chr_breaks, 
+      breaks = chr_breaks$chr_breaks,
       labels = chr_breaks$numeric_chr
-    )+
+    ) +
+    labs(
+      y = expression(paste("-log"[10], italic("P"), "-value"))
+    )
   
-    labs(y=expression(paste("-log"[10], italic("P"),"-value"))) 
-  #scale_x_continuous(breaks=chr_breaks$chr_breaks, 
-  #                   labels = chr_breaks$chr_labels)
+  return(p)
 }

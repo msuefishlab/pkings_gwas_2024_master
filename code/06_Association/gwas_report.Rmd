@@ -2,7 +2,7 @@
 title: "GWAS Report"
 output: html_notebook
 params:
-  data_path: MOV_BIR_DOG_DOV_BAVA_BIK_APA_BEN_TP1_BP2_WOB9
+  data_path: PKINGS_ALL_WOB_EXCLUDED
   output_file: NULL
   MAF_thresh: 0.15
 ---
@@ -60,7 +60,7 @@ pk.lmm.filt %>%
 
 pk.lmm.bed.f <- pk.lmm.bed %>% 
   filter(max.log_p > suggestive ) %>% 
-  filter(num.snps.above.threshold > 15 ) %>% 
+  filter(num.snps.above.threshold > 5 ) %>% 
   ungroup() %>% 
   arrange(numeric_chr, start) %>% #arrange by chr order
   mutate(peak.original = peak, #new col for original peak name

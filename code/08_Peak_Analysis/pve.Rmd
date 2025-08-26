@@ -1,0 +1,317 @@
+---
+title: "PVE Calculation"
+output: html_notebook
+params:
+  data_path: PKINGS_ALL_WOB_EXCLUDED
+  output_file: NULL
+  MAF_thresh: 0.15
+---
+
+```{r setup, include=FALSE}
+root<-rprojroot::find_root(".git/index")
+knitr::opts_knit$set(root.dir = root)
+require(tidyverse)
+library(data.table)
+library(pscl)
+library(broom)
+```
+
+
+```{r}
+geno_path<-file.path(root,"output_data","08_Peak_Analysis",params$data_path,paste0(params$data_path,".bin.pos.genos"))
+peaks_path<-file.path(root,"output_data","06_Association",params$data_path,paste0(params$data_path,"_PEAKS.bed"))
+logp_path<-file.path(root,"output_data","06_Association",params$data_path,paste0(params$data_path,"_SNPS_IN_PEAKS_TOP250.txt"))
+groups_path<-file.path(root,"input_data","08_Peak_Analysis","group_assignments_WOB_EXCLUDED.txt")
+ldpath<-file.path(root,"output_data","06_Association",params$data_path,paste0(params$data_path,"_index_snps.ld.ld"))
+ld_data<-fread(ldpath)
+
+ld_data$CHR_A<-paste0("chr",ld_data$CHR_A)
+ld_data$CHR_B<-paste0("chr",ld_data$CHR_B)
+ld_data$SNP_A<-paste0(ld_data$CHR_A,"_",ld_data$BP_A)
+ld_data$SNP_B<-paste0(ld_data$CHR_B,"_",ld_data$BP_B)
+
+df.genos<-read.table(geno_path,header=T)
+
+df.bed <- read.table(peaks_path)
+names(df.bed) <- c("chr", "start","end", "peak","maxp","maxp_pos")
+df.bed$chr<-paste0("chr",df.bed$chr)
+df.bed$snp_id<-paste0(df.bed$chr,"_",df.bed$maxp_pos)
+
+#load the top p values (filtered > 0.1) to plot the signal with the other plots I generate below
+df.logp <- read.table(logp_path)
+names(df.logp) <- c("chr", "pos","logp", "peak")
+
+df.groups<-read.table(groups_path,header=T)
+```
+
+```{r}
+ld_peaks<-ld_data %>%
+  inner_join(df.bed, by=c("SNP_A"="snp_id")) %>%
+  filter(R2 > 0.9) %>%
+  select(Peak = peak, CHROM=CHR_B, POS=BP_B, snp_id=SNP_B, R2)
+
+```
+
+
+
+
+```{r}
+
+index_snps <- df.bed %>%
+  mutate(
+    CHROM = as.character(chr),
+    POS = as.integer(maxp_pos),
+    snp_id = paste0(CHROM, "_", POS)  ) %>%
+  select(Peak = peak, CHROM, POS, snp_id)
+
+index_snps$R2<-1
+
+allsnps<-rbind(index_snps,ld_peaks)
+
+# Add SNP ID
+df.genos <- df.genos %>%
+  mutate(snp_id = paste0( CHROM, "_", POS))
+
+
+df.genos_index <- df.genos %>%
+  filter(snp_id %in% allsnps$snp_id)
+
+
+# Pivot longer
+geno_long <- df.genos_index %>%
+  pivot_longer(
+    cols = -c(CHROM, POS, snp_id, REF,ALT),
+    names_to = "PN",  # individual ID
+    values_to = "genotype"
+  )
+
+# Convert to data.table for efficient range join
+geno_dt <- as.data.table(geno_long)
+
+geno_dt[, start := POS]
+geno_dt[, end := POS]
+
+bed_dt <- as.data.table(df.bed)
+
+geno_dt[, POS := as.integer(POS)]  # ensure integer
+
+setnames(bed_dt, old = "chr", new = "CHROM")  # match geno_dt
+
+setkey(geno_dt, CHROM, start, end)
+setkey(bed_dt, CHROM, start, end)
+
+
+# Perform the range join: assign peak to SNPs
+annotated_geno <- foverlaps(geno_dt, bed_dt[, .(CHROM, start, end, peak)], type = "within")
+
+
+# Merge in phenotype group
+annotated_geno <- annotated_geno %>%
+  left_join(df.groups, by = "PN") %>%
+  drop_na(Group)
+
+head(annotated_geno)
+```
+
+
+```{r}
+
+# Define the groups and peaks to iterate over
+groups <- c("BP1", "BP2","BP3")  # or whatever is in your data
+peaks <- unique(annotated_geno$peak)
+
+results <- data.frame()
+
+for (g in groups) {
+  for (p in peaks) {
+    
+    # Subset relevant data (focal group vs TP)
+    subset <- annotated_geno %>%
+    filter((Group == g | Group == "TP") & peak == p) %>%
+
+      select(PN, snp_id, genotype, Group) %>%
+      drop_na()  # remove missing genotypes
+
+    # Add numeric phenotype column here
+    subset <- subset %>%
+      mutate(phenotype = ifelse(Group == g, 1, 0))
+
+    # Pivot wider to get genotypes in columns
+    geno_wide <- subset %>%
+      select(-Group) %>%  # drop original group label
+      pivot_wider(names_from = snp_id, values_from = genotype) %>%
+      distinct()
+
+    # Make sure phenotype exists and has two values
+    if (!"phenotype" %in% colnames(geno_wide)) next
+    if (length(unique(geno_wide$phenotype)) < 2) next
+
+    # Build formula
+    snp_cols <- setdiff(colnames(geno_wide), c("PN", "phenotype"))
+    if (length(snp_cols) < 1) next
+
+    formula <- as.formula(paste("phenotype ~", paste(snp_cols, collapse = " + ")))
+
+    # Fit logistic regression
+    model <- glm(formula, data = geno_wide, family = "binomial")
+
+    # Compute McFadden's pseudo-R²
+    r2 <- pscl::pR2(model)[["McFadden"]]
+
+    # Store result
+    results <- bind_rows(results, tibble(Group = g, Peak = p, R2 = r2))
+  }
+}
+
+
+```
+```{r}
+ggplot(results, aes(x = Peak, y = R2, fill = Group)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_minimal() +
+  labs(y = "McFadden's pseudo-R²", title = "Variance Explained per Peak per Group")
+```
+
+```{r, fig.width=12}
+
+# Example: Check all SNPs in Peak1, across TP and BP1 individuals
+peak_to_check <- 1
+group_to_check <- c("TP", "BP1","BP2","BP3","BP4")
+
+check_plot_data <- annotated_geno %>%
+  filter(peak == peak_to_check, Group %in% group_to_check) %>%
+  mutate(phenotype = factor(Group, levels = group_to_check))
+
+ggplot(check_plot_data, aes(x = phenotype, y = genotype, colour = Group)) +
+  geom_jitter(width = 0.2, height = 0.1, alpha = 0.5) +
+  facet_wrap(~ snp_id, scales = "free_y") +
+  labs(
+    x = "Phenotypic Group",
+    y = "Genotype (0/1/2)",
+    title = paste("Genotype distribution by phenotype for", peak_to_check)
+  ) +
+  theme_minimal()
+```
+
+```{r}
+# Define your groups and peaks
+groups <- c("BP1", "BP2", "BP3", "BP4")
+peaks <- sort(unique(annotated_geno$peak))
+
+# Initialize results list
+r2_results <- list()
+
+# Loop through each Group × Peak
+for (g in groups) {
+  for (p in peaks) {
+    
+    # Subset to one peak and focal group + TP
+    subset <- annotated_geno %>%
+      filter(peak == p, Group %in% c(g, "TP")) %>%
+      mutate(phenotype = ifelse(Group == g, 1, 0)) %>%
+      drop_na(genotype)
+
+    # List of SNPs to evaluate
+    snps <- unique(subset$snp_id)
+
+    # Loop over SNPs in this peak
+    for (s in snps) {
+      df <- subset %>%
+        filter(snp_id == s) %>%
+        select(PN, genotype, phenotype) %>%
+        distinct()
+
+      # Skip if not enough individuals or monomorphic
+      if (nrow(df) < 5 || length(unique(df$genotype)) < 2) next
+
+      # Fit univariate logistic regression
+      model <- tryCatch(
+        glm(phenotype ~ genotype, data = df, family = "binomial"),
+        error = function(e) NULL
+      )
+
+      if (!is.null(model)) {
+        r2 <- tryCatch(pscl::pR2(model)[["McFadden"]], error = function(e) NA)
+        r2_results[[length(r2_results) + 1]] <- tibble(
+          Group = g,
+          Peak = p,
+          SNP = s,
+          R2 = r2,
+          N = nrow(df)
+        )
+      }
+    }
+  }
+}
+
+# Combine all results into one dataframe
+r2_df <- bind_rows(r2_results)
+```
+
+```{r}
+plot_name<-file.path(root,'output_data/08_Peak_Analysis/mcfaddenrsquared.svg')
+svg(plot_name, width=6)  # Adjust width as needed
+
+
+# Okabe–Ito colorblind-friendly palette (no red or blue tones)
+group_colors <- c("#E69F00", "#009E73", "#F0E442", "#CC79A7")
+# orange, green, yellow, magenta
+
+ggplot(r2_df, aes(x = factor(Peak), y = R2, fill = Group)) +
+  geom_boxplot(outlier.alpha = 0.2, position = position_dodge(width = 0.9)) +
+  scale_fill_manual(values = group_colors) +
+  labs(
+    x = "Peak",
+    y = "McFadden's pseudo-R²"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid.major.y = element_blank(), # remove horizontal major grid lines
+    panel.grid.minor.y = element_blank(), # remove horizontal minor grid lines
+    plot.title = element_blank(),          # remove title
+    axis.ticks.y = element_line(color = "black") # keep y-axis ticks
+
+  )
+n<-dev.off()  # Close the SVG device
+knitr::include_graphics(plot_name)
+```
+
+```{r}
+data_name<-file.path(root,'output_data/08_Peak_Analysis/mcfaddenrsquared.dataset.Rdata')
+
+save(r2_df,file=data_name)
+```
+
+
+```{r,fig.width=12}
+plot_name<-file.path(root,'output_data/08_Peak_Analysis/mcfaddenrsquared.svg')
+svg(plot_name, width=12)  # Adjust width as needed
+
+
+# Okabe–Ito colorblind-friendly palette (no red or blue tones)
+group_colors <- c("#E69F00", "#009E73", "#F0E442", "#CC79A7")
+# orange, green, yellow, magenta
+
+ggplot(r2_df, aes(x = factor(Peak), y = R2, color = Group)) +
+  geom_jitter(width = 0.25, alpha = 0.6,size=4) +
+  scale_color_manual(values = group_colors) +
+  labs(
+    x = "Peak",
+    y = "McFadden's pseudo-R²"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid.major.x = element_blank(), # remove horizontal minor grid lines
+    panel.grid.minor.y = element_blank(),
+    axis.text.x = element_text(size=20),
+    axis.text.y = element_text(size=20),
+    axis.title.x = element_text(size=20),
+    axis.title.y = element_text(size=20),
+    plot.title = element_blank(),          # remove title
+    axis.ticks.y = element_line(color = "black") # keep y-axis ticks
+
+  )
+n<-dev.off()  # Close the SVG device
+knitr::include_graphics(plot_name)
+```
+

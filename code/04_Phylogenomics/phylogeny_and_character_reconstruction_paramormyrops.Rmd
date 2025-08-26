@@ -20,7 +20,7 @@ library(corHMM)
 
 arctree <- function(tree,arc_height){
 h<-max(nodeHeights(tree))
-plotTree(tree, ftype = "i", lwd = 1, fsize = 0.6, type = "arc",arc_height=arc_height,ylim=c(-0.1*h,1.1*(1+arc_height)*h), offset=4)
+plotTree(tree, ftype = "i", lwd = 1, fsize = 0.8, type = "arc",arc_height=arc_height,ylim=c(-0.1*h,1.1*(1+arc_height)*h), offset=4)
 labs<-seq(0,6,by=.5)
 a1<-axis(1,pos=-0.02*h,at=h-labs+arc_height*h,
   labels=labs,cex.axis=0.8,lwd=2,lend=2)
@@ -241,18 +241,51 @@ dd
 ```
 
 ```{r, fig.width=8}
+
+names<-c("P. hopkinsii","P. hopkinsii","P. spp. 'MAG'", "P. gabonensis","P. spp 'SZA'","P. spp. 'VAD'","P. parsegnis","P. notomtom","P. curvifrons", "P. longicaudatus","P. spp. SN2", "Balé","Iboundji","Mengono","Mouvanga","Bikagala","Bikagala","Bavavela","Douvalou","Douengi","Biroundou","Bengue","Bambomo","Apassa")
+names(newphenos)<-names
+ultrametric_rooted_tree$tip.label<-names
+
 plot_name<-file.path(root,'output_data/04_Phylogenomics/paramormyrops_character_map.svg')
-svg(plot_name, width=12)  # Adjust width as needed
+svg(plot_name, width=12, height=12)  # Adjust width as needed
 arctree(ultrametric_rooted_tree,0.4)
+arc.cladelabels(text="P. kingsleyae",node=findMRCA(ultrametric_rooted_tree,
+    c("Balé","Bambomo")),ln.offset=1.3,
+    lab.offset=1.4)
+arc.cladelabels(text="BP1",node=findMRCA(ultrametric_rooted_tree,
+    c("Bambomo","Apassa")),ln.offset=1.25,
+    lab.offset=1.3)
+arc.cladelabels(text="BP2",node=findMRCA(ultrametric_rooted_tree,
+    c("Bavavela","Bikagala")),ln.offset=1.25,
+    lab.offset=1.3)
+arc.cladelabels(text="BP3",node=findMRCA(ultrametric_rooted_tree,
+    c("Biroundou","Douengi")),ln.offset=1.25,
+    lab.offset=1.3)
+arc.cladelabels(text="BP4",node=findMRCA(ultrametric_rooted_tree,
+    c("Mengono","Iboundji")),ln.offset=1.25,
+    lab.offset=1.3)
 tiplabels(pie=to.matrix(newphenos[ultrametric_rooted_tree$tip.label], levels(newphenos)), piecol=cols, cex=0.3)
 nodelabels(node=1:ultrametric_rooted_tree$Nnode+Ntip(ultrametric_rooted_tree),
            pie=pd$ace,piecol=cols,cex=0.4)
 nodelabels(node=1:ultrametric_rooted_tree$Nnode+Ntip(ultrametric_rooted_tree),
            pie=pd$ace,piecol=cols,cex=0.4)
-nodelabels(text=ultrametric_rooted_tree$node.label, adj=c(-.25,.25),frame="none",cex=0.5)
+#nodelabels(text=ultrametric_rooted_tree$node.label, adj=c(-.25,.25),frame="none",cex=0.5)
 n<-dev.off()  # Close the SVG device
 knitr::include_graphics(plot_name)
 ```
+
+```{r}
+plotTree(tree,type="fan",fsize=0.8,xlim=c(-4.1,4.1))
+arc.cladelabels(text="clade C",node=which(tree$tip.label=="t8"),
+    orientation="horizontal",ln.offset=1.1,lab.offset=1.12)
+## with our other labels:
+arc.cladelabels(text="clade A",node=findMRCA(tree,
+    c("t63","t64","t47","t48","t43","t44")),ln.offset=1.1,
+    lab.offset=1.16)
+arc.cladelabels(text="clade B",node=findMRCA(tree,c("t46","t19")),
+    ln.offset=1.1,lab.offset=1.16)
+```
+
 
 ```{r}
 ggplot(concord_factors,aes(x=gCF,y=sCF))+

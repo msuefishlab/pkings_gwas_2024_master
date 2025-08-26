@@ -1,0 +1,266 @@
+---
+title: "Examination of Signatures of Introgression with TWISST"
+output: html_notebook
+params:
+  data_path: PKINGS_ALL_WOB_EXCLUDED
+  output_file: NULL
+  MAF_thresh: 0.15
+---
+# TWISST Data Demonstration
+
+## Setup the Notebook
+```{r setup}
+root <- rprojroot::find_root(".git/index")
+knitr::opts_knit$set(root.dir = root)
+require(yaml)
+require(tidyverse)
+require(stringr)
+require(GenomicRanges)
+require(rtracklayer)
+require(data.table)
+source(file.path(root,"code","06_Association","gemma_gwas_functions.R"))
+source(file.path(root, "code/10_TWISST/plot_twisst_ggplot.R"))
+source(file.path(root, "code/10_TWISST/plot_twisst.R"))
+library(BioMartGOGeneSets)
+library(RColorBrewer)
+library(gggenes)
+library(ggrepel)
+library(patchwork)    # for the / operator and plot_layout()
+library(ggplotify)    # for as.ggplot()
+```
+
+# Load Data
+```{r}
+gemma_file<-file.path(root,"output_data","06_Association",params$data_path,paste0(params$data_path,".lmm2.assoc.txt"))
+minpath<-file.path(root,"output_data","06_Association",params$data_path,paste0(params$data_path,"_permution"),"min.txt")
+```
+
+# Determine Thresholds for Significant and Suggestive SNPs
+```{r}
+pk.lmm<- gemma.order(gemma_file, "p_lrt")
+min_data<-read.csv(minpath,header=F,sep="\t")
+pvals<-sort(min_data$V10, decreasing = F)
+significant = -log10(pvals[length(pvals) - floor(length(pvals)*0.95)])
+suggestive = -log10(pvals[length(pvals) - floor(length(pvals)*0.67)])
+print(paste0("The threshold for signficant association is: ",significant))
+print(paste0("The threshold for suggestive association is: ",suggestive))
+```
+# Define Peaks
+```{r}
+#remove low log p to reduce memory footprint
+pk.lmm.filt <- pk.lmm %>% filter(log_p > 1) %>% filter(af > params$MAF_thresh) %>% filter((!grepl("ups", chr)) & !is.na(row) & !is.na(log_p)) %>% arrange(numeric_chr)
+
+pk.lmm.filt<- pk.lmm.filt %>% mutate(new_rs = str_split(rs, ":", simplify = TRUE)[, 1])
+
+
+#define peaks using an arbitrarily low threshold, merging windows within 75kb and removing singleton SNP peaks
+pk.lmm.peaks <- peak_list_permutation(pk.lmm.filt, "log_p",3, 4) 
+
+#define intervals where the peaks are, keeping information on length and mean/max p values
+pk.lmm.bed <- gemma.peak.bed(pk.lmm.peaks,suggestive)
+
+```
+
+# Refine Peaks
+```{r}
+#create a filtered bed file that has peaks only with snps above the threshold
+
+pk.lmm.bed.f <- pk.lmm.bed %>% 
+  filter(max.log_p > suggestive ) %>% 
+  filter(num.snps.above.threshold > 5 ) %>% 
+  ungroup() %>% 
+  arrange(numeric_chr, start) %>% #arrange by chr order
+  mutate(peak.original = peak, #new col for original peak name
+       peak.new = row_number(), #new names for peaks using row_number()
+       peak = peak.new) #reset original peak column to the renumbered version
+
+# Plot how many snps are in each peak
+ggplot(pk.lmm.bed.f,aes(x=num.snps)) + geom_histogram(bins=10) + scale_x_log10()
+```
+
+```{r}
+peak.name.simple <- pk.lmm.bed.f %>% dplyr::select(peak.new, peak.original)
+
+#create a SNP file that is only the peaks after filtering
+pk.lmm.peaks.out <- pk.lmm.peaks %>% 
+  filter(peak %in% pk.lmm.bed.f$peak.original)
+pk.lmm.peaks.out <- left_join(pk.lmm.peaks.out, peak.name.simple, by = c("peak" = "peak.original")) %>% 
+  dplyr::rename(peak.original = peak, peak= peak.new) %>% arrange(peak)
+
+#create a file that is only the top 250 SNPs per peak
+pk.lmm.peaks.slice <- pk.lmm.peaks.out %>% group_by(peak) %>% 
+  slice_max(log_p, n = 250) %>% 
+  dplyr::select(chr, ps, log_p, peak)
+
+pk.lmm.peaks.slice %>% group_by(peak) %>% 
+  summarise(n = n(),
+            min = min(log_p),
+            max = max(log_p))
+
+# write index SNPS
+index_snps <- pk.lmm.peaks.out %>%
+  group_by(peak) %>%
+  # Filter for rows with the maximum log_p value within each peak
+  filter(log_p == max(log_p)) %>%
+  # Sample one row randomly in case of ties
+  slice_sample(n = 1) %>%
+  ungroup() %>% # Remove the grouping structure
+  mutate(new_rs = str_split(rs, ":", simplify = TRUE)[, 1])
+
+```
+
+```{r}
+# 1. Grab & sort both file lists:
+topo_files <- sort(list.files(
+  path       = file.path(root, "output_data/10_TWISST"),
+pattern    = "_bp1_bp2_.*\\.topocounts\\.tsv\\.gz$",
+  full.names = TRUE
+))
+intv_files <- sort(list.files(
+  path       = file.path(root, "output_data/10_TWISST"),
+  pattern    = "_bp1_bp2_.*\\.intervals\\.tsv\\.gz$",
+  full.names = TRUE
+))
+
+stopifnot(length(topo_files) == length(intv_files))
+
+# 3. Run the importer
+chroms <- sub("^(chr[^_]+)_.*", "\\1",
+              basename(topo_files))
+
+bp1_bp2_twisst_data <- import.twisst(topocounts_files = topo_files,intervals_files = intv_files,names=chroms)
+```
+```{r}
+# 1. Grab & sort both file lists:
+topo_files <- sort(list.files(
+  path       = file.path(root, "output_data/10_TWISST"),
+pattern    = "_bp1_bpout_.*\\.topocounts\\.tsv\\.gz$",
+  full.names = TRUE
+))
+intv_files <- sort(list.files(
+  path       = file.path(root, "output_data/10_TWISST"),
+pattern    = "_bp1_bpout_.*\\.intervals\\.tsv\\.gz$",
+  full.names = TRUE
+))
+
+stopifnot(length(topo_files) == length(intv_files))
+
+# 3. Run the importer
+chroms <- sub("^(chr[^_]+)_.*", "\\1",
+              basename(topo_files))
+
+bp1_bp_out_twisst_data <- import.twisst(topocounts_files = topo_files,intervals_files = intv_files,names=chroms)
+```
+
+
+
+```{r}
+
+plot.twisst.summary(bp1_bp2_twisst_data, lwd=3, cex=0.7)
+
+```
+```{r}
+
+plot.twisst.summary(bp1_bp_out_twisst_data, lwd=3, cex=0.7)
+
+```
+
+```{r}
+dynamic_max <- quantile(pk.lmm.filt$log_p, 0.99999)
+
+peak_bounds <- pk.lmm.peaks.out %>%
+  group_by(peak) %>%
+  summarise(
+    xmin = min(ps)-10000,
+    xmax = max(ps)+10000,
+    ymin = 1,  # Lower limit for the rectangle
+    ymax = dynamic_max, # Upper limit (use dynamic_max for finite height in plots)
+    chr=unique(chr)
+  )
+
+```
+
+```{r, fig.width=8, fig.height=4}
+
+# A. Helper to melt one twisst dataset into long form
+melt_twisst <- function(twisst_data, peak_bounds, label, nsamp = 5000) {
+  # 1) wide table
+  dt_list <- lapply(names(twisst_data$interval_data), function(chr) {
+    iv <- twisst_data$interval_data[[chr]]
+    w  <- twisst_data$weights[[chr]]            # all topo columns
+    data.table(chr = chr, start = iv$start, end = iv$end, w)
+  })
+  dt <- rbindlist(dt_list)
+
+  # 2) tag peaks
+  peaks_dt <- copy(as.data.table(peak_bounds))
+  setnames(peaks_dt, c("xmin","xmax"), c("start","end"))
+  setkey(dt, chr, start, end)
+  setkey(peaks_dt, chr, start, end)
+  ov        <- foverlaps(dt, peaks_dt, nomatch=0L)
+  dt[, peak := NA_integer_]
+  dt[ov, peak := i.peak]
+  dt[, peak_label := fifelse(is.na(peak), "genome-wide", paste0("peak", peak))]
+
+  # 3) melt to long form
+  long_dt <- data.table::melt(
+    dt,
+    id.vars       = c("chr","start","end","peak_label"),
+    measure       = patterns("^topo"),
+    variable.name = "topology",
+    value.name    = "weight"
+  )
+
+  # 4) subsample genome
+  set.seed(1)
+  genome_sub <- long_dt[peak_label == "genome-wide"][sample(.N, min(.N, nsamp))]
+  plot_dt    <- rbind(genome_sub, long_dt[peak_label != "genome-wide"])
+
+  # 5) add a column marking which run this is
+  plot_dt[, comparison_set := label]
+
+  return(plot_dt)
+}
+
+# Build the two datasets
+dt_bp2   <- melt_twisst(bp1_bp2_twisst_data, peak_bounds, "BP1_vs_BP2")
+dt_ancestor <- melt_twisst(bp1_bp_out_twisst_data, peak_bounds, "BP1_vs_Ancestor")
+
+dt_bp2<-dt_bp2 %>% 
+   mutate(topology = fct_collapse(topology,
+                                     "No Introgression" = c("topo2", "topo3"),
+                                     "Introgression" = c("topo1")))
+
+dt_ancestor<-dt_ancestor %>% 
+   mutate(topology = fct_collapse(topology,
+                                     "No Introgression" = c("topo2", "topo3"),
+                                     "Introgression" = c("topo1")))
+
+# Stack them
+all_dt <- rbind(dt_bp2, dt_ancestor)
+
+# Now plot: facet by run, facet by topology
+ggplot(all_dt, aes(x = peak_label, y = weight, fill = topology)) +
+  geom_boxplot(width = 1, outlier.shape = NA, color = "gray30") +
+  facet_wrap(~ comparison_set, ncol = 7, scales = "fixed") +
+  scale_fill_manual(values = c(
+    "No Introgression"       = "grey",
+    "Introgression"       = "#7570b3"
+  )) +
+  labs(
+    x = NULL,
+    y = "Topology weight",
+    title = "Topology‐weight distributions across runs",
+    subtitle = "BP1–BP2 vs. BP1–Ancestor comparisons"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    axis.text.x     = element_text(angle = 45, hjust = 1)
+  )
+```
+
+
+
+
+

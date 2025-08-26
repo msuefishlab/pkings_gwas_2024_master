@@ -1,0 +1,180 @@
+---
+title: "EHH Analysis "
+output: html_notebook
+---
+
+```{r setup, include=FALSE}
+root<-rprojroot::find_root(".git/index")
+knitr::opts_knit$set(root.dir = root)
+require(tidyverse)
+require(rehh)
+```
+
+```{r}
+get_pos <- function(hh){
+  if (!is.null(hh@positions)) return(hh@positions)
+  if (!is.null(hh@position))  return(hh@position)
+  stop("No positions/position slot found on haplohh.")
+}
+
+nearest_idx <- function(hh, pos) {
+  pos_vec <- as.numeric(get_pos(hh))
+  keep <- seq_along(pos_vec)
+  keep[ which.min(abs(pos_vec[keep] - pos)) ]
+}
+
+load_hh_vcf <- function(pop, chr.name, min.maf = 0.05){
+  file <- file.path(root, "output_data/12_Sweep_Detection/by_chrom",
+                    paste0(pop, ".polarized.", chr.name, ".vcf.gz"))
+  hh <- data2haplohh(hap_file = file, polarize_vcf = TRUE, chr.name = chr.name)
+  subset(hh, min_maf = min.maf)
+}
+
+nearest_ihs_row <- function(ihs_tab, pos){
+  ihs_tab[ which.min(abs(ihs_tab$POSITION - pos)), , drop=FALSE]
+}
+
+scan_wrap <- function(hh) {
+  scan_hh(hh, polarized = TRUE, discard_integration_at_border = TRUE)
+}
+
+# Safe, version-agnostic grab of EHHS table from calc_ehhs() result
+.as_ehhs_long <- function(ehhs_obj, pop_label){
+  # try common places/names
+  df <- tryCatch(as_tibble(ehhs_obj$ehhs), error = function(e) NULL)
+  if (is.null(df)) df <- tryCatch(as_tibble(ehhs_obj$EHH), error = function(e) NULL)
+  if (is.null(df)) return(tibble(POSITION = numeric(), metric = character(), value = numeric(),
+                                 POP = character()))
+  # find position column
+  pos_col <- dplyr::first(intersect(c("POSITION","position","POS","pos"), names(df)))
+  if (is.na(pos_col)) stop("Could not find POSITION column in EHHS object.")
+  # pick EHHS-like columns
+  val_cols <- grep("EHH", names(df), value = TRUE)
+  if (length(val_cols) == 0) {
+    # fallback: assume all non-position numeric cols are values
+    val_cols <- names(df)[sapply(df, is.numeric) & names(df) != pos_col]
+  }
+  df %>%
+    select(all_of(c(pos_col, val_cols))) %>%
+    rename(POSITION = !!pos_col) %>%
+    pivot_longer(cols = all_of(val_cols), names_to = "metric", values_to = "value") %>%
+    mutate(POP = pop_label)
+}
+
+# Robust extractor for a single value column from rsb/xpe tables
+.extract_metric <- function(tab, chrom, rng, prefix){
+  df <- as_tibble(tab)
+  # find CHR/POSITION columns
+  chr_col <- dplyr::first(intersect(c("CHR","chr","CHROM","chrom"), names(df)))
+  pos_col <- dplyr::first(intersect(c("POSITION","position","POS","pos"), names(df)))
+  if (is.na(chr_col) || is.na(pos_col)) stop("Could not find CHR/POSITION in table.")
+  # metric column (e.g., "RSB_BP1_TP1" or "XPEHH_BP1_TP1")
+  metric_col <- dplyr::first(grep(paste0("^", prefix), names(df), value = TRUE))
+  if (is.na(metric_col)) stop("Could not find metric column starting with: ", prefix)
+  df %>%
+    filter(.data[[chr_col]] == chrom,
+           dplyr::between(.data[[pos_col]], rng[1], rng[2])) %>%
+    transmute(CHR = .data[[chr_col]],
+              POSITION = .data[[pos_col]],
+              value = .data[[metric_col]])
+}
+
+source(file.path(root,"code/12_Sweep_Detection/analyze_peak_pair.R"))
+```
+
+```{r}
+# peak1.TP1<-load_hh_vcf("TP1","chr6",0.05)
+# peak4.TP1<-load_hh_vcf("TP1","chr16",0.05)
+# peak5.TP1<-load_hh_vcf("TP1","chr17",0.05)
+# 
+# peak2.TP2<-load_hh_vcf("TP2","chr8",0.05)
+# peak3.TP2<-load_hh_vcf("TP2","chr13",0.05)
+# peak6.TP2<-load_hh_vcf("TP2","chr24",0.05)
+# 
+# peak1.BP1<-load_hh_vcf("BP1","chr6",0.05)
+# peak4.BP1<-load_hh_vcf("BP1","chr16",0.05)
+# peak5.BP1<-load_hh_vcf("BP1","chr17",0.05)
+# 
+# peak2.BP2<-load_hh_vcf("BP2","chr8",0.05)
+# peak3.BP2<-load_hh_vcf("BP2","chr13",0.05)
+# peak6.BP2<-load_hh_vcf("BP2","chr24",0.05)
+# 
+# peak2.BP3<-load_hh_vcf("BP3","chr8",0.05)
+# peak3.BP3<-load_hh_vcf("BP3","chr13",0.05)
+# peak6.BP3<-load_hh_vcf("BP3","chr24",0.05)
+
+load("~/Desktop/hh_by_peak_by_chr.RData")
+
+```
+
+```{r}
+peaks.file<-file.path(root,"output_data/06_Association/PKINGS_ALL_WOB_EXCLUDED/PKINGS_ALL_WOB_EXCLUDED_PEAKS.bed")
+peaks.bed<-read.table(peaks.file)
+names(peaks.bed)<-c("chrom","start","end","peak","idx_p","idx_bp")
+peaks.bed$chrom<-paste0("chr",peaks.bed$chrom)
+peaks.bed<-peaks.bed[order(peaks.bed$peak),]
+```
+
+```{r, fig.width=12}
+peak_info<-peaks.bed[peaks.bed$peak==1,]
+peak1_bp1_tp1_res<-analyze_peak_tang(peak1.BP1, peak1.TP1, peak_info, labels = c("BP1", "TP1"), win = 2.5e5)
+```
+
+```{r, fig.width=12}
+plot_peak_tang(peak1_bp1_tp1_res)
+```
+
+```{r}
+peak_info<-peaks.bed[peaks.bed$peak==2,]
+peak2_bp2_tp2_res<-analyze_peak_pair(peak2.BP2, peak2.TP2, peak_info, labels = c("BP2", "TP2"), win = 5e5)
+peak2_bp3_tp2_res<-analyze_peak_pair(peak2.BP3, peak2.TP2, peak_info, labels = c("BP3", "TP2"), win = 5e5)
+
+```
+
+```{r, fig.height=12}
+plot_peak_summary(peak2_bp2_tp2_res)
+plot_peak_summary(peak2_bp3_tp2_res)
+```
+
+```{r}
+peak_info<-peaks.bed[peaks.bed$peak==3,]
+peak3_bp2_tp2_res<-analyze_peak_pair(peak3.BP2, peak3.TP2, peak_info, labels = c("BP2", "TP2"), win = 5e5)
+peak3_bp3_tp2_res<-analyze_peak_pair(peak3.BP3, peak3.TP2, peak_info, labels = c("BP3", "TP2"), win = 5e5)
+```
+
+```{r, fig.height=12}
+plot_peak_summary(peak3_bp2_tp2_res)
+plot_peak_summary(peak3_bp3_tp2_res)
+```
+
+```{r}
+peak_info<-peaks.bed[peaks.bed$peak==4,]
+peak4_bp1_tp1_res<-analyze_peak_pair(peak4.BP1, peak4.TP1, peak_info, labels = c("BP1", "TP1"), win = 5e5)
+```
+
+
+```{r, fig.height=12}
+plot_peak_summary(peak4_bp1_tp1_res)
+```
+```{r}
+peak_info<-peaks.bed[peaks.bed$peak==5,]
+peak5_bp1_tp1_res<-analyze_peak_pair(peak5.BP1, peak5.TP1, peak_info, labels = c("BP1", "TP1"), win = 5e5)
+```
+
+```{r, fig.height=12}
+plot_peak_summary(peak5_bp1_tp1_res)
+```
+
+```{r}
+peak_info<-peaks.bed[peaks.bed$peak==6,]
+peak6_bp2_tp2_res<-analyze_peak_pair(peak6.BP2, peak6.TP2, peak_info, labels = c("BP2", "TP2"), win = 5e5)
+peak6_bp3_tp2_res<-analyze_peak_pair(peak6.BP3, peak6.TP2, peak_info, labels = c("BP3", "TP2"), win = 5e5)
+```
+
+
+```{r, fig.width=12}
+plot_peak_summary(peak6_bp2_tp2_res)
+plot_peak_summary(peak6_bp3_tp2_res)
+```
+
+

@@ -3,3 +3,4 @@
 input_data/00_Reference_Genome/*
 *.html
 images/*.sif
+private_data/*

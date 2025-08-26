@@ -1,0 +1,817 @@
+---
+title: "Examination of Signatures of Introgression with TWISST"
+output: html_notebook
+params:
+  data_path: APA_BEN_BAM_TP1_BP2_WOB9
+  output_file: NULL
+  MAF_thresh: 0.15
+---
+# TWISST Data Demonstration
+
+## Setup the Notebook
+```{r setup}
+root <- rprojroot::find_root(".git/index")
+knitr::opts_knit$set(root.dir = root)
+require(yaml)
+require(tidyverse)
+require(stringr)
+require(GenomicRanges)
+require(rtracklayer)
+require(data.table)
+source(file.path(root,"code","06_Association","gemma_gwas_functions.R"))
+source(file.path(root, "code/10_TWISST/plot_twisst_ggplot.R"))
+source(file.path(root, "code/10_TWISST/plot_twisst.R"))
+library(BioMartGOGeneSets)
+library(RColorBrewer)
+library(gggenes)
+library(ggrepel)
+library(patchwork)    # for the / operator and plot_layout()
+library(ggplotify)    # for as.ggplot()
+```
+
+# Load Data
+```{r}
+gemma_file<-file.path(root,"output_data","06_Association",params$data_path,paste0(params$data_path,".lmm2.assoc.txt"))
+minpath<-file.path(root,"output_data","06_Association",params$data_path,paste0(params$data_path,"_permution"),"min.txt")
+```
+
+# Determine Thresholds for Significant and Suggestive SNPs
+```{r}
+pk.lmm<- gemma.order(gemma_file, "p_lrt")
+min_data<-read.csv(minpath,header=F,sep="\t")
+pvals<-sort(min_data$V10, decreasing = F)
+significant = -log10(pvals[length(pvals) - floor(length(pvals)*0.95)])
+suggestive = -log10(pvals[length(pvals) - floor(length(pvals)*0.67)])
+print(paste0("The threshold for signficant association is: ",significant))
+print(paste0("The threshold for suggestive association is: ",suggestive))
+```
+# Define Peaks
+```{r}
+#remove low log p to reduce memory footprint
+pk.lmm.filt <- pk.lmm %>% filter(log_p > 1) %>% filter(af > params$MAF_thresh) %>% filter((!grepl("ups", chr)) & !is.na(row) & !is.na(log_p)) %>% arrange(numeric_chr)
+
+pk.lmm.filt<- pk.lmm.filt %>% mutate(new_rs = str_split(rs, ":", simplify = TRUE)[, 1])
+
+
+#define peaks using an arbitrarily low threshold, merging windows within 75kb and removing singleton SNP peaks
+pk.lmm.peaks <- peak_list_permutation(pk.lmm.filt, "log_p",3, 4) 
+
+#define intervals where the peaks are, keeping information on length and mean/max p values
+pk.lmm.bed <- gemma.peak.bed(pk.lmm.peaks,suggestive)
+
+```
+
+# Refine Peaks
+```{r}
+#create a filtered bed file that has peaks only with snps above the threshold
+
+pk.lmm.bed.f <- pk.lmm.bed %>% 
+  filter(max.log_p > suggestive ) %>% 
+  filter(num.snps.above.threshold > 15 ) %>% 
+  ungroup() %>% 
+  arrange(numeric_chr, start) %>% #arrange by chr order
+  mutate(peak.original = peak, #new col for original peak name
+       peak.new = row_number(), #new names for peaks using row_number()
+       peak = peak.new) #reset original peak column to the renumbered version
+
+# Plot how many snps are in each peak
+ggplot(pk.lmm.bed.f,aes(x=num.snps)) + geom_histogram(bins=10) + scale_x_log10()
+```
+
+```{r}
+peak.name.simple <- pk.lmm.bed.f %>% dplyr::select(peak.new, peak.original)
+
+#create a SNP file that is only the peaks after filtering
+pk.lmm.peaks.out <- pk.lmm.peaks %>% 
+  filter(peak %in% pk.lmm.bed.f$peak.original)
+pk.lmm.peaks.out <- left_join(pk.lmm.peaks.out, peak.name.simple, by = c("peak" = "peak.original")) %>% 
+  dplyr::rename(peak.original = peak, peak= peak.new) %>% arrange(peak)
+
+#create a file that is only the top 250 SNPs per peak
+pk.lmm.peaks.slice <- pk.lmm.peaks.out %>% group_by(peak) %>% 
+  slice_max(log_p, n = 250) %>% 
+  dplyr::select(chr, ps, log_p, peak)
+
+pk.lmm.peaks.slice %>% group_by(peak) %>% 
+  summarise(n = n(),
+            min = min(log_p),
+            max = max(log_p))
+
+# write index SNPS
+index_snps <- pk.lmm.peaks.out %>%
+  group_by(peak) %>%
+  # Filter for rows with the maximum log_p value within each peak
+  filter(log_p == max(log_p)) %>%
+  # Sample one row randomly in case of ties
+  slice_sample(n = 1) %>%
+  ungroup() %>% # Remove the grouping structure
+  mutate(new_rs = str_split(rs, ":", simplify = TRUE)[, 1])
+
+```
+
+```{r}
+# 1. Grab & sort both file lists:
+topo_files <- sort(list.files(
+  path       = file.path(root, "output_data/10_TWISST"),
+pattern    = "_bp1_bp2_.*\\.topocounts\\.tsv\\.gz$",
+  full.names = TRUE
+))
+intv_files <- sort(list.files(
+  path       = file.path(root, "output_data/10_TWISST"),
+  pattern    = "_bp1_bp2_.*\\.intervals\\.tsv\\.gz$",
+  full.names = TRUE
+))
+
+stopifnot(length(topo_files) == length(intv_files))
+
+# 3. Run the importer
+chroms <- sub("^(chr[^_]+)_.*", "\\1",
+              basename(topo_files))
+
+bp1_bp2_twisst_data <- import.twisst(topocounts_files = topo_files,intervals_files = intv_files,names=chroms)
+```
+```{r}
+# 1. Grab & sort both file lists:
+topo_files <- sort(list.files(
+  path       = file.path(root, "output_data/10_TWISST"),
+pattern    = "_bp1_bpout_.*\\.topocounts\\.tsv\\.gz$",
+  full.names = TRUE
+))
+intv_files <- sort(list.files(
+  path       = file.path(root, "output_data/10_TWISST"),
+pattern    = "_bp1_bpout_.*\\.intervals\\.tsv\\.gz$",
+  full.names = TRUE
+))
+
+stopifnot(length(topo_files) == length(intv_files))
+
+# 3. Run the importer
+chroms <- sub("^(chr[^_]+)_.*", "\\1",
+              basename(topo_files))
+
+bp1_bp_out_twisst_data <- import.twisst(topocounts_files = topo_files,intervals_files = intv_files,names=chroms)
+```
+
+
+
+```{r}
+
+plot.twisst.summary(bp1_bp2_twisst_data, lwd=3, cex=0.7)
+
+```
+```{r}
+
+plot.twisst.summary(bp1_bp_out_twisst_data, lwd=3, cex=0.7)
+
+```
+
+
+```{r}
+#plot.twisst.gg(bp1_bp2_twisst_data,'chr5',c(5.72, 5.82))
+plot.twisst.gg(bp1_bp2_twisst_data,'chr5',c(5.72e6, 5.82e6))
+```
+```{r}
+plot.twisst.gg(bp1_bp_out_twisst_data,'chr5',c(5.72e6, 5.82e6))
+```
+
+
+```{r}
+dynamic_max <- quantile(pk.lmm.filt$log_p, 0.99999)
+
+peak_bounds <- pk.lmm.peaks.out %>%
+  group_by(peak) %>%
+  summarise(
+    xmin = min(ps)-10000,
+    xmax = max(ps)+10000,
+    ymin = 1,  # Lower limit for the rectangle
+    ymax = dynamic_max, # Upper limit (use dynamic_max for finite height in plots)
+    chr=unique(chr)
+  )
+
+```
+
+
+
+
+### Load SNP Data
+```{r}
+anno_file<-file.path(root,"input_data","00_Reference_Genome","jordan-mic4273-mb-hirise-20xx3__06-13-2024__final_assembly.ensembl.liftoff.renamed.genes_only.gff")
+ldpath<-file.path(root,"output_data","06_Association",params$data_path,paste0(params$data_path,"_index_snps.ld.ld"))
+peak_data_path<-file.path(root,"output_data","06_Association",params$data_path)
+
+
+# now read the ld data
+ld_data<-fread(ldpath)
+
+#Merge the LD Data and the Association Data
+gwas_ld_data<-left_join(pk.lmm.filt,ld_data,by=c("new_rs"="SNP_B"))
+
+# Get the Data inside the Peaks
+pk.lmm.peaks.out<-read.table(file.path(peak_data_path,paste0(params$data_path,"_SNPS_IN_PEAKS.txt")),header=T)
+pk.lmm.peaks.out$rs<-str_split(pk.lmm.peaks.out$rs,":",simplify=TRUE)[,1]
+
+
+## Identify the "Index" SNPS (SNP with Highest P-value with associated R^2 Value)
+# Function to get index SNPs with >1 R² value
+get_index_snps <- function(peaks_data, ld_data) {
+  peaks_data %>%
+    group_by(peak) %>%
+    arrange(desc(log_p)) %>%  # Order by descending log_p within each peak
+    mutate(has_ld = map_lgl(rs, ~ {
+      # Check if the SNP has >1 associated SNP in ld_data with R^2 values
+      snp_data <- ld_data %>% filter(SNP_B == .x)
+      nrow(snp_data) > 1
+    })) %>%
+    filter(has_ld) %>%        # Keep only rows where SNP has associated R^2 values
+    slice_head(n = 1) %>%     # Take the first valid SNP per peak
+    ungroup()
+}
+
+# Call the function to identify valid index SNPs
+index_snps <- get_index_snps(pk.lmm.peaks.out, ld_data)
+
+# Simplify the output
+index_snps_simp <- index_snps[, c(16, 2, 1, 3, 10)]
+colnames(index_snps_simp) <- c("PEAK", "SNP_A", "CHR_A", "BP_A", "p_lrt")
+
+# Define Windows for Display / Analysis
+index_snps_simp$maximum <- index_snps_simp$BP_A + 50000
+index_snps_simp$minimum <- index_snps_simp$BP_A - 50000
+
+# One of the SNPs is near an assembly gap, so let's manually adjust that window to see it.
+index_snps_simp <- index_snps_simp %>%
+  mutate(
+    maximum = ifelse(SNP_A == "chr8_15781018_T_A", 16.1e6, maximum),
+    minimum = ifelse(SNP_A == "chr8_15781018_T_A", 15.65e6, minimum)
+  )
+
+index_snps_simp <- index_snps_simp %>%
+  mutate(
+    minimum = ifelse(SNP_A == "chr16_10915940_C_A", 10.84e6, minimum),
+    maximum = ifelse(SNP_A == "chr16_10915940_C_A", 11.04e6, maximum)
+  )
+
+#Keep LD Values only associated with the index SNP
+gwas_and_ld_data_only<-left_join(index_snps_simp[,1:2],gwas_ld_data, by=("SNP_A"="SNP_A"))
+
+gwas_and_ld_data_only_new <- map(1:nrow(index_snps_simp), function(i) {
+  # Identify the boundaries
+  left_bound  <- index_snps_simp$minimum[i]
+  right_bound <- index_snps_simp$maximum[i]
+  
+  # Filter pk.lmm by chromosome and position within the window
+  gwas_and_ld_data_only %>%
+    filter(
+      chr == index_snps_simp$CHR_A[i],
+      ps >= left_bound,
+      ps <= right_bound
+    ) 
+})
+
+pk.lmm.filt_new<-map(1:nrow(index_snps_simp), function(i) {
+  # Identify the boundaries
+  left_bound  <- index_snps_simp$minimum[i]
+  right_bound <- index_snps_simp$maximum[i]
+  
+  # Filter pk.lmm by chromosome and position within the window
+  pk.lmm.filt %>%
+    filter(
+      chr == index_snps_simp$CHR_A[i],
+      ps >= left_bound,
+      ps <= right_bound
+    ) %>% mutate(
+      PEAK=index_snps_simp$PEAK[i]
+    )
+})
+
+gwas_and_ld_data_only_new <- bind_rows(gwas_and_ld_data_only_new)
+
+pk.lmm.filt_new <-bind_rows(pk.lmm.filt_new)
+
+annotations<-import(anno_file)
+
+#Define a GRANGES to intersect with the annotations data
+snp_gr <- GRanges(
+  seqnames = index_snps_simp$CHR_A,
+  ranges = IRanges(start = index_snps_simp$minimum, end = index_snps_simp$maximum),
+)
+
+mcols(snp_gr)$PEAK <- index_snps_simp$PEAK
+
+# Perform the overlap
+overlaps <- findOverlaps(snp_gr, annotations, ignore.strand = TRUE)
+
+# Create a mapping table from overlaps
+overlap_mapping <- data.frame(
+  peak_index = queryHits(overlaps),
+  annotation_index = subjectHits(overlaps)
+)
+
+overlap_mapping$PEAK <- mcols(snp_gr)$PEAK[overlap_mapping$peak_index]
+
+# Convert annotations to a dataframe
+overlapping_annotations_df <- as.data.frame(annotations)
+
+# Ensure there's a unique identifier for each annotation
+overlapping_annotations_df$unique_id <- seq_len(nrow(overlapping_annotations_df))
+
+# Filter overlap_mapping to include only unique annotation indices
+overlap_mapping_unique <- overlap_mapping[!duplicated(overlap_mapping$annotation_index), ]
+
+# Merge SNP_A into overlapping_annotations_df
+overlapping_annotations_df <- merge(overlapping_annotations_df, overlap_mapping_unique, by.x = "unique_id", by.y = "annotation_index", all.x = TRUE)
+overlapping_annotations_df<-subset(overlapping_annotations_df,!is.na(PEAK))
+
+gr=getBioMartGenes("pkingsleyae_gene_ensembl")
+
+anno_meta<-as.data.frame(gr)[6:9]
+
+overlapping_annotations_df<-left_join(overlapping_annotations_df,anno_meta,by=c("gene_id"="ensembl_gene_id"))
+
+```
+
+```{r,fig.width=24, fig.height=12}
+colnames(overlapping_annotations_df)[colnames(overlapping_annotations_df) == "peak"] <- "PEAK"
+maxp<-max(-log10(pk.lmm.filt_new$p_lrt))
+
+# Replace NA values in `external_gene_name` with `gene_id`
+overlapping_annotations_df <- overlapping_annotations_df %>%
+  mutate(label_name = ifelse(is.na(external_gene_name), gene_id, external_gene_name)) %>%
+  mutate(label_direction = ifelse(row_number() %% 2 == 0, "up", "down"))  # Alternate "up" and "down"
+
+peaks_per_plot <- 4
+
+# Extract unique peaks and split into groups
+  ordered_levels <- index_snps_simp$PEAK[order(index_snps_simp$p_lrt)]
+  index_snps_simp$PEAK <- factor(index_snps_simp$PEAK, levels = unique(ordered_levels))
+  peak_levels <- levels(index_snps_simp$PEAK)
+  peak_levels <- paste0("peak",peak_levels)
+  peak_groups <- split(peak_levels, ceiling(seq_along(peak_levels) / peaks_per_plot))
+  
+snp_plot_list <- list()  # Initialize an empty list to store plots
+
+
+for (group in peak_groups) {
+  
+  peak.pk.lmm_group <- pk.lmm.filt_new %>% filter(paste0("peak",PEAK) %in% group)
+  peak.gwas_ld_data_group <- gwas_and_ld_data_only_new %>% filter(paste0("peak",PEAK) %in% group)
+  overlapping_annotations_df_group <- overlapping_annotations_df %>% filter(paste0("peak",PEAK) %in% group)
+  
+  overlapping_annotations_df_group <- overlapping_annotations_df_group %>%
+  mutate(
+    forward = case_when(
+      strand == "+" ~ TRUE,
+      strand == "-" ~ FALSE,
+      TRUE          ~ NA
+    )
+  ) %>%
+  mutate(
+    ypos = case_when(
+      strand == "+" ~ (maxp + 3),  # shift slightly upward
+      strand == "-" ~ (maxp + 1),  # shift slightly downward
+      TRUE          ~ (maxp + 3)         # in case of '*'
+    )
+  )
+  
+  peaks <- unique(pk.lmm.filt_new$PEAK)
+  
+  combo_list <- map(peaks, function(p) {
+    
+  limz<-index_snps_simp %>% filter(PEAK==p)
+    
+  splot <- ggplot() +
+    geom_point(data = filter(peak.pk.lmm_group,PEAK==p), mapping = aes(x = ps / 1e6, y = -log10(p_lrt)), color = "grey") +
+    geom_point(data = filter(peak.gwas_ld_data_group,PEAK==p), mapping = aes(x = BP_B / 1e6, y = -log10(p_lrt), color = R2)) +
+  scale_color_gradientn(
+      colours = rev(brewer.pal(9, "RdYlBu")),  # Reverse the palette for intuitive hot-to-cold mapping
+      name = expression(R^2)                  # Label the legend for R²
+    ) +
+    scale_x_continuous(expand = c(0.01, 0), name = "Chromosome Position (Mb)",  breaks = scales::breaks_extended(n = 4),   limits=c(limz$minimum/1e6,limz$maximum/1e6)) +
+    geom_hline(yintercept = significant, linetype = "dashed", color = "red", size = 0.5) +
+    geom_hline(yintercept = suggestive, linetype = "dashed", color = "blue", size = 0.5) +
+    geom_gene_arrow(data = overlapping_annotations_df_group %>% filter(PEAK==p) , 
+                    mapping = aes(xmin = start / 1e6, xmax = end / 1e6, y = ypos,forward = forward),
+                    fill = "darkgreen",
+                    alpha=0.4,
+                    show.legend = FALSE) +
+    # Upward-moving labels
+  geom_text_repel(
+    data = overlapping_annotations_df_group %>% filter(label_direction == "up") %>% filter(PEAK==p),
+    aes(x = (start / 1e6 + end / 1e6) / 2, y = ypos, label = label_name),
+    nudge_y = 1,  # Move upward
+    inherit.aes = FALSE,
+    arrow = arrow(length = unit(0.1, "cm")),
+    segment.color = "black",
+    size = 5,
+    force = 2,
+    max.overlaps = Inf,
+    box.padding = 0.6,
+    point.padding = 0.3
+  ) +
+  # Downward-moving labels
+  geom_text_repel(
+    data = overlapping_annotations_df_group %>% filter(label_direction == "down") %>% filter(PEAK==p),
+    aes(x = (start / 1e6 + end / 1e6) / 2, y = ypos-1, label = label_name),
+    nudge_y = -1,  # Move downward
+    inherit.aes = FALSE,
+    arrow = arrow(length = unit(0.1, "cm")),
+    segment.color = "black",
+    size = 5,
+    force = 2,
+    max.overlaps = Inf,
+    box.padding = 0.5,
+    point.padding = 0.3
+  )+
+    theme_minimal() +
+    theme(
+      strip.background = element_blank(), 
+            #strip.text = element_blank(),
+      panel.grid.major.x = element_blank(),
+      panel.grid.minor.x = element_blank(),
+      panel.grid.minor.y = element_blank(),
+      axis.line.x = element_line(color = "black", size = 0.5),
+      axis.ticks.x = element_line(color = "black", size = 0.5),
+      #axis.text.x = element_text(size = rel(2), family = "Arial", angle = 90, hjust = 1),
+      axis.text.y = element_text(size = rel(2), family = "Arial", angle = 0, hjust = 1),
+      #axis.title.x = element_text(size = rel(2), family = "Arial", margin = margin(t = 20)),
+      axis.title.y = element_text(size = rel(2), family = "Arial", margin = margin(r = 20)),
+      # turn off the x‐axis on the top plot
+      axis.title.x = element_blank(),
+      axis.text.x  = element_blank(),
+      legend.position = "right",
+      legend.text = element_text(size=rel(1.2), family = "Arial"),
+      panel.spacing = unit(2, "lines")
+    ) +
+    labs(y = expression("-log"[10] * " p-value"))
+    
+  
+    # twist_plot<-plot.twisst.gg.topo.subset(bp1_bp2_twisst_data,
+    #                            as.character(first(filter(peak.gwas_ld_data_group,PEAK==p)$chr)),
+    #                            c(limz$minimum, limz$maximum),'topo1')
+    
+    twist_plot<-plot.twisst.gg(bp1_bp_out_twisst_data,
+                               as.character(first(filter(peak.gwas_ld_data_group,PEAK==p)$chr)),
+                               c(limz$minimum, limz$maximum), smoothed = TRUE)
+  
+   splot / twist_plot + plot_layout(heights = c(1, 1)) 
+  
+  })
+  
+  # Add the plot to the list
+  combined<-wrap_plots(combo_list,ncol=4)
+  
+}
+
+suppressWarnings(print(combined))
+
+```
+
+```{r,fig.width=24, fig.height=12}
+colnames(overlapping_annotations_df)[colnames(overlapping_annotations_df) == "peak"] <- "PEAK"
+maxp<-max(-log10(pk.lmm.filt_new$p_lrt))
+
+# Replace NA values in `external_gene_name` with `gene_id`
+overlapping_annotations_df <- overlapping_annotations_df %>%
+  mutate(label_name = ifelse(is.na(external_gene_name), gene_id, external_gene_name)) %>%
+  mutate(label_direction = ifelse(row_number() %% 2 == 0, "up", "down"))  # Alternate "up" and "down"
+
+peaks_per_plot <- 4
+
+# Extract unique peaks and split into groups
+  ordered_levels <- index_snps_simp$PEAK[order(index_snps_simp$p_lrt)]
+  index_snps_simp$PEAK <- factor(index_snps_simp$PEAK, levels = unique(ordered_levels))
+  peak_levels <- levels(index_snps_simp$PEAK)
+  peak_levels <- paste0("peak",peak_levels)
+  peak_groups <- split(peak_levels, ceiling(seq_along(peak_levels) / peaks_per_plot))
+  
+snp_plot_list <- list()  # Initialize an empty list to store plots
+
+
+for (group in peak_groups) {
+  
+  peak.pk.lmm_group <- pk.lmm.filt_new %>% filter(paste0("peak",PEAK) %in% group)
+  peak.gwas_ld_data_group <- gwas_and_ld_data_only_new %>% filter(paste0("peak",PEAK) %in% group)
+  overlapping_annotations_df_group <- overlapping_annotations_df %>% filter(paste0("peak",PEAK) %in% group)
+  
+  overlapping_annotations_df_group <- overlapping_annotations_df_group %>%
+  mutate(
+    forward = case_when(
+      strand == "+" ~ TRUE,
+      strand == "-" ~ FALSE,
+      TRUE          ~ NA
+    )
+  ) %>%
+  mutate(
+    ypos = case_when(
+      strand == "+" ~ (maxp + 3),  # shift slightly upward
+      strand == "-" ~ (maxp + 1),  # shift slightly downward
+      TRUE          ~ (maxp + 3)         # in case of '*'
+    )
+  )
+  
+  peaks <- unique(pk.lmm.filt_new$PEAK)
+  
+  combo_list <- map(peaks, function(p) {
+    
+  limz<-index_snps_simp %>% filter(PEAK==p)
+    
+  splot <- ggplot() +
+    geom_point(data = filter(peak.pk.lmm_group,PEAK==p), mapping = aes(x = ps / 1e6, y = -log10(p_lrt)), color = "grey") +
+    geom_point(data = filter(peak.gwas_ld_data_group,PEAK==p), mapping = aes(x = BP_B / 1e6, y = -log10(p_lrt), color = R2)) +
+  scale_color_gradientn(
+      colours = rev(brewer.pal(9, "RdYlBu")),  # Reverse the palette for intuitive hot-to-cold mapping
+      name = expression(R^2)                  # Label the legend for R²
+    ) +
+    scale_x_continuous(expand = c(0.01, 0), name = "Chromosome Position (Mb)",  breaks = scales::breaks_extended(n = 4),   limits=c(limz$minimum/1e6,limz$maximum/1e6)) +
+    geom_hline(yintercept = significant, linetype = "dashed", color = "red", size = 0.5) +
+    geom_hline(yintercept = suggestive, linetype = "dashed", color = "blue", size = 0.5) +
+    geom_gene_arrow(data = overlapping_annotations_df_group %>% filter(PEAK==p) , 
+                    mapping = aes(xmin = start / 1e6, xmax = end / 1e6, y = ypos,forward = forward),
+                    fill = "darkgreen",
+                    alpha=0.4,
+                    show.legend = FALSE) +
+    # Upward-moving labels
+  geom_text_repel(
+    data = overlapping_annotations_df_group %>% filter(label_direction == "up") %>% filter(PEAK==p),
+    aes(x = (start / 1e6 + end / 1e6) / 2, y = ypos, label = label_name),
+    nudge_y = 1,  # Move upward
+    inherit.aes = FALSE,
+    arrow = arrow(length = unit(0.1, "cm")),
+    segment.color = "black",
+    size = 5,
+    force = 2,
+    max.overlaps = Inf,
+    box.padding = 0.6,
+    point.padding = 0.3
+  ) +
+  # Downward-moving labels
+  geom_text_repel(
+    data = overlapping_annotations_df_group %>% filter(label_direction == "down") %>% filter(PEAK==p),
+    aes(x = (start / 1e6 + end / 1e6) / 2, y = ypos-1, label = label_name),
+    nudge_y = -1,  # Move downward
+    inherit.aes = FALSE,
+    arrow = arrow(length = unit(0.1, "cm")),
+    segment.color = "black",
+    size = 5,
+    force = 2,
+    max.overlaps = Inf,
+    box.padding = 0.5,
+    point.padding = 0.3
+  )+
+    theme_minimal() +
+    theme(
+      strip.background = element_blank(), 
+            #strip.text = element_blank(),
+      panel.grid.major.x = element_blank(),
+      panel.grid.minor.x = element_blank(),
+      panel.grid.minor.y = element_blank(),
+      axis.line.x = element_line(color = "black", size = 0.5),
+      axis.ticks.x = element_line(color = "black", size = 0.5),
+      #axis.text.x = element_text(size = rel(2), family = "Arial", angle = 90, hjust = 1),
+      axis.text.y = element_text(size = rel(2), family = "Arial", angle = 0, hjust = 1),
+      #axis.title.x = element_text(size = rel(2), family = "Arial", margin = margin(t = 20)),
+      axis.title.y = element_text(size = rel(2), family = "Arial", margin = margin(r = 20)),
+      # turn off the x‐axis on the top plot
+      axis.title.x = element_blank(),
+      axis.text.x  = element_blank(),
+      legend.position = "right",
+      legend.text = element_text(size=rel(1.2), family = "Arial"),
+      panel.spacing = unit(2, "lines")
+    ) +
+    labs(y = expression("-log"[10] * " p-value"))
+    
+  
+    twist_plot<-plot.twisst.gg.topo.subset(bp1_bp_out_twisst_data,
+                               as.character(first(filter(peak.gwas_ld_data_group,PEAK==p)$chr)),
+                               c(limz$minimum, limz$maximum),'topo1', smoothed=TRUE)
+    
+    # twist_plot<-plot.twisst.gg(bp1_bp2_twisst_data,
+    #                            as.character(first(filter(peak.gwas_ld_data_group,PEAK==p)$chr)),
+    #                            c(limz$minimum, limz$maximum))
+  
+   splot / twist_plot + plot_layout(heights = c(1, 1)) 
+  
+  })
+  
+  # Add the plot to the list
+  combined<-wrap_plots(combo_list,ncol=4)
+  
+}
+
+suppressWarnings(print(combined))
+
+```
+
+
+```{r}
+library(data.table)
+
+# 1) Melt your twisst data into a single DT
+dt_list <- lapply(names(bp1_bp2_twisst_data$interval_data), function(chr) {
+  iv <- bp1_bp2_twisst_data$interval_data[[chr]]
+  wt <- bp1_bp2_twisst_data$weights[[chr]][, "topo1"]
+  data.table(
+    chr    = chr,
+    start  = iv$start,
+    end    = iv$end,
+    weight = wt
+  )
+})
+dt <- rbindlist(dt_list)  # no use.names needed
+
+# 2) Prepare your peaks table
+peaks_dt <- copy(as.data.table(peak_bounds))
+setnames(peaks_dt, c("xmin","xmax"), c("start","end"))
+# ensure same types
+peaks_dt[, chr := as.character(chr)]
+
+# 3) Set keys and do the overlap join
+setkey(dt, chr, start, end)
+setkey(peaks_dt, chr, start, end)
+# this finds all dt rows that overlap any peak, and brings peak index in column 'i.peak'
+ov <- foverlaps(dt, peaks_dt, nomatch=0L)
+
+# 4) Tag dt with peak membership
+dt[, peak := NA_integer_]
+# for overlapping windows, assign their peak number
+dt[ov, peak := i.peak]       
+# create a label column for plotting
+dt[, peak_label := fifelse(is.na(peak),
+                           "genome-wide",
+                           paste0("peak", peak))]
+
+# 5) Subsample & plot
+set.seed(1)
+plot_dt <- rbind(
+  dt[peak_label == "genome-wide"][sample(.N, min(.N, 5000))],
+  dt[peak_label != "genome-wide"]
+)
+
+ggplot(plot_dt, aes(x = peak_label, y = weight, fill = peak_label)) +
+  geom_violin(trim = FALSE, alpha = 0.6) +
+  geom_boxplot(width = 0.2, outlier.shape = NA, color = "gray30") +
+  stat_summary(fun = mean, geom = "point", shape = 21, size = 3, fill = "white") +
+  scale_x_discrete(
+    limits = c("genome-wide", paste0("peak", 1:4)),
+    labels = c("Genome-wide", paste("Peak", 1:4))
+  ) +
+  scale_fill_manual(values = c(
+    "genome-wide" = "grey80",
+    "peak1"       = "#1b9e77",
+    "peak2"       = "#d95f02",
+    "peak3"       = "#7570b3",
+    "peak4"       = "#e7298a"
+  )) +
+  labs(
+    x = NULL,
+    y = "BP1–BP2 topology weight",
+    title = "Topology‐weight distributions: genome‐wide vs. GWAS peaks"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    axis.text.x     = element_text(angle = 45, hjust = 1)
+  )
+
+
+```
+```{r}
+
+# 1) Build the table of windows *with all topo weights*
+dt_list <- lapply(names(bp1_bp_out_twisst_data$interval_data), function(chr) {
+  iv <- bp1_bp_out_twisst_data$interval_data[[chr]]
+  w  <- bp1_bp_out_twisst_data$weights[[chr]]       # a matrix/data.frame with topo1, topo2, topo3, other
+  data.table(
+    chr    = chr,
+    start  = iv$start,
+    end    = iv$end,
+    w                                            # this will auto‐expand into multiple columns
+  )
+})
+dt <- rbindlist(dt_list)
+
+# 2) Tag peaks via overlaps (same as before)
+peaks_dt <- copy(as.data.table(peak_bounds))
+setnames(peaks_dt, c("xmin","xmax"), c("start","end"))
+setkey(dt, chr, start, end)
+setkey(peaks_dt, chr, start, end)
+ov <- foverlaps(dt, peaks_dt, nomatch=0L)
+dt[, peak := NA_integer_]
+dt[ov, peak := i.peak]
+dt[, peak_label := fifelse(is.na(peak), "genome", paste0("peak", peak))]
+
+# 3) Pivot to long form: one row per window × topology
+#    columns now: chr, start, end, peak_label, topology, weight
+long_dt <- melt(
+  dt,
+  id.vars   = c("chr","start","end","peak_label"),
+  measure   = patterns("^topo"),  # matches all columns starting with "topo"
+  variable.name = "topology",
+  value.name    = "weight"
+)
+
+# 4) Subsample genome‐wide windows if desired
+set.seed(42)
+plot_dt <- rbind(
+  long_dt[peak_label == "genome"][sample(.N, min(.N,5000))],
+  long_dt[peak_label != "genome"]
+)
+
+# 5) Plot: violin facetted by topology
+ggplot(plot_dt, aes(x = peak_label, y = weight, fill = topology)) +
+  geom_boxplot(width = 0.2, outlier.shape = NA, color = "gray30") +
+  scale_x_discrete(
+    limits = c("genome", paste0("peak",1:4)),
+    labels = c("Genome-wide", paste("Peak",1:4))
+  ) +
+  scale_fill_manual(values = c(
+    "topo1"   = "grey80",
+    "topo2"    = "#1b9e77",
+    "topo3"    = "#d95f02"
+  )) +
+  labs(
+    x = NULL,
+    y = "Topology weight",
+    title = "Distribution of all topology weights: genome-wide vs. GWAS peaks"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    axis.text.x     = element_text(angle = 45, hjust = 1)
+  )
+```
+```{r}
+
+# A. Helper to melt one twisst dataset into long form
+melt_twisst <- function(twisst_data, peak_bounds, label, nsamp = 5000) {
+  # 1) wide table
+  dt_list <- lapply(names(twisst_data$interval_data), function(chr) {
+    iv <- twisst_data$interval_data[[chr]]
+    w  <- twisst_data$weights[[chr]]            # all topo columns
+    data.table(chr = chr, start = iv$start, end = iv$end, w)
+  })
+  dt <- rbindlist(dt_list)
+
+  # 2) tag peaks
+  peaks_dt <- copy(as.data.table(peak_bounds))
+  setnames(peaks_dt, c("xmin","xmax"), c("start","end"))
+  setkey(dt, chr, start, end)
+  setkey(peaks_dt, chr, start, end)
+  ov        <- foverlaps(dt, peaks_dt, nomatch=0L)
+  dt[, peak := NA_integer_]
+  dt[ov, peak := i.peak]
+  dt[, peak_label := fifelse(is.na(peak), "genome-wide", paste0("peak", peak))]
+
+  # 3) melt to long form
+  long_dt <- melt(
+    dt,
+    id.vars       = c("chr","start","end","peak_label"),
+    measure       = patterns("^topo"),
+    variable.name = "topology",
+    value.name    = "weight"
+  )
+
+  # 4) subsample genome
+  set.seed(1)
+  genome_sub <- long_dt[peak_label == "genome-wide"][sample(.N, min(.N, nsamp))]
+  plot_dt    <- rbind(genome_sub, long_dt[peak_label != "genome-wide"])
+
+  # 5) add a column marking which run this is
+  plot_dt[, comparison_set := label]
+
+  return(plot_dt)
+}
+
+# Build the two datasets
+dt_bp2   <- melt_twisst(bp1_bp2_twisst_data, peak_bounds, "BP1_vs_BP2")
+dt_ancestor <- melt_twisst(bp1_bp_out_twisst_data, peak_bounds, "BP1_vs_Ancestor")
+
+# Stack them
+all_dt <- rbind(dt_bp2, dt_ancestor)
+
+# Now plot: facet by run, facet by topology
+ggplot(all_dt, aes(x = peak_label, y = weight, fill = topology)) +
+  geom_boxplot(width = 0.2, outlier.shape = NA, color = "gray30") +
+  facet_wrap(~ comparison_set, ncol = 3, scales = "free_y") +
+  scale_fill_manual(values = c(
+    "topo1"       = "#1b9e77",
+    "topo2"       = "#d95f02",
+    "topo3"       = "#7570b3"
+  )) +
+  labs(
+    x = NULL,
+    y = "Topology weight",
+    title = "Topology‐weight distributions across runs",
+    subtitle = "BP1–BP2 vs. BP1–Ancestor comparisons"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    axis.text.x     = element_text(angle = 45, hjust = 1)
+  )
+```
+
+
+
+
+
