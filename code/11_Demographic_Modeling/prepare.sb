@@ -1,0 +1,64 @@
+#!/bin/bash --login
+
+########## Define Resources Needed with SBATCH Lines ##########
+
+#SBATCH --time=04:00:00             # limit of wall clock time - how long the job will run (same as -t)
+#SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
+#SBATCH --cpus-per-task=16          # number of CPUs (or cores) per task (same as -c)
+#SBATCH --mem=12g                   # memory required per node - amount of memory (in bytes)
+#SBATCH -J prep_assoc_data
+#SBATCH -A data-machine
+########## Command Lines to Run ##########
+
+source ${root}/"pkings_gwas.env"a
+
+module load BEDTools BCFtools
+
+outdir=${root}/output_data/11_Demographic_Modeling
+mkdir -p ${outdir}
+
+# prepare a BED of neutral regions (introns, intergenic)
+
+# awk '$0!~/^#/ && $3=="exon"' ${root}/input_data/00_Reference_Genome/jordan-mic4273-mb-hirise-20xx3__06-13-2024__final_assembly.fasta.renamed.gff \
+#   | sort -k1,1V -k4,4n \
+#   > ${outdir}/exons_sorted.gff
+
+# cut -f1,2 ${root}/input_data/00_Reference_Genome/jordan-mic4273-mb-hirise-20xx3__06-13-2024__final_assembly.fasta.renamed.fa.fai \
+#   | sort -k1,1V \
+#   > ${outdir}/chr_lengths_sorted.tsv
+
+
+# bedtools complement -i ${outdir}/exons_sorted.gff -g  ${outdir}/chr_lengths_sorted.tsv > ${outdir}/neutral.bed
+
+
+# 1b. Use bcftools to pull out only those samples
+bcftools view -R ${outdir}/neutral.bed \
+  -S ${root}/input_data/11_Demographic_Modeling/bp1.txt \
+  -e 'F_MISSING>0.2' \
+  -O z \
+  -o ${outdir}/BP1.vcf.gz \
+  --threads 16 \
+  ${root}/output_data/03_QC/${snps_only_vcf}
+  
+
+
+# 1c. Index the new VCF
+#bcftools index ${outdir}/BP1.vcf.gz
+
+# Using PLINK
+singularity exec ${root}/images/gwas_tools.sif /plink/plink \
+  --vcf ${outdir}/BP1.vcf.gz \
+  --indep-pairwise 50 5 0.2 \
+  --allow-extra-chr \
+  --out ${outdir}/BP1_LD_prune
+
+# This produces BP1_LD_prune.prune.in: a list of SNPs 
+# with r2 < 0.2 in sliding windows of 50 SNPs stepping by 5.
+  
+singularity exec ${root}/images/gwas_tools.sif /plink/plink \
+  --vcf ${outdir}/BP1.vcf.gz \
+  --extract ${outdir}/BP1_LD_prune.prune.in \
+  --allow-extra-chr \
+  --recode vcf bgz \
+  --out ${outdir}/BP1.thinned
+# This writes BP1.thinned.vcf.gz and BP1.thinned.vcf.gz.tbi

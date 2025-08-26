@@ -1,0 +1,23 @@
+#!/bin/bash --login
+
+########## Define Resources Needed with SBATCH Lines ##########
+
+#SBATCH --time=04:00:00             # limit of wall clock time - how long the job will run (same as -t)
+#SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
+#SBATCH --cpus-per-task=1           # number of CPUs (or cores) per task (same as -c)
+#SBATCH --mem=12g                    # memory required per node - amount of memory (in bytes)
+#SBATCH -J TWISST
+#SBATCH -A data-machine
+
+########## Command Lines to Run ##########
+
+cd $root
+
+source $root/pkings_gwas.env
+
+outdir=${root}/output_data/10_TWISST/
+indir=${root}/input_data/10_TWISST/
+vcfdir=${root}/output_data/03_QC/
+
+
+singularity exec ${root}/images/twisst_tools.sif twisst2 sticcstack -i ${outdir}/${chr}.polarized.vcf.gz -o ${outdir}/${chr}_${comparision}_twisst --max_subtrees 512 --ploidy 2 --groups_file ${indir}/${comparision}.txt --group_names ${group_names}

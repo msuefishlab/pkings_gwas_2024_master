@@ -1,0 +1,44 @@
+#!/bin/bash --login
+
+########## Define Resources Needed with SBATCH Lines ##########
+
+#SBATCH --time=04:00:00             # limit of wall clock time - how long the job will run (same as -t)
+#SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
+#SBATCH --cpus-per-task=1           # number of CPUs (or cores) per task (same as -c)
+#SBATCH --mem=12g                    # memory required per node - amount of memory (in bytes)
+#SBATCH -J TWISST
+#SBATCH -A data-machine
+
+########## Command Lines to Run ##########
+
+cd $root
+
+source $root/pkings_gwas.env
+
+outdir=${root}/output_data/10_TWISST/
+indir=${root}/input_data/10_TWISST/
+vcfdir=${root}/output_data/03_QC/
+
+module load BCFtools
+
+#bcftools view -Oz -r ${chr} ${vcfdir}/${snps_only_vcf} -o ${outdir}/${chr}.vcf.gz
+#singularity exec ${root}/images/twisst_tools.sif sticcs prep -i ${outdir}/${chr}.vcf.gz -o ${outdir}/${chr}.polarized.vcf.gz  --outgroup PVAD_5505
+
+#comparisions=(bp1_bp2 bp1_bp3 bp2_bp3)
+comparisions=(bp1_bpout bp2_bpout bp3_bpout)
+
+for comparision in "${comparisions[@]}"; do
+	echo "Processing comparison: ${comparision}"
+	groups_file="${indir}/${comparision}.txt"
+	group_names=$(awk '{print $2}' "${groups_file}" | sort -u | tr '\n' ' ')
+	
+	echo sbatch --job-name "TWISST_${chr}_${comparision}" \
+		   --output "${root}/output_data/slurm_logs/10_TWISST/run_twisst_${chr}_${comparision}.log" \
+		   --export=chr=${chr},root=${root},comparision=${comparision},group_names="${group_names}"\
+		   "${root}/code/10_TWISST/run_twisst.sb"
+
+	sbatch --job-name "TWISST_${chr}_${comparision}" \
+		   --output "${root}/output_data/slurm_logs/10_TWISST/run_twisst_${chr}_${comparision}.log" \
+		   --export=chr=${chr},root=${root},comparision=${comparision},group_names="${group_names}"\
+		   "${root}/code/10_TWISST/run_twisst.sb"
+done
