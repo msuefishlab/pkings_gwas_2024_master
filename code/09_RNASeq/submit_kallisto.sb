@@ -1,0 +1,20 @@
+#!/bin/bash --login
+########## Define Resources Needed with SBATCH Lines ##########
+
+#SBATCH --time=04:00:00             # limit of wall clock time - how long the job will run (same as -t)
+#SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
+#SBATCH --cpus-per-task=2           # number of CPUs (or cores) per task (same as -c)
+#SBATCH --mem=10G                    # memory required per node - amount of memory (in bytes)
+#SBATCH --output=%x-%j.out
+########## Command Lines to Run ##########
+
+module purge; module load GCC/8.3.0  OpenMPI/3.1.4 kallisto/0.46.1
+
+source ${root}/"pkings_gwas.env"
+
+outdir=${root}/output_data/09_RNASeq/
+indir=${root}/input_data/09_RNASeq/
+
+mkdir -p ${outdir}/${tissue}/${species}/${individual}
+
+kallisto quant -i ${transcriptome} -o ${outdir}/${tissue}/${species}/${individual} ${reads}

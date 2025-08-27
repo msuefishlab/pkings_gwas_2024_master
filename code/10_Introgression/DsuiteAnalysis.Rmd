@@ -1,10 +1,6 @@
 ---
-title: "Examination of Signatures of Introgression with TWISST"
+title: "Examination of Signatures of Introgression with DSuite"
 output: html_notebook
-params:
-  data_path: PKINGS_ALL_WOB_EXCLUDED
-  output_file: NULL
-  MAF_thresh: 0.15
 ---
 
 ```{r setup}
@@ -51,7 +47,7 @@ hyp_defs <- tribble(
 
 
 ```{r}
-peak_files <- list.files(path=file.path(root,"output_data","10_TWISST"), pattern = "^peak_[0-9]+_BBAA\\.txt$", full.names=T)
+peak_files <- list.files(path=file.path(root,"output_data","10_Introgression"), pattern = "^peak_[0-9]+_BBAA\\.txt$", full.names=T)
 stopifnot(length(peak_files) > 0)
 
 peaks_raw <- map_dfr(peak_files, function(f) {
@@ -88,7 +84,7 @@ peaks_df <- peaks_matched %>%
          Hypothesis = factor(Hypothesis,
            levels = c("BP1↔BP2","BP1↔BP3","BP2↔BP3","BP1↔BP_ANC","BP2↔BP_ANC","BP3↔BP_ANC")))
 
-  gw <- read_tsv(file.path(root, "output_data","10_TWISST","whole_genome_combined_BBAA.txt"), show_col_types = FALSE)
+  gw <- read_tsv(file.path(root, "output_data","10_Introgression","whole_genome_combined_BBAA.txt"), show_col_types = FALSE)
   names(gw)[1:10] <- c("P1","P2","P3","D","Z","p","f4ratio","BBAA","ABBA","BABA")
 
 
@@ -176,640 +172,58 @@ ggplot(peaks_df, aes(x = Peak, y = f4ratio)) +
 
 ```
 
-```{r, fig.width=12}
-# --- Colorblind-friendly single-group palette (Okabe–Ito)
-oi <- c(black="#000000", orange="#E69F00", skyblue="#56B4E9",
-        bluishgreen="#009E73", yellow="#F0E442", blue="#0072B2",
-        vermillion="#D55E00", reddishpurple="#CC79A7")
-
-# Only the hex values carry through; names are your group labels
-indiv_cols <- setNames(
-  unname(oi[c("vermillion","blue","bluishgreen","skyblue","orange")]),
-  c("BP1","BP2","BP3","BP4","BP_ANC")
-)
-
-# --- SAFE BLEND (midpoint color) using Lab ramp (no polar coordinates)
-blend_mid <- function(col1, col2, space = "Lab") {
-  # returns the middle of a 3-step ramp between col1 and col2
-  grDevices::colorRampPalette(c(col1, col2), space = space)(3)[2]
-}
-
-# Clean/normalize hypothesis labels just in case
+```{r}
+# ensure peak order and hypothesis order (adjust if yours differ)
 peaks_df <- peaks_df %>%
-  mutate(Hypothesis = gsub("\\s+", "", as.character(Hypothesis))) %>%
-  mutate(Hypothesis = factor(Hypothesis))
+  mutate(
+    Peak = factor(Peak, levels = paste0("peak_", 1:6)),
+    Hypothesis = factor(Hypothesis,
+      levels = c("BP1↔BP2","BP1↔BP3","BP2↔BP3","BP1↔BP_ANC","BP2↔BP_ANC","BP3↔BP_ANC"))
+  )
 
-hyp_levels <- levels(peaks_df$Hypothesis)
+# one genome-wide baseline per hypothesis
+gw_baseline <- peaks_df %>%
+  group_by(Hypothesis) %>%
+  summarize(f4ratio_gw = first(f4ratio_gw), .groups = "drop")
 
-# Parse "BPX↔BPY" safely and blend the two group colors
-pair_to_hex <- function(h) {
-  parts <- strsplit(h, "↔", fixed = TRUE)[[1]]
-  parts <- trimws(parts)
-  cols  <- unname(indiv_cols[parts])
-
-  if (length(parts) != 2L)
-    stop(sprintf("Hypothesis '%s' doesn't split into two parts with '↔'.", h))
-  if (any(is.na(cols)))
-    stop(sprintf("Unknown group(s) in '%s': %s\nKnown: %s",
-                 h, paste(parts[is.na(cols)], collapse=", "),
-                 paste(names(indiv_cols), collapse=", ")))
-  blend_mid(cols[1], cols[2], space = "Lab")
-}
-
-hypothesis_cols <- setNames(vapply(hyp_levels, pair_to_hex, character(1)), hyp_levels)
-
-
-
-data_name<-file.path(root,'output_data/08_Peak_Analysis/mcfaddenrsquared.dataset.Rdata')
-
-load(file=data_name)
-
-# y-limits for df panel (feel free to lower to 0.7 if you want tighter framing)
-ymax_df <- 1
-
-# ---- Panel A: Introgression (df) per peak, faceted by hypothesis
-p_intro <-
-  ggplot(peaks_df, aes(x = Peak, y = f4ratio, fill = Hypothesis)) +
-  geom_col(position = position_dodge(width = 0.8), width = 0.7, alpha = 0.9) +
-  # significance markers
+#ymax <- max(peaks_df$f4ratio, gw_baseline$f4ratio_gw, na.rm = TRUE) * 1.05
+ymax<-1
+ggplot(peaks_df, aes(x = Peak, y = f4ratio)) +
+  geom_col(width = 0.7, alpha = 0.9) +
+  # significance: filled dot for q<0.05, ring for 0.05–0.10
   geom_point(
     data = subset(peaks_df, q < 0.10),
-    aes(y = pmin(f4ratio + 0.02*ymax_df, ymax_df),
-        group = Hypothesis),
-    position = position_dodge(width = 0.8),
-    shape = 21, size = 2.5, stroke = 0.8, fill = "white", color = "black"
+    aes(y = f4ratio + 0.02 * ymax, shape = sig),
+    size = 2.6, stroke = 0.7, fill = "white", color = "black"
   ) +
-  # D direction triangles
+  scale_shape_manual(values = c("q<0.05" = 16, "q<0.10" = 1), guide = "none") +
+  # direction of D as triangle at bar top (only for significant cells)
   geom_point(
     data = subset(peaks_df, q < 0.10 & dir == "pos"),
-    aes(y = pmin(f4ratio + 0.06*ymax_df, ymax_df),
-        group = Hypothesis),
-    position = position_dodge(width = 0.8),
-    shape = 24, size = 2, fill = "white"
+    aes(y = f4ratio + 0.06 * ymax), shape = 24, size = 2.2, fill = "white"
   ) +
   geom_point(
     data = subset(peaks_df, q < 0.10 & dir == "neg"),
-    aes(y = pmin(f4ratio + 0.06*ymax_df, ymax_df),
-        group = Hypothesis),
-    position = position_dodge(width = 0.8),
-    shape = 25, size = 2, fill = "white"
+    aes(y = f4ratio + 0.06 * ymax), shape = 25, size = 2.2, fill = "white"
   ) +
-  # genome-wide baselines per hypothesis
+  # genome-wide baseline per hypothesis
   geom_hline(
     data = gw_baseline,
-    aes(yintercept = f4ratio_gw, color = Hypothesis),
-    linetype = "dashed", linewidth = 0.6, inherit.aes = FALSE
+    aes(yintercept = f4ratio_gw),
+    linetype = "dashed", linewidth = 0.5
   ) +
-  coord_cartesian(ylim = c(0, ymax_df)) +
+  coord_cartesian(ylim = c(0, ymax)) +
+  facet_wrap(~ Hypothesis, nrow = 1) +
   labs(
-    x = NULL,
-    y = expression(d[f]*" (fraction of introgressed ancestry)"),
-    fill = "Hypothesis",
-    color = "Hypothesis"
-  ) +
-  theme_minimal(base_size = 11) +
-  theme(
-    panel.grid.major.x = element_blank(),
-    axis.text.x = element_text(angle = 30, hjust = 1)
-  )
-
-# ---- Panel B: Per-SNP predictive power (your McFadden R² points)
-# Ensure r2_df has matching Peak factor levels
-r2_df <- r2_df %>%
-  mutate(Peak = factor(paste0("peak_", Peak), levels = paste0("peak_", 1:6)))
-
-p_pred <-
-  ggplot(r2_df, aes(x = Peak, y = R2, color = Group)) +
-  geom_jitter(width = 0.15, height = 0, alpha = 0.9, size = 2) +
-  #geom_boxplot()+
-  scale_y_continuous(limits = c(0, 1), breaks = seq(0,1,0.25)) +
-  labs(
-    x = NULL,
-    y = expression(R^2~" per SNP"),
-    color = "Group"
+    x = NULL, y = expression(f[4]*"-ratio (peak)"),
+    caption = "Dashed line = genome-wide f4-ratio for the same hypothesis. Dot: q<0.05; Ring: 0.05≤q<0.10; Triangle shows sign of D."
   ) +
   theme_minimal(base_size = 11) +
   theme(
     panel.grid.major.x = element_blank(),
     axis.text.x = element_text(angle = 30, hjust = 1),
-    legend.position = "right"
-  )
-
-# Apply them in the plots
-p_intro <- p_intro +
-  scale_fill_manual(values = hypothesis_cols) +
-  scale_color_manual(values = hypothesis_cols)
-
-p_pred <- p_pred +
-  scale_color_manual(values = indiv_cols)
-
-# ---- Combine (stack) with patchwork
-( p_pred/p_intro) + plot_layout(heights = c(2, 3)) &
-  theme(plot.margin = margin(5.5, 5.5, 5.5, 5.5)) 
-  # plot_annotation(
-  #   caption = "Panel A: df per peak with genome-wide baseline (dashed); dot/ring show FDR; triangle shows D sign; × = low info.\nPanel B: McFadden’s R² per SNP by BP group."
-  # )
-
-```
-
-
-```{r,fig.width=12}
-
-# -----------------------------
-# PARAMETERS: tune as needed
-R2_thr <- 0.50   # per-SNP R^2 threshold
-n_min  <- 5      # minimum number of SNPs >= R2_thr in a BP group to "unlock" color
-# -----------------------------
-
-# Helper: normalize peak ids to "peak_#" across BOTH data frames
-norm_peak <- function(x) {
-  x <- as.character(x)
-  if (all(grepl("^peak_", x))) x else paste0("peak_", x)
-}
-
-r2_df  <- r2_df  %>% mutate(Peak = norm_peak(Peak))
-peaks_df <- peaks_df %>% mutate(Peak = norm_peak(Peak))
-
-# 1) Count predictive SNPs per (Peak × Group)
-strong_groups <- r2_df %>%
-  group_by(Peak, Group) %>%
-  summarise(n_strong = sum(R2 >= R2_thr, na.rm = TRUE),
-            strong_flag = n_strong >= n_min,
-            .groups = "drop")
-
-# Quick debug: how many strong groups exist?
-message("Strong groups (n_strong >= ", n_min, " at R2 >= ", R2_thr, "):")
-print(strong_groups %>% filter(strong_flag) %>% arrange(Peak, Group))
-
-# 2) Robustly parse hypothesis endpoints (accept several separators)
-# Standardize the separator to "↔"
-peaks_df2 <- peaks_df %>%
-  mutate(
-    Hypothesis = as.character(Hypothesis),
-    Hypothesis = gsub("\\s*(<->|->|—|–|-|↔)\\s*", "↔", Hypothesis)
-  ) %>%
-  separate(Hypothesis, into = c("bpA","bpB"), sep = "↔", remove = FALSE, fill = "right")
-
-# 3) Join strength flags for each side and compute the color flag
-peaks_df2 <- peaks_df2 %>%
-  left_join(strong_groups %>% rename(nA = n_strong, strongA = strong_flag),
-            by = c("Peak","bpA" = "Group")) %>%
-  left_join(strong_groups %>% rename(nB = n_strong, strongB = strong_flag),
-            by = c("Peak","bpB" = "Group")) %>%
-  mutate(
-    strongA = coalesce(strongA, FALSE),
-    strongB = coalesce(strongB, FALSE),
-    # only consider BP lineages (ignore BP_ANC) when deciding to color
-    color_flag = ((bpA != "BP_ANC") & strongA) | ((bpB != "BP_ANC") & strongB),
-    FillKey   = ifelse(color_flag, as.character(Hypothesis), "ns")
-  )
-
-# Debug: how many bars will be colored?
-message("Bars to color (by Peak × Hypothesis):")
-print(peaks_df2 %>% count(Peak, Hypothesis, color_flag) %>% arrange(Peak, Hypothesis))
-
-# 4) Palette: colored hypotheses + gray fallback
-sig_cols <- c(
-  "BP1↔BP2"="#825FB0","BP1↔BP3"="#A66B4A","BP2↔BP3"="#2E9E97",
-  "BP1↔BP_ANC"="#C8846E","BP2↔BP_ANC"="#BCA44E","BP3↔BP_ANC"="#83A85A"
-)
-fill_levels <- c("ns", names(sig_cols))
-fill_vals   <- c("ns"="grey85", sig_cols)
-
-peaks_df2 <- peaks_df2 %>% mutate(FillKey = factor(FillKey, levels = fill_levels))
-
-# 5) Baseline per hypothesis
-gw_baseline <- peaks_df2 %>%
-  group_by(Hypothesis) %>%
-  summarise(df_gw = first(f4ratio_gw), .groups = "drop")
-
-# 6) Plot — IMPORTANT: group = Hypothesis so dodge works even when many are "ns"
-pd <- position_dodge(width = 0.8)
-
-p_intro <- ggplot(peaks_df2, aes(x = Peak, y = f4ratio)) +
-  geom_col(aes(fill = FillKey, group = Hypothesis), width = 0.7, position = pd) +
-  geom_hline(data = gw_baseline,
-             aes(yintercept = df_gw),
-             linetype = "dashed", linewidth = 0.5, color = "grey55",
-             inherit.aes = FALSE) +
-  scale_fill_manual(values = fill_vals, breaks = names(sig_cols), drop = FALSE) +
-  coord_cartesian(ylim = c(0, 1)) +
-  labs(
-    y = expression(d[f]*" (fraction of introgressed ancestry)"),
-    fill = sprintf("Hypothesis (colored if ≥%d SNPs with R^2 ≥ %.2f in a participating BP group)", n_min, R2_thr)
-  ) +
-  theme_minimal(base_size = 11) +
-  theme(panel.grid.major.x = element_blank(),
-        axis.text.x = element_text(angle = 30, hjust = 1),
-        legend.title = element_text(face = "bold"))
-
-
-```
-
-```{r, fig.width=12}
-p_pred <- p_pred +
-  scale_color_manual(values = indiv_cols)
-
-p_intro <- p_intro +
-  # filled dot (q<0.05) and ring (0.05–0.10)
-  geom_point(
-    data = subset(peaks_df2, q < 0.10),
-    aes(y = pmin(f4ratio + 0.04, 1), group = Hypothesis),
-    position = pd,
-    shape = 21, size = 2.4, stroke = 0.9,
-    fill = ifelse(peaks_df2$q[peaks_df2$q < 0.10] < 0.05, "black", "white"),
-    color = "black"
-  ) +
-  # direction of D as triangle at bar top (only when significant)
-  geom_point(
-    data = subset(peaks_df2, q < 0.10 & dir == "pos"),
-    aes(y = pmin(f4ratio + 0.08, 1), group = Hypothesis),
-    position = pd, shape = 24, size = 2.1, fill = "white", color = "black"
-  ) +
-  geom_point(
-    data = subset(peaks_df2, q < 0.10 & dir == "neg"),
-    aes(y = pmin(f4ratio + 0.08, 1), group = Hypothesis),
-    position = pd, shape = 25, size = 2.1, fill = "white", color = "black"
-  )
-
-peaks_df2 <- peaks_df2 %>%
-  mutate(nSNPs = BBAA + ABBA + BABA,
-         low_info = nSNPs < 200)
-
-p_intro <- p_intro +
-  geom_point(
-    data = subset(peaks_df2, low_info),
-    aes(y = pmin(f4ratio + 0.12, 1), group = Hypothesis),
-    position = pd, shape = 5, size = 2.4, stroke = 1.0, color = "black"
-  )
-
-# ---- Combine (stack) with patchwork
-( p_pred/p_intro) + plot_layout(heights = c(2, 3)) &
-  theme(plot.margin = margin(5.5, 5.5, 5.5, 5.5)) 
-
-```
-
-```{r, fig.width=12}
-# 1) Build a smooth weight in [0.2, 1] from nSNPs (robust to outliers)
-cap <- quantile(peaks_df2$nSNPs, 0.95, na.rm = TRUE)  # cap at 95th pct to avoid one huge bar dominating
-peaks_df2 <- peaks_df2 %>%
-  mutate(
-    nSNPs_capped = pmin(nSNPs, cap),
-    w_alpha = rescale(nSNPs_capped, to = c(0.2, 1.0)),     # bar opacity
-    w_lwd   = rescale(nSNPs_capped, to = c(0.2, 1.0))      # outline thickness
-  )
-
-# 2) Plot: color logic stays the same, add alpha/outline scaling by nSNPs
-p_intro_weighted <-
-  ggplot(peaks_df2, aes(x = Peak, y = f4ratio)) +
-  geom_col(
-    aes(fill = FillKey, group = Hypothesis, alpha = w_alpha),
-    width = 0.7, position = pd, color = "black", linewidth = 0.4 * peaks_df2$w_lwd
-  ) +
-  geom_hline(data = gw_baseline, aes(yintercept = df_gw),
-             linetype = "dashed", linewidth = 0.5, color = "grey55",
-             inherit.aes = FALSE) +
-  # (optional) bring back significance markers, they’ll dodge into place
-  geom_point(data = subset(peaks_df2, q < 0.10),
-             aes(y = pmin(f4ratio + 0.04, 1), group = Hypothesis),
-             position = pd, shape = 21, size = 2.4, stroke = 0.9,
-             fill = "white", color = "black") +
-  geom_point(data = subset(peaks_df2, q < 0.10 & dir == "pos"),
-             aes(y = pmin(f4ratio + 0.08, 1), group = Hypothesis),
-             position = pd, shape = 24, size = 2.1, fill = "white", color = "black") +
-  geom_point(data = subset(peaks_df2, q < 0.10 & dir == "neg"),
-             aes(y = pmin(f4ratio + 0.08, 1), group = Hypothesis),
-             position = pd, shape = 25, size = 2.1, fill = "white", color = "black") +
-  scale_fill_manual(values = fill_vals, breaks = names(sig_cols), drop = FALSE) +
-  scale_alpha_continuous(name = "Information weight (by nSNPs)",
-                         range = c(0.2, 1.0), guide = guide_none()) +
-  coord_cartesian(ylim = c(0, 1)) +
-  labs(
-    y = expression(d[f]*" (fraction of introgressed ancestry)"),
-    fill = attr(ggplot_build(p_intro)$plot$scales$scales[[1]], "name") %||%
-           sprintf("Hypothesis (colored if ≥%d SNPs with R^2 ≥ %.2f in a participating BP group)", n_min, R2_thr)
-  ) +
-  theme_minimal(base_size = 11) +
-  theme(panel.grid.major.x = element_blank(),
-        axis.text.x = element_text(angle = 30, hjust = 1),
-        legend.title = element_text(face = "bold"))
-
-p_intro_weighted
-```
-
-```{r, fig.width=12}
-# ---------- inputs ----------
-R2_thr <- 0.50         # "strong" SNP threshold
-n_low  <- 200          # low-info SNP count flag for D-suite cell
-bp_groups <- c("BP1","BP2","BP3","BP4")
-
-# ---------- 1) Node summary: predictive power per (Peak × Group) ----------
-r2_summ <- r2_df %>%
-  mutate(Peak = ifelse(grepl("^peak_", Peak), Peak, paste0("peak_", Peak))) %>%
-  filter(Group %in% bp_groups) %>%
-  group_by(Peak, Group) %>%
-  summarise(
-    frac_strong = mean(R2 >= R2_thr, na.rm = TRUE),
-    med_R2      = median(R2, na.rm = TRUE),
-    n_SNPs      = n(),
-    .groups = "drop"
-  )
-
-# Fixed node coordinates for a tidy diamond
-node_pos <- tibble(
-  Group = bp_groups,
-  x = c(0, 1, 1, 0),
-  y = c(1, 1, 0, 0)
-)
-
-nodes <- r2_summ %>% right_join(node_pos, by = "Group") %>%
-  mutate(frac_strong = replace_na(frac_strong, 0),
-         med_R2 = replace_na(med_R2, 0),
-         n_SNPs = replace_na(n_SNPs, 0))
-
-# ---------- 2) Edge summary: df per (Peak × BP pair) ----------
-# Start from peaks_df; parse endpoints & keep only BP–BP pairs (drop BP_ANC)
-edges <- peaks_df %>%
-  mutate(Peak = ifelse(grepl("^peak_", Peak), Peak, paste0("peak_", Peak)),
-         Hypothesis = gsub("\\s*", "", as.character(Hypothesis))) %>%
-  separate(Hypothesis, into = c("A","B"), sep = "↔", remove = FALSE, fill = "right") %>%
-  filter(A %in% bp_groups, B %in% bp_groups) %>%
-  mutate(pair = paste(pmin(A,B), pmax(A,B), sep = "↔"),
-         nSNPs = BBAA + ABBA + BABA,
-         low_info = nSNPs < n_low) %>%
-  group_by(Peak, pair, A, B) %>%
-  summarise(df = first(f4ratio), nSNPs = first(nSNPs), low_info = first(low_info), .groups="drop")
-
-# Join coordinates for segment endpoints
-edges_xy <- edges %>%
-  left_join(node_pos, by = c("A" = "Group")) %>% rename(x1 = x, y1 = y) %>%
-  left_join(node_pos, by = c("B" = "Group")) %>% rename(x2 = x, y2 = y)
-
-# Aesthetic scales
-lw <- function(z) rescale(z, to = c(0.4, 3), from = range(edges_xy$df, na.rm = TRUE))
-al <- function(n) rescale(pmin(n, quantile(edges_xy$nSNPs, 0.95, na.rm = TRUE)), c(0.2, 1))
-
-# Okabe–Ito colors for node fill (colorblind-friendly)
-indiv_cols <- c(BP1="#D55E00", BP2="#0072B2", BP3="#009E73", BP4="#56B4E9")
-
-# ---------- 3) Plot: one glyph per Peak ----------
-ggplot() +
-  # edges: width ~ df, alpha ~ SNP support
-  geom_segment(data = edges_xy,
-               aes(x=x1, y=y1, xend=x2, yend=y2, linewidth = df, alpha = nSNPs),
-               color = "grey20", lineend = "round") +
-  # low-info × at edge midpoint
-  geom_point(data = subset(edges_xy, low_info),
-             aes(x = (x1+x2)/2, y = (y1+y2)/2),
-             shape = 4, size = 2.6, stroke = 0.9, color = "grey20") +
-  # nodes: size ~ frac_strong (or use med_R2 if you prefer), fill by group
-  geom_point(data = nodes,
-             aes(x=x, y=y, size = frac_strong, fill = Group),
-             shape = 21, color = "black", stroke = 0.5) +
-  scale_size_continuous(name = sprintf("Frac SNPs with R² ≥ %.2f", R2_thr),
-                        range = c(2, 10)) +
-  scale_linewidth_continuous(name = expression(d[f]~"(edge width)")) +
-  scale_alpha_continuous(name = "Edge info (nSNPs)", range = c(0.2, 1)) +
-  scale_fill_manual(values = indiv_cols, name = "BP group (node)") +
-  coord_equal(xlim = c(-0.2, 1.2), ylim = c(-0.2, 1.2), expand = FALSE) +
-  facet_wrap(~ Peak, nrow = 1) +
-  theme_void(base_size = 11) +
-  theme(strip.text = element_text(face = "bold"))
-
-```
-```{r, fig.width=12}
-
-# Node/predictive heatmap (peaks × groups)
-hm_nodes <- r2_summ %>%
-  mutate(Group = factor(Group, bp_groups),
-         Peak  = factor(Peak, paste0("peak_", 1:6)))
-
-p_hm_nodes <- ggplot(hm_nodes, aes(Group, Peak, fill = med_R2)) +
-  geom_tile(color = "white", linewidth = 0.3) +
-  scale_fill_viridis_c(name = expression(median~R^2), limits = c(0,1)) +
-  theme_minimal(base_size = 11) +
-  theme(panel.grid = element_blank(),
-        axis.title = element_blank(),
-        axis.text.x = element_text(angle = 30, hjust = 1),
-        plot.margin = margin(5,5,5,5))
-
-# Edge/introgression heatmap (peaks × BP pairs)
-# Build a consistent order of BP–BP pairs present in your data
-bp_pairs <- t(combn(bp_groups, 2))
-pair_levels <- apply(bp_pairs, 1, function(v) paste(v, collapse = "↔"))
-
-hm_edges <- edges %>%
-  mutate(Peak = factor(Peak, paste0("peak_", 1:6)),
-         pair = factor(pair, pair_levels)) %>%
-  # unlock color if either endpoint has many high-R² SNPs at that peak
-  left_join(r2_summ %>% mutate(A=Group) %>% select(Peak,A,frac_strong), by=c("Peak","A")) %>%
-  left_join(r2_summ %>% mutate(B=Group) %>% select(Peak,B,frac_strong), by=c("Peak","B")) %>%
-  mutate(unlock = (frac_strong.x > 0) | (frac_strong.y > 0))
-
-p_hm_edges <- ggplot(hm_edges, aes(pair, Peak)) +
-  geom_tile(aes(fill = ifelse(unlock, df, NA_real_)),
-            color = "white", linewidth = 0.3) +
-  scale_fill_viridis_c(name = expression(d[f]), limits = c(0,1), na.value = "grey90") +
-  # low-info overlay
-  geom_point(data = subset(hm_edges, low_info),
-             shape = 4, size = 2.2, stroke = 0.9, color = "grey20") +
-  theme_minimal(base_size = 11) +
-  theme(panel.grid = element_blank(),
-        axis.title = element_blank(),
-        axis.text.x = element_text(angle = 30, hjust = 1),
-        plot.margin = margin(5,5,5,5))
-
-
-p_hm_nodes + p_hm_edges + plot_layout(widths = c(1, 1.3)) +
-  plot_annotation(
-    caption = "Left: predictive power by BP group (per peak). Right: introgression by BP pair (per peak); greyed cells lack predictive support in either endpoint; × marks low SNP support."
+    strip.text = element_text(face = "bold")
   )
 
 ```
 
-```{r}
-# Okabe–Ito
-oi <- c(black="#000000", orange="#E69F00", skyblue="#56B4E9",
-        bluishgreen="#009E73", yellow="#F0E442", blue="#0072B2",
-        vermillion="#D55E00", reddishpurple="#CC79A7")
-
-node_cols <- c(
-  BP1    = oi["vermillion"],
-  BP2    = oi["blue"],
-  BP3    = oi["bluishgreen"],
-  BP4    = oi["skyblue"],
-  BP_ANC = oi["orange"]
-)
-
-# Edge colors (vivid when "unlocked" by R2 evidence; otherwise gray)
-edge_cols <- c(
-  "BP1↔BP2"   = "#825FB0", # purple
-  "BP1↔BP3"   = "#A66B4A", # brown
-  "BP2↔BP3"   = "#2E9E97", # teal
-  "BP1↔BP_ANC"= "#C8846E",
-  "BP2↔BP_ANC"= "#BCA44E",
-  "BP3↔BP_ANC"= "#83A85A",
-  "BP1↔BP4"   = "#B06CAB",
-  "BP2↔BP4"   = "#5C86C2",
-  "BP3↔BP4"   = "#57B5AD"
-)
-
-
-node_layout <- tibble(
-  name = c("BP1","BP2","BP3","BP4","BP_ANC"),
-  angle = seq(90, 90 - 360*(4/5), length.out = 5) * pi/180,
-  x = cos(angle), y = sin(angle)
-) %>% select(name, x, y)
-
-
-# PARAMETERS you can tune
-R2_thr <- 0.50     # a SNP is "predictive" if R2 >= this
-n_min  <- 5        # a group is "strong" at a peak if it has >= this many predictive SNPs
-
-# r2_df columns expected: Peak (like "peak_1" or 1), Group (BP1..BP4), R2
-# peaks_df columns expected: Peak, Hypothesis ("BPx↔BPy"), P1,P2,P3, f4ratio, D, q, BBAA, ABBA, BABA, etc.
-
-norm_peak <- function(x) {
-  x <- as.character(x)
-  ifelse(grepl("^peak_", x), x, paste0("peak_", x))
-}
-
-# summarize node strength per (Peak × Group)
-node_strengths <- function(r2_df, peak_id) {
-  r2_df %>%
-    mutate(Peak = norm_peak(Peak)) %>%
-    filter(Peak == peak_id) %>%
-    group_by(Group) %>%
-    summarise(
-      frac_strong = mean(R2 >= R2_thr, na.rm = TRUE),
-      n_strong = sum(R2 >= R2_thr, na.rm = TRUE),
-      n_total  = n(),
-      max_R2   = max(R2, na.rm = TRUE),
-      strong_flag = n_strong >= n_min,
-      .groups = "drop"
-    ) %>%
-    right_join(tibble(Group = c("BP1","BP2","BP3","BP4","BP_ANC")), by="Group") %>%
-    replace_na(list(frac_strong = 0, n_strong = 0, n_total = 0, max_R2 = 0, strong_flag = FALSE))
-}
-
-# extract edges for one peak and parse endpoints + D sign target
-edge_table_for_peak <- function(peaks_df, r2_df, peak_id) {
-  # which groups are "strong" at this peak
-  strong_tbl <- node_strengths(r2_df, peak_id) %>%
-    transmute(Peak = peak_id, Group, strong_flag)
-
-  # parse endpoints from hypothesis, pull Dsuite columns we need
-  peaks_df %>%
-    mutate(Peak = norm_peak(Peak)) %>%
-    filter(Peak == peak_id) %>%
-    mutate(Hypothesis = gsub("\\s*", "", as.character(Hypothesis))) %>%
-    separate(Hypothesis, into = c("A","B"), sep = "↔", remove = FALSE, fill = "right") %>%
-    # who gets the D triangle? D>0 -> target=P2 ; D<0 -> target=P1
-    mutate(D_target = ifelse(D >= 0, P2, P1)) %>%
-    # unlock color if either endpoint (excluding BP_ANC) is strong at this peak
-    left_join(strong_tbl, by = c("Peak","A"="Group")) %>% rename(strongA = strong_flag) %>%
-    left_join(strong_tbl, by = c("Peak","B"="Group")) %>% rename(strongB = strong_flag) %>%
-    mutate(color_flag = ((A != "BP_ANC") & strongA) | ((B != "BP_ANC") & strongB)) %>%
-    # edge aesthetics
-    transmute(
-      Peak, Hypothesis, A, B,
-      df = f4ratio,
-      low_info = (BBAA + ABBA + BABA) < 200,
-      q = q,
-      D_sign = sign(D),      # -1, 0, +1
-      D_target = D_target,
-      color_key = ifelse(color_flag, Hypothesis, "ns")
-    )
-}
-
-draw_peak_network <- function(peaks_df, r2_df, peak_id,
-                              node_metric = c("frac_strong","max_R2"),
-                              df_max = 0.6) {
-  node_metric <- match.arg(node_metric)
-  nodes <- node_strengths(r2_df, peak_id) %>%
-    mutate(name = Group) %>%
-    left_join(node_layout, by = c("name"="name")) %>%
-    mutate(
-      size_var = if (node_metric=="frac_strong") frac_strong else max_R2,
-      size = rescale(size_var, to = c(3, 10), from = c(0, 1)),
-      fill = node_cols[name],
-      stroke = ifelse(strong_flag, 1.2, 0.4)
-    )
-
-  edges <- edge_table_for_peak(peaks_df, r2_df, peak_id) %>%
-    mutate(
-      # width by df (cap for visual stability)
-      width = rescale(pmin(df, df_max), to = c(0.4, 3.5), from = c(0, df_max)),
-      col  = ifelse(color_key=="ns", "grey80", edge_cols[Hypothesis]),
-      alpha= ifelse(color_key=="ns", 0.6, 1.0),
-      lty  = ifelse(q < 0.05, "solid", ifelse(q < 0.10, "dashed", "solid"))
-    ) %>%
-    left_join(node_layout, by = c("A"="name")) %>%
-    rename(xA = x, yA = y) %>%
-    left_join(node_layout, by = c("B"="name")) %>%
-    rename(xB = x, yB = y)
-
-  # little triangle positioned 60% from A toward B (or vice versa) to point at D_target
-  tri_pts <- edges %>%
-    mutate(
-      xT = ifelse(D_target==A, 0.6*xA + 0.4*xB,
-                  ifelse(D_target==B, 0.6*xB + 0.4*xA, 0.5*(xA+xB))),
-      yT = ifelse(D_target==A, 0.6*yA + 0.4*yB,
-                  ifelse(D_target==B, 0.6*yB + 0.4*yA, 0.5*(yA+yB))),
-      tri_shape = ifelse(D_sign >= 0, 24, 25) # up for +, down for -
-    )
-
-  ggplot() +
-    # edges
-    geom_curve(data = edges,
-               aes(x = xA, y = yA, xend = xB, yend = yB,
-                   size = width, color = col, alpha = alpha, linetype = lty),
-               curvature = 0.18, lineend = "round") +
-    scale_size_identity() +
-    scale_color_identity() +
-    scale_alpha_identity() +
-    scale_linetype_identity() +
-
-    # D-sign target marker
-    geom_point(data = tri_pts,
-               aes(x = xT, y = yT),
-               shape = tri_pts$tri_shape, size = 2.6, fill = "white", color = "black") +
-
-    # nodes
-    geom_point(data = nodes,
-               aes(x = x, y = y, size = size),
-               shape = 21, color = "black", fill = nodes$fill, stroke = nodes$stroke) +
-    scale_size_identity() +
-
-    # labels
-    geom_text(data = nodes, aes(x = x, y = y, label = name),
-              vjust = -1.4, fontface = "bold", size = 3.2) +
-
-    coord_equal(xlim = c(-1.35,1.35), ylim = c(-1.35,1.35), expand = TRUE) +
-    labs(title = peak_id,
-         subtitle = "Edge width = df (f4-ratio); Triangle points toward endpoint closer to spacer (sign of D);\nNode size = predictive power (fraction of SNPs with R^2 ≥ threshold).",
-         x = NULL, y = NULL) +
-    theme_void(base_size = 11) +
-    theme(plot.title = element_text(face="bold", hjust=0.5),
-          plot.subtitle = element_text(size=9))
-}
-
-
-```
-```{r, fig.width=12}
-
-# Which peaks?
-peak_ids <- paste0("peak_", 1:6)
-
-plots <- map(peak_ids, ~ draw_peak_network(peaks_df, r2_df, .x,
-                                           node_metric = "frac_strong", df_max = 0.6))
-network_grid <- wrap_plots(plots, nrow = 2)
-network_grid
-
-```
-
-
-```{r}
-# ---------- 8) Save a CSV for supplements
-write.csv(peaks_df, "dsuite_six_hypotheses_by_peak.csv", row.names = FALSE)
-```
