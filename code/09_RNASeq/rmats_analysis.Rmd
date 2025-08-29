@@ -12,7 +12,7 @@ knitr::opts_knit$set(root.dir = root)
 library(tidyverse)
 library(fs)
 library(patchwork)
-source(file.path(root,"code","09_RNASeq","rmats_filtering.R"))
+#source(file.path(root,"code","09_RNASeq","rmats_filtering.R"))
 ```
 
 ```{r}
