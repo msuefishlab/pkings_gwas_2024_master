@@ -26,7 +26,7 @@ sed 1d ${indir}/sample_table_for_kallisto.csv | while read line; do
       sbatch --job-name=$species.$tissue.$individual --output "${root}/output_data/slurm_logs/09_RNASeq/$species.$tissue.$individual.log" --export=individual,species,tissue,reads,transcriptome,root ${root}/code/09_RNASeq/submit_kallisto.sb
     else
       echo "${reads_array[1]} does not exist."
-      echo ${reads} >> missing_files.txt
+      echo ${reads} >> ${outdir}/missing_files.txt
   fi
 
 done

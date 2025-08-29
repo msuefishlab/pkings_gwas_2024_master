@@ -8,7 +8,7 @@
 #SBATCH --output=%x-%j.out
 ########## Command Lines to Run ##########
 
-module purge; module load GCC/8.3.0  OpenMPI/3.1.4 kallisto/0.46.1
+module purge;  module load kallisto/0.50.0-gompi-2023a
 
 source ${root}/"pkings_gwas.env"
 
@@ -17,4 +17,4 @@ indir=${root}/input_data/09_RNASeq/
 
 mkdir -p ${outdir}/${tissue}/${species}/${individual}
 
-kallisto quant -i ${transcriptome} -o ${outdir}/${tissue}/${species}/${individual} ${reads}
+kallisto quant -i ${indir}/${transcriptome} -o ${outdir}/${tissue}/${species}/${individual} ${reads}
