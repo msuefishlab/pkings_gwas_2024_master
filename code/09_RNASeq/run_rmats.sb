@@ -17,7 +17,7 @@ source $root/"pkings_gwas.env"
 mkdir -p ${OUTDIR}/prep
 
 echo singularity exec ${rmats_image} python /rmats/rmats.py \
---gtf ${root}/input_data/00_Reference_Genome/${annotation_gff} \
+--gtf ${root}/input_data/09_RNASeq/paramormyrops_ncbi_0.4.names_corrected.gtf \
 --tmp ${OUTDIR}/prep \
 --od ${OUTDIR}/post \
 --readLength 151 \
@@ -26,13 +26,13 @@ echo singularity exec ${rmats_image} python /rmats/rmats.py \
 -t paired \
 --anchorLength 1 \
 --nthread 32 \
---libType fr-unstranded \
+--libType fr-firststrand \
 --task both \
 --variable-read-length \
 --novelSS
 
 singularity exec ${rmats_image} python /rmats/rmats.py \
---gtf ${root}/input_data/00_Reference_Genome/${annotation_gff} \
+--gtf ${root}/input_data/09_RNASeq/paramormyrops_ncbi_0.4.names_corrected.gtf \
 --tmp ${OUTDIR}/prep \
 --od ${OUTDIR}/post \
 --readLength 151 \
@@ -41,7 +41,7 @@ singularity exec ${rmats_image} python /rmats/rmats.py \
 -t paired \
 --anchorLength 1 \
 --nthread 32 \
---libType fr-unstranded \
+--libType fr-firststrand \
 --task both \
 --variable-read-length \
 --novelSS

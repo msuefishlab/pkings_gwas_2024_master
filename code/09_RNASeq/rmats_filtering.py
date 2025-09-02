@@ -28,7 +28,6 @@ def get_exon_class(fn):
 
 def read_rMATS(fn, readCov, minPSI, maxPSI, sigFDR, sigDeltaPSI, bgFDR, bgWithinGroupDeltaPSI):
 
-    print(fn)
     exon = get_exon_class(fn)
 
     filtered_event_list = []

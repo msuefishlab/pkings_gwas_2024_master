@@ -16,7 +16,7 @@ source $root/pkings_gwas.env
 MYNAME=$(whoami)
 
 indir=${root}/output_data/03_QC/
-outdir=${root}/output_data/05_PopGen/
+outdir=${root}/output_data/13_Structure/
 tmpoutdir=/mnt/local/${MYNAME}/${SLURM_JOB_ID}/
 
 mkdir -p ${outdir}

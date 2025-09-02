@@ -1,11 +1,7 @@
 #!/bin/bash
 
-## Run by bash code/09_RNASeq/02_cat_by_specno.sh input_data/09_RNASeq/rnaseq_metadata.txt
-
 root="$(git rev-parse --show-toplevel)"
 source "$root/pkings_gwas.env"
-
-# Define the input file
 
 outdir="${root}/output_data/09_RNASeq/rmats"  # Define the output director
 slurmoutdir=${root}/output_data/slurm_outputs/09_RNASeq
