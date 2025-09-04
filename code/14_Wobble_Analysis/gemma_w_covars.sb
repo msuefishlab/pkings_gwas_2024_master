@@ -1,0 +1,58 @@
+#!/bin/bash --login
+
+########## Define Resources Needed with SBATCH Lines ##########
+
+#SBATCH --time=04:00:00             # limit of wall clock time - how long the job will run (same as -t)
+#SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
+#SBATCH --cpus-per-task=4           # number of CPUs (or cores) per task (same as -c)
+#SBATCH --mem=120g                    # memory required per node - amount of memory (in bytes)
+#SBATCH -J gemma
+#SBATCH -o gemma_%J_%A_%a.out
+########## Command Lines to Run ##########
+
+cd $root
+
+source $root/pkings_gwas.env
+
+MYNAME=$(whoami)
+
+indir_assoc=${root}/output_data/06_Association/
+indir=${root}/input_data/14_Wobble_Analysis/
+outdir=${root}/output_data/14_Wobble_Analysis/
+
+mkdir -p ${outdir}
+mkdir -p ${tmpoutdir}
+
+mkdir -p ${outdir}/$OUTNAME
+mkdir -p ${tmpoutdir}/$OUTNAME
+
+
+echo singularity exec --bind $root:/project_root \
+  --bind $outdir:/out_dir \
+  --bind $indir:/in_dir \
+  --bind $indir_assoc:/in_dir_assoc \
+  ${gwas_tools_image} \
+  /gemma/GEMMA/bin/gemma \
+  -g /in_dir_assoc/$OUTNAME/$OUTNAME.geno \
+  -p /in_dir/$OUTNAME/OUTNAME.int.pheno \
+  -a /in_dir_assoc/$OUTNAME/${OUTNAME}_merge_map.txt \
+  -c /in_dir/$OUTNAME/OUTNAME.conditional.covars \
+  -lmm 2 \
+  -k /in_dir_assoc/$OUTNAME/${OUTNAME}.relate.cXX.txt \
+  -outdir /out_dir/$OUTNAME/ \
+  -o ${OUTNAME}.conditional.lmm2
+
+singularity exec --bind $root:/project_root \
+  --bind $outdir:/out_dir \
+  --bind $indir:/in_dir \
+  --bind $indir_assoc:/in_dir_assoc \
+  ${gwas_tools_image} \
+  /gemma/GEMMA/bin/gemma \
+  -g /in_dir_assoc/$OUTNAME/$OUTNAME.geno \
+  -p /in_dir/$OUTNAME/OUTNAME.int.pheno \
+  -a /in_dir_assoc/$OUTNAME/${OUTNAME}_merge_map.txt \
+  -c /in_dir/$OUTNAME/OUTNAME.conditional.covars \
+  -lmm 2 \
+  -k /in_dir_assoc/$OUTNAME/${OUTNAME}.relate.cXX.txt \
+  -outdir /out_dir/$OUTNAME/ \
+  -o ${OUTNAME}.conditional.lmm2
