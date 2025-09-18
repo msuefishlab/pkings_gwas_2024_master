@@ -324,7 +324,7 @@ df.genos.sub$name <- as.character(df.genos.sub$name)
 # The output data frame now includes the peak information for faceting
 
 # Step 4: Create the ggplot object
-geno_plot <- create_phylo_geno_plot_multi(tree, df.genos.sub, peaks_per_plot = 4)
+geno_plot <- create_phylo_geno_plot_multi(tree, df.genos.sub, peaks_per_plot = 6)
 
 print(geno_plot)
 ```
@@ -423,7 +423,7 @@ for (p in plots_by_peak) print(p)
 #          plot = plots_by_peak[[pk]], width = 10, height = 7, dpi = 300)
 # }))
 ```
-```{r, fig.width=12}
+```{r, fig.width=18}
 colnames(overlapping_annotations_df)[colnames(overlapping_annotations_df) == "peak"] <- "PEAK"
 
 
@@ -433,7 +433,7 @@ maxp <- max(-log10(pk.lmm.filt_new$p_lrt))
 overlapping_annotations_df <- overlapping_annotations_df %>%
   mutate(label_direction = ifelse(row_number() %% 2 == 0, "up", "down")) # Alternate "up" and "down"
 
-peaks_per_plot <- 4
+peaks_per_plot <- 6
 
 # Extract unique peaks and split into groups
 ordered_levels <- index_snps_simp$PEAK[order(index_snps_simp$p_lrt)]
@@ -473,7 +473,7 @@ for (group in peak_groups) {
       name = expression(R^2) # Label the legend for R²
     ) +
     scale_x_continuous(expand = c(0.01, 0), name = "Chromosome Position (Mb)", breaks = scales::breaks_extended(n = 4)) +
-    facet_wrap(~PEAK, scales = "free_x", ncol = 4) +
+    facet_wrap(~PEAK, scales = "free_x", ncol = 6) +
     geom_hline(yintercept = significant, linetype = "dashed", color = "red", size = 0.5) +
     geom_hline(yintercept = suggestive, linetype = "dashed", color = "blue", size = 0.5) +
     geom_gene_arrow(
@@ -620,7 +620,8 @@ final_report <- final_report %>%
     `Associated Genes` = paste(`Associated Genes`, collapse = "\n"),
     Descriptions = paste(Descriptions, collapse = "\n"),
     .groups = "drop"
-  )
+  ) %>%
+  arrange(as.numeric(as.character(Peak)))
 
 # Create the flextable
 flextable_table <- flextable(final_report) %>%

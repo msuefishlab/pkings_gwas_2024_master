@@ -63,7 +63,7 @@ create_phylo_geno_plot_multi<- function(tree,snpdata,peaks_per_plot = 4)
     summarize(ancestor_node = getMRCA(tree, name)) %>%
     mutate(label = population)
   
-  ordered_levels <- test_data$peak[order(-test_data$maxp)]
+  ordered_levels <- test_data$peak[order(test_data$peak)]
   test_data$peak <- factor(test_data$peak, levels = unique(ordered_levels))
   
   peak_levels <- levels(test_data$peak)
