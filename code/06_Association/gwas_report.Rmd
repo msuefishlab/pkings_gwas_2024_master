@@ -2,9 +2,9 @@
 title: "GWAS Report"
 output: html_notebook
 params:
-  data_path: APA_BAM_BEN_TPBP0_WOB1
+  data_path: PKINGS_ALL_WOB_EXCLUDED
   output_file: NULL
-  MAF_thresh: 0.05
+  MAF_thresh: 0.15
 ---
 
 ```{r setup, include=FALSE}
@@ -62,7 +62,7 @@ pk.lmm.filt %>%
 
 pk.lmm.bed.f <- pk.lmm.bed %>% 
   filter(max.log_p > suggestive ) %>% 
-  filter(num.snps.above.threshold > 0) %>% 
+  filter(num.snps.above.threshold > 5) %>% 
   ungroup() %>% 
   arrange(numeric_chr, start) %>% #arrange by chr order
   mutate(peak.original = peak, #new col for original peak name
@@ -125,7 +125,6 @@ pk.lmm.bed.f %>% dplyr::arrange(max.log_p) %>% dplyr::select(numeric_chr,start,e
 
 ```{r, fig.width=20,fig.height=5}
 dynamic_max <- quantile(pk.lmm.filt$log_p, 0.99999)
-dynamic_max <- significant+1
 
 
 peak_bounds <- pk.lmm.peaks.out %>%

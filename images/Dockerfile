@@ -19,7 +19,8 @@ RUN install2.r --error \
 	zoo \
 	kableExtra \
 	gggenes \
-	ggrepel
+	ggrepel \
+	ggrastr
 
 RUN R -e 'BiocManager::install("gdsfmt")'
 RUN R -e 'BiocManager::install("GenomicRanges")'
