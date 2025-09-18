@@ -8,6 +8,7 @@
 #SBATCH --mem=120g                    # memory required per node - amount of memory (in bytes)
 #SBATCH -J gemma
 #SBATCH -o gemma_%J_%A_%a.out
+#SBATCH -A data-machine
 ########## Command Lines to Run ##########
 
 cd $root

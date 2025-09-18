@@ -8,6 +8,7 @@
 #SBATCH --mem=64G                    # memory required per node - amount of memory (in bytes)
 #SBATCH --job-name RSEM     # you can give your job a name for easier identification (same as -J)
 #SBATCH --output=slurm-%x.%j.out
+#SBATCH -A data-machine
 ########## Command Lines to Run ##########
 
 root="$(git rev-parse --show-toplevel)"
@@ -17,5 +18,5 @@ singularity exec ${rnaseq_tools_image} rsem-calculate-expression --bam --no-bam-
 -p 32 \
 --paired-end --forward-prob 0.5 \
 ${INDIR}/${SAMPLE}Aligned.toTranscriptome.out.bam \
-${root}/output_data/09_RNASeq/star_index/pk_latest_transcriptome \
+${root}/output_data/09_RNASeq/pk_ncbi_0.4/pk_ncbi_0.4 \
 ${OUTDIR}

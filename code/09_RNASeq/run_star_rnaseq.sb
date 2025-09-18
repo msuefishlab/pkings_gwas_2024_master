@@ -16,7 +16,7 @@ source $root/"pkings_gwas.env"
 
 singularity exec ${rnaseq_tools_image} STAR \
 --runThreadN 16 \
---genomeDir ${root}/output_data/09_RNASeq/star_index/ \
+--genomeDir ${root}/output_data/09_RNASeq/pk_ncbi_0.4/ \
 --readFilesIn ${READ1} ${READ2} \
 --outFileNamePrefix ${OUTDIR}/${SAMPLE} \
 --readFilesCommand zcat \

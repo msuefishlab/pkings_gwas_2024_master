@@ -9,7 +9,7 @@ source "$root/pkings_gwas.env"
 input_file=$1
 
 readsdir="${root}/output_data/09_RNASeq/trimmed_reads"  # Define the output director
-outdir="${root}/output_data/09_RNASeq/aligned_reads"  # Define the output director
+outdir="${root}/output_data/09_RNASeq/aligned_reads_transcriptome"  # Define the output director
 slurmoutdir=${root}/output_data/slurm_outputs/09_RNASeq
 
 mkdir -p $outdir

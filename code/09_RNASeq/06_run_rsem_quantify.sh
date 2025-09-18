@@ -8,7 +8,7 @@ source "$root/pkings_gwas.env"
 # Define the input file
 input_file=$1
 
-indir="${root}/output_data/09_RNASeq/aligned_reads"  # Define the output director
+indir="${root}/output_data/09_RNASeq/aligned_reads_transcriptome"  # Define the output director
 outdir="${root}/output_data/09_RNASeq/quantification"  # Define the output director
 slurmoutdir=${root}/output_data/slurm_outputs/09_RNASeq
 

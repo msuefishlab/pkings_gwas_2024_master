@@ -6,8 +6,9 @@
 #SBATCH --ntasks=1                  # number of tasks - how many tasks (nodes) that you require (same as -n)
 #SBATCH --cpus-per-task=4           # number of CPUs (or cores) per task (same as -c)
 #SBATCH --mem=120g                    # memory required per node - amount of memory (in bytes)
-#SBATCH -J gemma
-#SBATCH -o gemma_%J_%A_%a.out
+#SBATCH -J plink
+#SBATCH -o plink_%J_%A_%a.out
+#SBATCH -A data-machine
 ########## Command Lines to Run ##########
 
 cd $root
@@ -44,5 +45,22 @@ singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indi
 --pheno /project_root/input_data/06_Association/${OUTNAME}.pheno.txt \
 --out /out_dir/${OUTNAME}_merge_ID 
 
-echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /gemma/GEMMA/bin/gemma -bfile /out_dir/${OUTNAME}_merge_ID -lmm 2 -k  /out_dir/$OUTNAME/${OUTNAME}.relate.cXX.txt -outdir /out_dir/$OUTNAME/ -o ${OUTNAME}.lmm2
-singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /gemma/GEMMA/bin/gemma -bfile /out_dir/${OUTNAME}_merge_ID -lmm 2 -k  /out_dir/$OUTNAME/${OUTNAME}.relate.cXX.txt -outdir /out_dir/$OUTNAME/ -o ${OUTNAME}.lmm2
+echo singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /plink/plink \
+--bfile /out_dir/${OUTNAME}_merge_ID \
+--double-id \
+--allow-extra-chr \
+--allow-no-sex \
+--biallelic-only strict \
+--assoc model \
+--pheno /project_root/input_data/06_Association/${OUTNAME}.pheno.txt \
+--out /out_dir/${OUTNAME}_PLINK_assoc
+
+singularity exec --bind $root:/project_root --bind $outdir:/out_dir --bind $indir:/in_dir --bind $tmpoutdir:/tmp_dir ${gwas_tools_image} /plink/plink \
+--bfile /out_dir/${OUTNAME}_merge_ID \
+--double-id \
+--allow-extra-chr \
+--allow-no-sex \
+--biallelic-only strict \
+--assoc model \
+--pheno /project_root/input_data/06_Association/${OUTNAME}.pheno.txt \
+--out /out_dir/${OUTNAME}_PLINK_assoc

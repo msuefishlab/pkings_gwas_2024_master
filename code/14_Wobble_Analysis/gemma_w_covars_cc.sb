@@ -32,7 +32,7 @@ echo singularity exec --bind $root:/project_root \
   ${gwas_tools_image} \
   /gemma/GEMMA/bin/gemma \
   -g /in_dir_assoc/$OUTNAME/$OUTNAME.geno \
-  -p /in_dir/$OUTNAME/${OUTNAME}.int.pheno \
+  -p /in_dir/$OUTNAME/${OUTNAME}.cc.pheno \
   -a /in_dir_assoc/$OUTNAME/${OUTNAME}_merge_map.txt \
   -c /in_dir/$OUTNAME/${OUTNAME}.conditional.covars \
   -lmm 2 \
@@ -47,7 +47,7 @@ singularity exec --bind $root:/project_root \
   ${gwas_tools_image} \
   /gemma/GEMMA/bin/gemma \
   -g /in_dir_assoc/$OUTNAME/$OUTNAME.geno \
-  -p /in_dir/$OUTNAME/${OUTNAME}.int.pheno \
+  -p /in_dir/$OUTNAME/${OUTNAME}.cc.pheno \
   -a /in_dir_assoc/$OUTNAME/${OUTNAME}_merge_map.txt \
   -c /in_dir/$OUTNAME/${OUTNAME}.conditional.covars \
   -lmm 2 \

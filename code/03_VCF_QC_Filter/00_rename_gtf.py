@@ -10,7 +10,7 @@ parser.add_argument('output_file', type=str, help='Path to save the updated GTF 
 args = parser.parse_args()
 
 # Load the mapping file
-map_df = pd.read_csv(args.map_file, sep='\t', header=None, names=['old_name', 'new_name'])
+map_df = pd.read_csv(args.map_file, sep=',', header=None, names=['old_name', 'new_name'])
 
 # Create a dictionary from the mapping file for quick look-up
 name_map = dict(zip(map_df['old_name'], map_df['new_name']))

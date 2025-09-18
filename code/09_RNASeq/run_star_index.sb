@@ -1,5 +1,4 @@
 #!/bin/bash --login
-
 ########## Define Resources Needed with SBATCH Lines ##########
 
 #SBATCH --time=04:00:00             # limit of wall clock time - how long the job will run (same as -t)
@@ -13,9 +12,9 @@
 root="$(git rev-parse --show-toplevel)"
 source $root/"pkings_gwas.env"
 
-mkdir -p ${root}/output_data/09_RNASeq/star_index/
+mkdir -p ${root}/output_data/09_RNASeq/pk_ncbi_0.4/
 
-singularity exec ${rnaseq_tools_image} rsem-prepare-reference -gtf ${root}/input_data/00_Reference_Genome/${annotation_gff} \
+singularity exec ${rnaseq_tools_image} rsem-prepare-reference -gtf ${root}/input_data/09_RNASeq/paramormyrops_ncbi_0.4.renamed.gtf \
 ${root}/input_data/00_Reference_Genome/${reference} \
-${root}/output_data/09_RNASeq/star_index/pk_latest_transcriptome \
+${root}/output_data/09_RNASeq/pk_ncbi_0.4/pk_ncbi_0.4 \
 --star --star-sjdboverhang 149 -p 16
