@@ -20,7 +20,9 @@ RUN install2.r --error \
 	kableExtra \
 	gggenes \
 	ggrepel \
-	ggrastr
+	ggrastr \
+	pscl \
+	broom
 
 RUN R -e 'BiocManager::install("gdsfmt")'
 RUN R -e 'BiocManager::install("GenomicRanges")'

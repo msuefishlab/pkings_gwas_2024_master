@@ -16,7 +16,7 @@ library(pscl)
 library(broom)
 ```
 
-
+# Load Data and Peaks
 ```{r}
 geno_path<-file.path(root,"output_data","08_Peak_Analysis",params$data_path,paste0(params$data_path,".bin.pos.genos"))
 peaks_path<-file.path(root,"output_data","06_Association",params$data_path,paste0(params$data_path,"_PEAKS.bed"))
@@ -44,6 +44,7 @@ names(df.logp) <- c("chr", "pos","logp", "peak")
 df.groups<-read.table(groups_path,header=T)
 ```
 
+# Join with LD Data
 ```{r}
 ld_peaks<-ld_data %>%
   inner_join(df.bed, by=c("SNP_A"="snp_id")) %>%
@@ -51,8 +52,6 @@ ld_peaks<-ld_data %>%
   dplyr::select(Peak = peak, CHROM=CHR_B, POS=BP_B, snp_id=SNP_B, R2)
 
 ```
-
-
 
 
 ```{r}
@@ -249,10 +248,6 @@ r2_df <- bind_rows(r2_results)
 ```
 
 ```{r}
-plot_name<-file.path(root,'output_data/08_Peak_Analysis/mcfaddenrsquared.svg')
-svg(plot_name, width=6)  # Adjust width as needed
-
-
 # Okabe–Ito colorblind-friendly palette (no red or blue tones)
 group_colors <- c("#E69F00", "#009E73", "#F0E442", "#CC79A7")
 # orange, green, yellow, magenta
@@ -272,21 +267,16 @@ ggplot(r2_df, aes(x = factor(Peak), y = R2, fill = Group)) +
     axis.ticks.y = element_line(color = "black") # keep y-axis ticks
 
   )
-n<-dev.off()  # Close the SVG device
-knitr::include_graphics(plot_name)
 ```
 
 ```{r}
-data_name<-file.path(root,'output_data/08_Peak_Analysis/mcfaddenrsquared.dataset.Rdata')
-
+data_name<-file.path(root,'output_data/08_Peak_Analysis/',params$data_path,'mcfaddenrsquared.dataset.Rdata')
 save(r2_df,file=data_name)
-
-load(file.path(root,'output_data/08_Peak_Analysis/mcfaddenrsquared.dataset.Rdata'))
 ```
 
 
 ```{r,fig.width=12}
-plot_name<-file.path(root,'output_data/08_Peak_Analysis/mcfaddenrsquared.svg')
+plot_name<-file.path(root,'output_data/08_Peak_Analysis/',params$data_path,'mcfaddenrsquared.svg')
 svg(plot_name, width=12)  # Adjust width as needed
 
 
