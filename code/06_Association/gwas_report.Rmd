@@ -2,7 +2,7 @@
 title: "GWAS Report"
 output: html_notebook
 params:
-  data_path: BAM_ONLY_BP0_TPWOB1
+  data_path: APA_BAM_BEN_TPBP0_WOB1
   output_file: NULL
   MAF_thresh: 0.05
 ---

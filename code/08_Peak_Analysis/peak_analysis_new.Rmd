@@ -2,7 +2,7 @@
 title: "Peak Report"
 output: html_notebook
 params:
-  data_path: APA_BAM_BEN_TPBP0_WOB1
+  data_path: PKINGS_ALL_WOB_EXCLUDED
   output_file: NULL
   popgen_prefix: MIC4273_HAP2_NEWREF_MSU618_all_fish_all_sites
   MAF_thresh: 0.15

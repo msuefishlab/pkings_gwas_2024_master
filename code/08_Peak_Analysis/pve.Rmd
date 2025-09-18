@@ -280,6 +280,8 @@ knitr::include_graphics(plot_name)
 data_name<-file.path(root,'output_data/08_Peak_Analysis/mcfaddenrsquared.dataset.Rdata')
 
 save(r2_df,file=data_name)
+
+load(file.path(root,'output_data/08_Peak_Analysis/mcfaddenrsquared.dataset.Rdata'))
 ```
 
 
