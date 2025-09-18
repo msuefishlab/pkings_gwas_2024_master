@@ -1,10 +1,10 @@
 #!/usr/bin/env Rscript
 
 
-#run this script like this:
+# run this script like this:
 # Rscript ${scriptdir}/render_report.R INPUTDATA OUTPUTDATA REPORT.Rmd
 
-args = commandArgs(trailingOnly = TRUE)
+args <- commandArgs(trailingOnly = TRUE)
 
 root <- rprojroot::find_root(".git/index")
 require(yaml)
@@ -16,6 +16,7 @@ rmarkdown::render(
   output_file = basename(paste0(args[2], ".report.html")),
   output_dir = dirname(args[2]),
   params = list(
-    data_path = args[1]
+    data_path = args[1],
+    MAF_thresh = args[4]
   )
 )

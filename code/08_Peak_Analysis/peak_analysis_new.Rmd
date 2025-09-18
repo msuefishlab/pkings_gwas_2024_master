@@ -260,7 +260,7 @@ phenos_df <- data.frame(Sample = names(phenos), Phenotype = as.factor(phenos))
 
 ### Make Genotype Matrix Plots
 ```{r}
-tree_path <- file.path("~/Desktop/for_github/pkings_gwas_2024_master/", "output_data", "04_Phylogenomics", "pkings_iqtree_genes_astral_gcf_scf_tree.cf.tree.ultra.time.nex")
+tree_path <- file.path(root, "output_data", "04_Phylogenomics", "pkings_iqtree_genes_astral_gcf_scf_tree.cf.tree.ultra.time.nex")
 tree <- read.tree(tree_path)
 tree <- drop.tip(tree, c("BIK_6927", "COB_4006", "PHOP_5511"))
 
