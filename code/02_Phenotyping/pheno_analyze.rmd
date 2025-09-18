@@ -1,0 +1,17 @@
+---
+title: "P0_Analysis"
+output: html_notebook
+---
+
+```{r setup, include=FALSE}
+root<-rprojroot::find_root(".git/index")
+knitr::opts_knit$set(root.dir = root)
+require(yaml)
+require(tidyverse)
+require(data.table)
+```
+
+```{r}
+pheno_data<-fread("~/Desktop/for_github/pkings_gwas_2024_master/output_data/02_Phenotyping/measurement_data.csv")
+
+```

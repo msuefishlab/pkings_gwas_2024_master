@@ -1,0 +1,181 @@
+---
+title: "EHH Analysis "
+output: html_notebook
+params:
+  peaknum: 3
+  chrom_num: "chr13"
+  index_snp_bp: 24780908
+
+---
+
+```{r setup, include=FALSE}
+root<-rprojroot::find_root(".git/index")
+knitr::opts_knit$set(root.dir = root)
+require(tidyverse)
+require(rehh)
+```
+
+```{r}
+get_pos <- function(hh){
+  if (!is.null(hh@positions)) return(hh@positions)
+  if (!is.null(hh@position))  return(hh@position)
+  stop("No positions/position slot found on haplohh.")
+}
+
+nearest_idx <- function(hh, pos) {
+  pos_vec <- as.numeric(get_pos(hh))
+  keep <- seq_along(pos_vec)
+  keep[ which.min(abs(pos_vec[keep] - pos)) ]
+}
+
+```
+
+```{r}
+
+# Zoom window around the focal position (±1 Mb; adjust as needed)
+win <- 0.5e6
+rng <- c(max(0, params$index_snp_bp - win), params$index_snp_bp + win)
+
+#start with chr16 until we get this working...
+APA<-data2haplohh(hap_file=file.path(root,"output_data/12_Sweep_Detection/APA.polarized.vcf.gz"),polarize_vcf = TRUE,chr.name=params$chrom_num)
+BAM<-data2haplohh(hap_file=file.path(root,"output_data/12_Sweep_Detection/BAM.polarized.vcf.gz"),polarize_vcf = TRUE,chr.name=params$chrom_num)
+
+APA_f <- subset(APA, min_maf = 0.05)
+BAM_f <- subset(BAM, min_maf = 0.05)
+
+rm(APA, BAM); invisible(gc())
+```
+
+
+```{r}
+target_chr <- params$chrom_num
+target_pos <- params$index_snp_bp  # your index SNP
+
+idx_bp <- nearest_idx(BAM_f, target_pos)
+idx_tp <- nearest_idx(APA_f, target_pos)
+
+pos_bp<-get_pos(BAM_f)[idx_bp]
+pos_tp<-get_pos(APA_f)[idx_tp]
+
+cat(sprintf("BP focal: %s:%s | TP focal: %s:%s\n",
+            target_chr, format(get_pos(BAM_f)[idx_bp], big.mark=","),
+            target_chr, format(get_pos(APA_f)[idx_tp], big.mark=",")))
+
+# EHH decay for each population at its nearest SNP
+ce_bp <- calc_ehhs(BAM_f, mrk = idx_bp, include_nhaplo = TRUE,include_zero_values=TRUE)
+ce_tp <- calc_ehhs(APA_f, mrk = idx_tp, include_nhaplo = TRUE,include_zero_values=TRUE)
+
+plot(ce_bp,nehhs = FALSE,xlim=c(rng[1],rng[2]))
+plot(ce_tp,nehhs = FALSE,xlim=c(rng[1],rng[2]))
+
+```
+```{r}
+# iHS needs polarization; your VCFs were read with polarize_vcf=TRUE
+scan_bp <- scan_hh(BAM_f, polarized = TRUE, discard_integration_at_border = TRUE)
+scan_tp <- scan_hh(APA_f, polarized = TRUE, discard_integration_at_border = TRUE)
+
+# Use sensible allele-frequency bins for standardization
+ihs_bp <- ihh2ihs(scan_bp, freqbin = 0.025)
+ihs_tp <- ihh2ihs(scan_tp, freqbin = 0.025)
+
+nearest_ihs_row <- function(ihs_tab, pos){
+  ihs_tab[ which.min(abs(ihs_tab$POSITION - pos)), , drop=FALSE]
+}
+
+ihs_row_bp <- nearest_ihs_row(ihs_bp$ihs, get_pos(BAM_f)[idx_bp])
+ihs_row_tp <- nearest_ihs_row(ihs_tp$ihs, get_pos(APA_f)[idx_tp])
+
+ihs_row_bp[, c("CHR","POSITION","IHS","LOGPVALUE")] %>% print()
+ihs_row_tp[, c("CHR","POSITION","IHS","LOGPVALUE")] %>% print()
+
+```
+
+```{r}
+# Whole-chr (or genome) Manhattan from rehh helper
+manhattanplot(ihs_bp, pval=TRUE, main="BP iHS (–log10 p)")
+manhattanplot(ihs_tp, pval=TRUE, main="TP iHS (–log10 p)")
+
+ggplot(ihs_bp$ihs %>% filter(CHR==target_chr, dplyr::between(POSITION, rng[1], rng[2])),
+       aes(POSITION, IHS)) +
+  geom_hline(yintercept=c(-2,2), linetype=2) +
+  geom_point(size=0.8) +
+  labs(title=sprintf("BP iHS near %s:%s", target_chr, pos_bp))
+
+ggplot(ihs_tp$ihs %>% filter(CHR==target_chr, dplyr::between(POSITION, rng[1], rng[2])),
+       aes(POSITION, IHS)) +
+  geom_hline(yintercept=c(-2,2), linetype=2) +
+  geom_point(size=0.8) +
+  labs(title=sprintf("TP iHS near %s:%s", target_chr, pos_tp))
+```
+```{r}
+rsb.apa_bam <- ines2rsb(scan_pop1 = scan_bp,
+                        scan_pop2 = scan_tp,
+                        popname1 = "Bambomo",
+                        popname2 = "Apassa")
+manhattanplot(rsb.apa_bam, pval=FALSE, main="APA-BAM Rsb (–log10 p)", xlim=c(rng[1],rng[2]))
+```
+
+```{r}
+xpe_raw <- ies2xpehh(scan_bp, scan_tp, popname1 = "Bambomo", popname2 = "Apassa")
+
+```
+
+```{r}
+cr.bp <- calc_candidate_regions(ihs_bp,
+                                 threshold = 4,
+                                 pval = TRUE,
+                                 window_size = 1E6,
+                                 overlap = 1E5,
+                                 min_n_extr_mrk = 2)
+
+cr.bp
+
+```
+
+```{r}
+plot(rsb.apa_bam[, "RSB_Bambomo_Apassa"],
+     xpe_raw[, "XPEHH_Bambomo_Apassa"],
+     xlab = "Rsb",
+     ylab = "XP-EHH",
+     pch = ".",
+     xlim = c(-7.5, 7.5),
+     ylim = c(-7.5, 7.5))
+# add red circle for marker with name "F1205400"
+# add dashed diagonal
+abline(a = 0, b = 1, lty = 2)
+```
+
+
+```{r}
+manhattanplot(xpe_raw)
+
+ggplot(xpe_raw %>% filter(CHR==target_chr, dplyr::between(POSITION, rng[1], rng[2])),
+       aes(POSITION, XPEHH_Bambomo_Apassa)) +
+  geom_hline(yintercept=c(-2,2), linetype=2) +
+  geom_point(size=0.8) +
+  labs(title=sprintf("XP-EHH near %s:%s (BP vs TP)", target_chr, pos_bp))
+```
+
+```{r, fig.height=12}
+# Derived and ancestral in each pop (turn on when you want the figs)
+bp_furcation <- calc_furcation(BAM_f,
+                            mrk =idx_bp )
+
+tp_furcation <- calc_furcation(APA_f,
+                            mrk =idx_tp )
+
+
+plot(bp_furcation,hap.names = hap.names(BAM_f))
+plot(tp_furcation,hap.names = hap.names(APA_f))
+  
+```
+
+```{r}
+tp_haplen<-calc_haplen(tp_furcation)
+bp_haplen<-calc_haplen(bp_furcation)
+
+plot(bp_haplen)
+plot(tp_haplen)
+
+
+```

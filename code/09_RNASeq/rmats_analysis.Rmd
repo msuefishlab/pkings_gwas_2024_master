@@ -2,8 +2,7 @@
 title: "RMATS Report"
 output: html_notebook
 params:
-  g1_data_path: APA_BEN_BAM_TP1_BP2_WOB9
-  g2_data_path: MOV_BIR_DOG_DOV_BAVA_BIK_APA_BEN_TP1_BP2_WOB9
+  data_path: PKINGS_ALL_WOB_EXCLUDED
 ---
 
 ```{r setup, include=FALSE}
@@ -12,7 +11,6 @@ knitr::opts_knit$set(root.dir = root)
 library(tidyverse)
 library(fs)
 library(patchwork)
-#source(file.path(root,"code","09_RNASeq","rmats_filtering.R"))
 ```
 
 ```{r}
@@ -122,14 +120,12 @@ ggplot(sig_row_counts_list, aes(x = "", y = RowCount, fill = EventType)) +
   scale_fill_brewer(palette = "Set3")  # Optional color palette
 ```
 ```{r}
-peak_data_path<-file.path(root,"output_data","06_Association",params$g1_data_path)
-g1_overlapping_annotations_df<-read.table(file.path(peak_data_path,paste0(params$g1_data_path,"_GENES_IN_PEAKS.txt")),header=T)
-
-
-peak_data_path<-file.path(root,"output_data","06_Association",params$g2_data_path)
-g2_overlapping_annotations_df<-read.table(file.path(peak_data_path,paste0(params$g2_data_path,"_GENES_IN_PEAKS.txt")),header=T)
+peak_data_path <- file.path(root, "output_data", "06_Association", params$data_path, "PKINGS_ALL_WOB_EXCLUDED_GENES_IN_PEAKS_manual_annos_add.txt")
+overlapping_annotations_df <- read_tsv(peak_data_path, quote = "", show_col_types = F)
 
 ```
+
+
 
 
 ```{r, fig.width=8}
@@ -147,8 +143,8 @@ mydf$col[mydf$ID %in% dn$ID] = 'High in TP'
 mydf$col = factor(mydf$col, levels = c('Background', 'High in BP', 'High in TP'))
 
 mydf$color_group = 'Normal'
-mydf$color_group[mydf$GeneID %in% g1_overlapping_annotations_df$gene_id] = 'Highlight'
-mydf$color_group[mydf$GeneID %in% g2_overlapping_annotations_df$gene_id] = 'Highlight'
+mydf$color_group[mydf$GeneID %in% overlapping_annotations_df$ID] = 'Highlight'
+mydf$color_group[mydf$GeneID %in% overlapping_annotations_df$ID] = 'Highlight'
 mydf$color_group = factor(mydf$color_group, levels = c('Normal', 'Highlight'))
 
 xlab = 'delta PSI (BP-TP)'
@@ -209,8 +205,8 @@ mydf$col[mydf$ID %in% dn$ID] = 'High in TP'
 mydf$col = factor(mydf$col, levels = c('Background', 'High in BP', 'High in TP'))
 
 mydf$color_group = 'Normal'
-mydf$color_group[mydf$GeneID %in% g1_overlapping_annotations_df$gene_id] = 'Highlight'
-mydf$color_group[mydf$GeneID %in% g2_overlapping_annotations_df$gene_id] = 'Highlight'
+mydf$color_group[mydf$GeneID %in% overlapping_annotations_df$ID] = 'Highlight'
+mydf$color_group[mydf$GeneID %in% overlapping_annotations_df$ID] = 'Highlight'
 mydf$color_group = factor(mydf$color_group, levels = c('Normal', 'Highlight'))
 
 
@@ -272,8 +268,8 @@ mydf$col[mydf$ID %in% dn$ID] = 'High in TP'
 mydf$col = factor(mydf$col, levels = c('Background', 'High in BP', 'High in TP'))
 
 mydf$color_group = 'Normal'
-mydf$color_group[mydf$GeneID %in% g1_overlapping_annotations_df$gene_id] = 'Highlight'
-mydf$color_group[mydf$GeneID %in% g2_overlapping_annotations_df$gene_id] = 'Highlight'
+mydf$color_group[mydf$GeneID %in% overlapping_annotations_df$ID] = 'Highlight'
+mydf$color_group[mydf$GeneID %in% overlapping_annotations_df$ID] = 'Highlight'
 mydf$color_group = factor(mydf$color_group, levels = c('Normal', 'Highlight'))
 
 xlab = 'delta PSI (BP-TP)'
@@ -334,8 +330,8 @@ mydf$col[mydf$ID %in% dn$ID] = 'High in TP'
 mydf$col = factor(mydf$col, levels = c('Background', 'High in BP', 'High in TP'))
 
 mydf$color_group = 'Normal'
-mydf$color_group[mydf$GeneID %in% g1_overlapping_annotations_df$gene_id] = 'Highlight'
-mydf$color_group[mydf$GeneID %in% g2_overlapping_annotations_df$gene_id] = 'Highlight'
+mydf$color_group[mydf$GeneID %in% overlapping_annotations_df$ID] = 'Highlight'
+mydf$color_group[mydf$GeneID %in% overlapping_annotations_df$ID] = 'Highlight'
 mydf$color_group = factor(mydf$color_group, levels = c('Normal', 'Highlight'))
 
 
@@ -397,8 +393,8 @@ mydf$col[mydf$ID %in% dn$ID] = 'High in TP'
 mydf$col = factor(mydf$col, levels = c('Background', 'High in BP', 'High in TP'))
 
 mydf$color_group = 'Normal'
-mydf$color_group[mydf$GeneID %in% g1_overlapping_annotations_df$gene_id] = 'Highlight'
-mydf$color_group[mydf$GeneID %in% g2_overlapping_annotations_df$gene_id] = 'Highlight'
+mydf$color_group[mydf$GeneID %in% overlapping_annotations_df$ID] = 'Highlight'
+mydf$color_group[mydf$GeneID %in% overlapping_annotations_df$ID] = 'Highlight'
 mydf$color_group = factor(mydf$color_group, levels = c('Normal', 'Highlight'))
 
 

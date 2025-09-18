@@ -1,0 +1,199 @@
+---
+title: "RMATS Report"
+output: html_notebook
+params:
+  data_path: PKINGS_ALL_WOB_EXCLUDED
+---
+
+```{r setup, include=FALSE}
+root <- rprojroot::find_root(".git/index")
+knitr::opts_knit$set(root.dir = root)
+library(tidyverse)
+library(fs)
+library(patchwork)
+library(ggrepel)
+```
+
+
+```{r}
+peak_data_path <- file.path(root, "output_data", "06_Association", params$data_path, "PKINGS_ALL_WOB_EXCLUDED_GENES_IN_PEAKS_manual_annos_add.txt")
+overlapping_annotations_df <- read_tsv(peak_data_path, quote = "", show_col_types = F)
+
+# Use new column names directly
+genes <- overlapping_annotations_df %>%
+  select(seqnames, start, end, ID, description, gene, manual_name)
+
+# Build gene_name_map: gene -> manual_name
+gene_name_map <- setNames(genes$manual_name, genes$gene)
+```
+
+
+```{r, fig.width=8}
+# build peak gene sets once
+# genes already assigned above with new column names
+```
+
+
+```{r, fig.height=12}
+load_raw_events <- function(gwas_tag, event = "SE") {
+  base_path <- file.path(root, "output_data/09_RNASeq/rmats", gwas_tag, "post")
+  dfp <- file.path(base_path, paste0(event, ".MATS.JC.txt"))
+  df <- read.table(dfp, header = TRUE, sep = "\t", quote = "", comment.char = "")
+  df$GWAS <- gwas_tag
+  df$EventType <- event
+
+  # Clean up GeneID
+  if ("GeneID" %in% colnames(df)) {
+    df$GeneID <- gsub('"', '', df$GeneID)
+  }
+  # Clean up geneSymbol if present
+  if ("geneSymbol" %in% colnames(df)) {
+    df$geneSymbol <- gsub('"', '', df$geneSymbol)
+  }
+
+  # Assign GeneName
+  if ("geneSymbol" %in% colnames(df) && any(!is.na(df$geneSymbol) & df$geneSymbol != "")) {
+    mapped_names <- gene_name_map[df$geneSymbol]
+    df$GeneName <- ifelse(!is.na(mapped_names), mapped_names, df$geneSymbol)
+  } else if ("GeneID" %in% colnames(df)) {
+    stripped_ids <- sub("^gene-", "", df$GeneID)
+    mapped_names <- gene_name_map[stripped_ids]
+    df$GeneName <- ifelse(!is.na(mapped_names), mapped_names, stripped_ids)
+  } else {
+    warning("No geneSymbol or GeneID column found in ", dfp)
+    df$GeneName <- NA
+  }
+
+  df
+}
+
+plot_gene_splicing <- function(gene, event_types = c("SE", "A3SS", "A5SS", "RI")) {
+  # load all events across GWAS1/2 and event types
+  all_events <- bind_rows(
+    lapply(c("gw1", "gw2"), function(g) {
+      bind_rows(lapply(event_types, function(ev) load_raw_events(g, ev)))
+    })
+  )
+
+  # filter to the chosen gene
+  gene_events <- subset(all_events, GeneName == gene)
+
+  if (nrow(gene_events) == 0) {
+    message("No splicing events found for ", gene)
+    return(NULL)
+  }
+
+  gene_events$logP <- -log10(gene_events$PValue)
+
+  # plot ΔPSI vs –log10(p) faceted by GWAS and event type
+  ggplot(gene_events, aes(x = -IncLevelDifference, y = logP, color = GWAS)) +
+    geom_point(size = 3) +
+    geom_text_repel(aes(label = EventType), size = 3) +
+    geom_hline(yintercept = 2, linetype = "dotdash") +
+    geom_vline(xintercept = c(-0.05, 0.05), linetype = "dotdash") +
+    facet_grid(EventType ~ GWAS) +
+    labs(
+      title = paste("Splicing events for", gene),
+      x = "ΔPSI (BP-TP)", y = "-log10(p-value)"
+    ) +
+    theme_classic()
+}
+
+# Plots all genes in the genes table using plot_gene_splicing.
+plot_all_genes_splicing <- function(event_types = c("SE", "A3SS", "A5SS", "RI")) {
+  # Use manual_name if available, else gene ID
+  gene_ids <- genes$gene
+  manual_names <- genes$manual_name
+  plot_names <- ifelse(!is.na(manual_names) & manual_names != "", manual_names, gene_ids)
+  # Use unique gene list and names
+  unique_indices <- !duplicated(plot_names)
+  gene_list <- gene_ids[unique_indices]
+  plot_names_unique <- plot_names[unique_indices]
+  plots <- lapply(gene_list, function(g) plot_gene_splicing(g, event_types))
+  names(plots) <- plot_names_unique
+  plots
+}
+```
+
+
+```{r}
+plot_gene_splicing("sptbn4b")
+```
+
+```{r}
+g1_bp <- c("BAM-151", "BAM-153", "BAM-154", "BAM-155", "BAM-156", "BAM_PK1", "BAM_PK3", "BAM_PK2")
+g1_tp <- c("BEN_699", "BEN_705", "BEN_706", "BEN_707", "BEN_708", "APA_187", "APA_160", "APA_161", "APA_187", "APA_188", "APA_189", "APA_190")
+
+g2_bp <- c("BIK_6898","BIK_6900","BIK_6901","BIR_659","BIR_660","BIR_661","BIR_662","BIR_663")
+g2_tp <- c("MOV_6716","MOV_6718","DOG_649","DOG_650","DOG_651","DOG_652","DOV_664","DOV_665","DOV_666","DOV_667","DOV_668","BEN_699","BEN_705","BEN_706","BEN_707","BEN_708","APA_160","APA_161","APA_187","APA_188","APA_189","APA_190")
+
+```
+
+```{r}
+plot_event_psi <- function(df, event_id, bp_samples, tp_samples,
+                           group1_name = "BP", group2_name = "TP") {
+  event <- df[df$ID == event_id, ]
+  if (nrow(event) == 0) {
+    message("No event found with ID ", event_id)
+    return(NULL)
+  }
+
+  inc1 <- as.numeric(unlist(strsplit(as.character(event$IncLevel1), ",")))
+  inc2 <- as.numeric(unlist(strsplit(as.character(event$IncLevel2), ",")))
+
+  psi_df <- data.frame(
+    PSI = c(inc1, inc2),
+    Group = c(
+      rep(group1_name, length(inc1)),
+      rep(group2_name, length(inc2))
+    ),
+    Sample = c(bp_samples, tp_samples) # actual sample IDs
+  )
+
+  ggplot(psi_df, aes(x = Group, y = PSI, color = Group, label = Sample)) +
+    geom_jitter(width = 0.2, size = 3) +
+    geom_boxplot(alpha = 0.2, outlier.shape = NA) +
+    geom_text_repel(size = 3) +
+    labs(
+      title = paste("Event", event_id, "(", event$GeneName, ")"),
+      y = "Percent Spliced In (PSI)", x = "Group"
+    ) +
+    theme_classic()
+  
+  #return(psi_df)
+}
+
+plot_gene_all_events <- function(df, gene, g1_bp, g1_tp, group1_name = "BP", group2_name = "TP") {
+  ids <- unique(df[df$GeneName == gene, "ID"])
+  plots <- lapply(ids, function(eid) plot_event_psi(df, eid, g1_bp, g1_tp, group1_name, group2_name))
+  names(plots) <- ids
+  plots
+}
+```
+
+
+```{r, fig.width=12}
+# load raw SE events for GWAS1
+gw1_raw <- load_raw_events("gw1", "A3SS")
+gw2_raw <- load_raw_events("gw2", "A3SS")
+
+# Example
+plots <- plot_gene_all_events(gw1_raw, "sptbn4b", g1_bp, g1_tp)
+wrap_plots(plots)
+```
+```{r}
+# Load all A3SS events from GWAS1
+gw1_raw <- load_raw_events("gw1", "A3SS")
+
+# Strip the "gene-" prefix from GeneID to match genes$gene
+gw1_raw$GeneID_clean <- sub("^gene-", "", gw1_raw$GeneID)
+
+# Subset to only genes present in your peaks table
+gw1_subset <- gw1_raw[gw1_raw$GeneID_clean %in% genes$gene, ]
+
+# How many remain?
+nrow(gw1_subset)
+
+# Peek at the first few
+head(gw1_subset[, c("ID","GeneID_clean","GeneName","PValue","IncLevelDifference")])
+```

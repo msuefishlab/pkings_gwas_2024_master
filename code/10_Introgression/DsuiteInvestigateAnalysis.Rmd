@@ -1,0 +1,205 @@
+---
+title: "Examination of Signatures of Introgression with DInvestigate"
+output: html_notebook
+---
+
+
+```{r setup}
+root <- rprojroot::find_root(".git/index")
+knitr::opts_knit$set(root.dir = root)
+library(readr)
+library(dplyr)
+library(stringr)
+library(purrr)
+library(tidyr)
+library(ggplot2)
+library(viridis)
+library(patchwork)
+library(colorspace)
+library(scales)
+
+
+read_dinvestigate <- function(f, peak_label = NA_character_) {
+  df <- read_tsv(f, show_col_types = FALSE, progress = FALSE)
+  names(df) <- c("chr",	"windowStart"	,"windowEnd",	"D"	,"f_d"	,"f_dM"	,"d_f")
+  df %>% mutate(Comparision = peak_label)
+}
+
+row_matches_hyp <- function(P1,P2,P3, pair_a, pair_b, spacer) {
+  s <- c(P1,P2,P3)
+  all(c(pair_a, pair_b, spacer) %in% s)
+}
+
+trio_key <- function(P1,P2,P3) paste(sort(c(P1,P2,P3)), collapse = "|")
+
+hyp_defs <- tribble(
+  ~Hypothesis,   ~pair_a, ~pair_b, ~spacer,
+  "BP1↔BP2",      "BP1",   "BP2",   "TP1",
+  "BP1↔BP3",      "BP1",   "BP3",   "TP2",
+  "BP2↔BP3",      "BP2",   "BP3",   "TP2",
+  "BP1↔BP_ANC",   "BP1",   "BP_ANC","TP_OUT",
+  "BP2↔BP_ANC",   "BP2",   "BP_ANC","TP_OUT",
+  "BP3↔BP_ANC",   "BP3",   "BP_ANC","TP_OUT"
+)
+
+
+source(file.path(root,"code/10_Introgression/dinvestigate_functions.R"))
+```
+
+```{r}
+dinvestigate_files <- list.files(path=file.path(root,"output_data","10_Introgression"), pattern = "_50_25\\.txt$", full.names=T)
+
+dinv_raw <- map_dfr(dinvestigate_files, function(f) {
+  lab<-basename(f)
+  lab <- str_remove(lab, "_localFstats_.*\\.txt$")
+  read_dinvestigate(f, peak_label = lab)
+})
+
+```
+
+```{r}
+peaks.file<-file.path(root,"output_data/06_Association/PKINGS_ALL_WOB_EXCLUDED/PKINGS_ALL_WOB_EXCLUDED_PEAKS.bed")
+peaks.bed<-read.table(peaks.file)
+names(peaks.bed)<-c("chrom","start","end","peak","idx_p","idx_bp")
+peaks.bed$chrom<-paste0("chr",peaks.bed$chrom)
+peaks.bed<-peaks.bed[order(peaks.bed$peak),]
+
+#peaks.bed <- peaks.bed %>% transmute(chr=chrom, start, end, peak_id = peak)
+
+```
+
+
+
+```{r, fig.width=12}
+# -------------------- build and draw the megaplot -----------------------------
+rep_map   <- make_rep_map(dinv_raw)
+all_summ  <- summarize_rep_side_globalbg(dinv_raw, peaks.bed, rep_map, bg_stat = median)
+
+facet_levels <- all_summ %>%
+  dplyr::distinct(facet_label) %>%
+  dplyr::mutate(is_anc = stringr::str_detect(facet_label, "BP_ANC")) %>%
+  dplyr::arrange(is_anc, facet_label) %>%   # non-ANC first, then ANC
+  dplyr::pull(facet_label)
+
+all_summ <- all_summ %>%
+  dplyr::mutate(facet_label = factor(facet_label, levels = facet_levels))
+
+peak_breaks   <- sort(unique(all_summ$peak_num))
+bg_per_facet  <- all_summ %>% distinct(facet_label, bg_global)
+facet_ann     <- all_summ %>% distinct(facet_label, trio_inset)
+ymin_global   <- min(all_summ$ci_lo, na.rm = TRUE)
+
+megaplot <- ggplot(all_summ, aes(x = peak_num, y = df_hat)) +
+  geom_hline(data = bg_per_facet, aes(yintercept = bg_global),
+             linetype = "dotted", color = "grey30") +
+  geom_errorbar(aes(ymin = ci_lo, ymax = ci_hi), width = 0, color = "grey60") +
+  geom_point(size = 2, color = "black") +
+  geom_text(data = facet_ann,
+            aes(x = Inf, y = 1, label = trio_inset),
+            inherit.aes = FALSE, hjust = 1.05, vjust = 1.2, size = 3) +
+  scale_x_continuous(breaks = peak_breaks, labels = as.character(peak_breaks)) +
+  coord_cartesian(ylim = c(ymin_global, 1)) +
+  labs(
+    y = expression("Fraction of introgression " * d[f] ~ "(median, 95% empirical CI; oriented so + = endpoint sharing)"),
+    x = "Peaks",
+    title = "Windowed df (f_dM) by peak across hypotheses — representative side only",
+    subtitle = "Dotted line: genome-wide background median df (excluding all peak windows)"
+  ) +
+  facet_wrap(~ facet_label, ncol = 3) +
+  theme_bw(base_size = 12) +
+  theme(
+    panel.grid = element_blank(),
+    axis.text.x = element_text(angle = 90, vjust = 0.5),
+    strip.text = element_text(face = "bold"),
+    panel.border = element_rect(colour = "black", fill = NA),
+    axis.ticks = element_line()
+  )
+
+megaplot
+
+```
+```{r}
+library(tidyverse)
+
+# Build table for each Hypothesis × Peak:
+# - df_median (median f_dM after sign flip)
+# - 95% empirical CI (quantiles)
+# - nwin (num windows in the peak)
+# - bg_median (genome-wide background median, excluding ALL peak windows)
+# - percentile (peak median vs background non-peak windows for that hypothesis)
+build_peak_summary <- function(dinv_raw, peaks.bed, rep_map, all_summ) {
+
+  # For overlap checks
+  peaks_tbl <- peaks.bed %>%
+    transmute(chr = as.character(chrom), start, end)
+
+  hyps <- unique(all_summ$Hypothesis)
+
+  tab <- map_dfr(hyps, function(h) {
+    # representative comparison & sign flip for this hypothesis
+    rp <- rep_map %>% filter(Hypothesis == h) %>% slice(1)
+
+    dcomp <- dinv_raw %>%
+      filter(Comparision == rp$Comparision) %>%
+      mutate(chr = as.character(chr),
+             fd_adj = rp$sign_flip * f_dM)  # flip so + = endpoint sharing
+
+    if (nrow(dcomp) == 0) return(tibble())
+
+    # Exclude any window overlapping ANY peak genome-wide
+    ov_any <- rep(FALSE, nrow(dcomp))
+    for (chr_i in unique(peaks_tbl$chr)) {
+      idx <- which(dcomp$chr == chr_i); if (!length(idx)) next
+      pk_chr <- peaks_tbl %>% filter(chr == chr_i)
+      if (nrow(pk_chr)) {
+        for (j in seq_len(nrow(pk_chr))) {
+          ov_any[idx] <- ov_any[idx] |
+            (dcomp$windowStart[idx] <= pk_chr$end[j] &
+             dcomp$windowEnd[idx]   >= pk_chr$start[j])
+        }
+      }
+    }
+    bg_vals <- dcomp$fd_adj[!ov_any]
+    bg_median <- if (length(bg_vals)) median(bg_vals, na.rm = TRUE) else NA_real_
+    ec <- if (length(bg_vals)) stats::ecdf(bg_vals) else NULL
+
+    # Pull the per-peak summaries we already computed in all_summ
+    rows <- all_summ %>%
+      filter(Hypothesis == h) %>%
+      arrange(peak_num) %>%
+      transmute(
+        Hypothesis,
+        Peaks      = peak_num,
+        df_median  = df_hat,
+        ci_lo, ci_hi,
+        nwin
+      )
+
+    # Percentile of each peak’s median vs background distribution
+    rows$percentile <- if (!is.null(ec)) 100 * ec(rows$df_median) else NA_real_
+    rows$bg_median  <- bg_median
+    rows
+  })
+
+  # nice ordering
+  tab %>%
+    arrange(Hypothesis, Peaks) %>%
+    select(Hypothesis, Peaks, df_median, ci_lo, ci_hi, nwin, bg_median, percentile)
+}
+
+peak_summary <- build_peak_summary(dinv_raw, peaks.bed, rep_map, all_summ)
+
+# Print in Rmd (compact). Use gt() if you prefer fancier formatting.
+knitr::kable(
+  peak_summary %>%
+    mutate(
+      df_median = round(df_median, 3),
+      ci_lo     = round(ci_lo, 3),
+      ci_hi     = round(ci_hi, 3),
+      bg_median = round(bg_median, 3),
+      percentile= round(percentile, 1)
+    ),
+  align = "lcccccc",
+  caption = "Per-peak df (f_dM) summary for representative side: median, 95% empirical CI, window count, genome-wide background median (non-peak windows), and percentile of the peak median vs the background."
+)
+```

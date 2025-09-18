@@ -95,7 +95,7 @@ subplot(2,2,4);
 pdfprinfig=gcf;
 
 file_name = strcat(averaged_eods(i).sample_name, '.png'); % Ensure it's a single string
-file_path = fullfile('EOD_Plots', file_name);
+file_path = fullfile('NEW_EOD_PLOTS', file_name);
 print(pdfprinfig, '-dpng', file_path); 
 close(pdfprinfig)
 disp("Closed Figure.  Ready for Next!")
@@ -104,23 +104,13 @@ end
 
 %% Write Measurement File
 
-colnames=flip(fieldnames(measurement_data));
+colnames  = flip(fieldnames(measurement_data));
 measurement_data = orderfields(measurement_data, colnames);
-colnames=fieldnames(measurement_data)';
-ds=squeeze(struct2cell(measurement_data))';
-ds_f=vertcat(colnames,ds);
-fid = fopen('EOD_Plots/measurement_data.csv','wt');
+ds  = squeeze(struct2cell(measurement_data))';   % N x M
+ds_f = [colnames.'; ds];                         % (N+1) x M
 
-if fid>0
- for k=1:size(ds_f,1)
-     if k==1
-        fprintf(fid,'%s,%s,%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s\n',ds_f{k,:});
-     else
-        fprintf(fid,'%s,%f,%f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f,%f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f\n',ds_f{k,:});
-     end
- end
-  fclose(fid);
-end
+writecell(ds_f, 'NEW_EOD_PLOTS/measurement_data.csv');          % handles CRLF properly
+
 
 %% Clean Up
 clearvars -except normalized_eods averaged_eods subjectlist measurement_data 

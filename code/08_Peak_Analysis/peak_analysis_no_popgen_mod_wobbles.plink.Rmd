@@ -1,0 +1,659 @@
+---
+title: "Peak Report"
+output: html_notebook
+params:
+  data_path: APA_BAM_BEN_TPBP0_WOB1
+  output_file: NULL
+  popgen_prefix: MIC4273_HAP2_NEWREF_MSU618_all_fish_all_sites
+  MAF_thresh: 0.15
+  pops: ["APA","BAM","BEN"]
+  phenos: ["TP","BP","TP"]
+---
+#data_path: MOV_BIR_DOG_DOV_BAVA_BIK_APA_BEN_TP1_BP2_WOB9
+#pops: ["MOV","BIR","DOG","BAVA","BIK","APA","BEN"]
+#phenos: ["TP","BP","TP","BP","BP","TP","TP"]
+#MAF_thresh: 0.15
+
+#data_path: APA_BEN_BAM_TP1_BP2_WOB9
+#pops: ["APA","BAM","BEN"]
+#phenos: ["TP","BP","TP"]
+#MAF_thresh: 0.05
+
+```{r setup, include=FALSE}
+root<-rprojroot::find_root(".git/index")
+knitr::opts_knit$set(root.dir = root)
+require(tidyverse)
+library(patchwork)
+library(data.table)
+library(reshape2)
+library(stringr)
+library(scales)      # For percent_format in scale_y_continuous
+require(GenomicRanges)
+require(rtracklayer)
+require(gggenes)
+require(rentrez)
+require(rlang)
+require(biomaRt)
+library(BioMartGOGeneSets)
+library(ggtree)
+library(ape)
+library(ggsignif)
+library(fuzzyjoin)
+library(rstatix)
+library(ggpubr)
+library(RColorBrewer)
+library(ggrepel)
+library(flextable)
+library(officer)
+library(lme4)
+library(lmerTest)
+library(purrr)
+library(broom.mixed)
+
+source(file.path(root,"code","06_Association","gemma_gwas_functions.R"))
+source(file.path(root,"code","08_Peak_Analysis","peak_analysis_functions.R"))
+source(file.path(root,"code","08_Peak_Analysis","phylogenoplot_multi.R"))
+
+rename.tips <- function(phy, old_names, new_names) {
+   mpos <- match(old_names,phy$tip.labels)
+   phy$tip.labels[mpos] <- new_names
+   return(phy)
+}
+
+```
+
+## Data Loading
+
+### Load the Genotypic Data
+```{r}
+geno_path<-file.path(root,"output_data","08_Peak_Analysis",params$data_path,paste0(params$data_path,".plink.allelic.bin.pos.genos"))
+peaks_path<-file.path(root,"output_data","06_Association",params$data_path,paste0(params$data_path,"_PLINK_ALLELIC_PEAKS.bed"))
+freq_file<-file.path(root,"output_data","06_Association",params$data_path,paste0(params$data_path,"_PLINK_assoc.frq"))
+logp_path<-file.path(root,"output_data","06_Association",params$data_path,paste0(params$data_path,"_PLINK_ALLELIC_SNPS_IN_PEAKS_TOP250.txt"))
+
+df.genos<-read.table(geno_path,header=T)
+
+long_genotype <- df.genos %>%
+  pivot_longer(
+    cols = -c(CHROM, POS, REF, ALT), # Exclude the first four columns
+    names_to = "name",          # Column for the new 'name' variable
+    values_to = "geno"          # Column for the new 'geno' variable
+  ) %>%
+  dplyr::select(name, chr = CHROM, pos = POS, geno) # Rename and select columns
+
+long_genotype<-as.data.frame(long_genotype)
+
+long_genotype<-long_genotype %>% mutate(chr=str_replace(chr,"chr",""))
+
+df.bed <- read.table(peaks_path)
+names(df.bed) <- c("chr", "start","end", "peak","maxp","maxp_pos")
+
+#remove positions if there is only one SNP
+df.bed <- df.bed %>% 
+  mutate(lg = end- start) %>% 
+  filter(lg > 0)
+
+#load the top p values (filtered > 0.1) to plot the signal with the other plots I generate below
+df.logp <- read.table(logp_path)
+
+```
+
+
+### Load SNP Data
+```{r}
+anno_file<-file.path(root,"input_data","00_Reference_Genome","jordan-mic4273-mb-hirise-20xx3__06-13-2024__final_assembly.ensembl.liftoff.renamed.genes_only.gff")
+plink_file<-file.path(root,"output_data","06_Association",params$data_path,paste0(params$data_path,"_PLINK_assoc.model"))
+minpath<-file.path(root,"output_data","06_Association",params$data_path,paste0(params$data_path,"_perm_min_by_test.long.tsv"))
+ldpath<-file.path(root,"output_data","06_Association",params$data_path,paste0(params$data_path,"_plink_allelic_index_snps.ld.ld"))
+peak_data_path<-file.path(root,"output_data","06_Association",params$data_path)
+
+
+#start with loading the association data
+pk.lmm<- plink.order(plink_file, "P")
+pk.freq<-fread(freq_file)
+pk.lmm<- left_join(pk.lmm,pk.freq[,c(2,5)],by = c("SNP" = "SNP"))
+
+min_data<-read.csv(minpath,header=T,sep="\t")
+
+thr_by_test_ord <- min_data %>%
+  group_by(TEST) %>%
+  arrange(minP, .by_group = TRUE) %>%
+  summarise(
+    n = n(),
+    i_sig  = max(1L, n - floor(n*0.95)),  # e.g., n=100 -> 5th smallest
+    i_sugg = max(1L, n - floor(n*0.67)),  # e.g., n=100 -> 33rd smallest
+    significant = -log10(minP[i_sig]),
+    suggestive  = -log10(minP[i_sugg]),
+    .groups = "drop"
+  ) %>%
+  select(TEST, significant, suggestive)
+
+significant<-thr_by_test_ord[thr_by_test_ord$TEST=="ALLELIC",]$significant
+suggestive<-thr_by_test_ord[thr_by_test_ord$TEST=="ALLELIC",]$suggestive
+
+print(paste0("The threshold for signficant association is: ",significant))
+print(paste0("The threshold for suggestive association is: ",suggestive))
+
+#remove low log p to reduce memory footprint
+pk.lmm.filt <- pk.lmm %>% filter(TEST =="ALLELIC") %>% filter(log_p > 1) %>% filter(MAF > params$MAF_thresh) %>% filter((!grepl("ups", CHR)) & !is.na(log_p)) %>% arrange(numeric_chr)
+```
+
+```{r}
+# now read the ld data
+ld_data<-fread(ldpath)
+
+#Merge the LD Data and the Association Data
+gwas_ld_data<-left_join(pk.lmm.filt,ld_data,by=c("SNP"="SNP_B"))
+
+# Get the Data inside the Peaks
+pk.lmm.peaks.out<-read.table(file.path(peak_data_path,paste0(params$data_path,"_PLINK_ALLELIC_SNPS_IN_PEAKS.txt")),header=T)
+
+
+## Identify the "Index" SNPS (SNP with Highest P-value with associated R^2 Value)
+# Function to get index SNPs with >1 R² value
+get_index_snps <- function(peaks_data, ld_data) {
+  peaks_data %>%
+    group_by(peak) %>%
+    arrange(desc(log_p)) %>%  # Order by descending log_p within each peak
+    mutate(has_ld = map_lgl(SNP, ~ {
+      # Check if the SNP has >1 associated SNP in ld_data with R^2 values
+      snp_data <- ld_data %>% filter(SNP_B == .x)
+      nrow(snp_data) > 1
+    })) %>%
+    filter(has_ld) %>%        # Keep only rows where SNP has associated R^2 values
+    slice_head(n = 1) %>%     # Take the first valid SNP per peak
+    ungroup()
+}
+
+# Call the function to identify valid index SNPs
+index_snps <- get_index_snps(pk.lmm.peaks.out, ld_data)
+
+# Simplify the output
+index_snps_simp <- index_snps[, c(17, 2, 1, 10, 8)]
+colnames(index_snps_simp) <- c("PEAK", "SNP_A", "CHR_A", "BP_A", "p")
+
+# Define Windows for Display / Analysis
+index_snps_simp$maximum <- index_snps_simp$BP_A + 50000
+index_snps_simp$minimum <- index_snps_simp$BP_A - 50000
+
+#Keep LD Values only associated with the index SNP
+gwas_and_ld_data_only<-left_join(index_snps_simp[,1:2],gwas_ld_data, by=("SNP_A"="SNP_A"))
+
+gwas_and_ld_data_only_new <- map(1:nrow(index_snps_simp), function(i) {
+  # Identify the boundaries
+  left_bound  <- index_snps_simp$minimum[i]
+  right_bound <- index_snps_simp$maximum[i]
+  
+  # Filter pk.lmm by chromosome and position within the window
+  gwas_and_ld_data_only %>%
+    filter(
+      CHR == index_snps_simp$CHR_A[i],
+      ps >= left_bound,
+      ps <= right_bound
+    ) 
+})
+
+pk.lmm.filt_new<-map(1:nrow(index_snps_simp), function(i) {
+  # Identify the boundaries
+  left_bound  <- index_snps_simp$minimum[i]
+  right_bound <- index_snps_simp$maximum[i]
+  
+  # Filter pk.lmm by chromosome and position within the window
+  pk.lmm.filt %>%
+    filter(
+      CHR == index_snps_simp$CHR_A[i],
+      ps >= left_bound,
+      ps <= right_bound
+    ) %>% mutate(
+      PEAK=index_snps_simp$PEAK[i]
+    )
+})
+
+gwas_and_ld_data_only_new <- bind_rows(gwas_and_ld_data_only_new)
+
+pk.lmm.filt_new <-bind_rows(pk.lmm.filt_new)
+
+annotations<-import(anno_file)
+
+#Define a GRANGES to intersect with the annotations data
+snp_gr <- GRanges(
+  seqnames = index_snps_simp$CHR_A,
+  ranges = IRanges(start = index_snps_simp$minimum, end = index_snps_simp$maximum),
+)
+
+mcols(snp_gr)$PEAK <- index_snps_simp$PEAK
+
+# Perform the overlap
+overlaps <- findOverlaps(snp_gr, annotations, ignore.strand = TRUE)
+
+# Create a mapping table from overlaps
+overlap_mapping <- data.frame(
+  peak_index = queryHits(overlaps),
+  annotation_index = subjectHits(overlaps)
+)
+
+overlap_mapping$PEAK <- mcols(snp_gr)$PEAK[overlap_mapping$peak_index]
+
+# Convert annotations to a dataframe
+overlapping_annotations_df <- as.data.frame(annotations)
+
+# Ensure there's a unique identifier for each annotation
+overlapping_annotations_df$unique_id <- seq_len(nrow(overlapping_annotations_df))
+
+# Filter overlap_mapping to include only unique annotation indices
+overlap_mapping_unique <- overlap_mapping[!duplicated(overlap_mapping$annotation_index), ]
+
+# Merge SNP_A into overlapping_annotations_df
+overlapping_annotations_df <- merge(overlapping_annotations_df, overlap_mapping_unique, by.x = "unique_id", by.y = "annotation_index", all.x = TRUE)
+overlapping_annotations_df<-subset(overlapping_annotations_df,!is.na(PEAK))
+
+gr=getBioMartGenes("pkingsleyae_gene_ensembl")
+
+anno_meta<-as.data.frame(gr)[6:9]
+
+overlapping_annotations_df<-left_join(overlapping_annotations_df,anno_meta,by=c("gene_id"="ensembl_gene_id"))
+
+overlapping_annotations_for_output<-overlapping_annotations_df[c(2,3,4,11,13,27)]
+write.table(overlapping_annotations_for_output,file.path(peak_data_path,paste0(params$data_path,"_GENES_IN_PEAKS_PLINK_ALLELIC.txt")), sep = "\t", quote = F, row.names = F, col.names = T)
+```
+
+
+```{r}
+fish_data_file<-file.path(root,"input_data/01_Terra/data_model/fish_data_2024a.txt")
+
+fish_data<-read.csv(fish_data_file,row.names=1,sep="\t")
+
+pheno_discrete <- fish_data %>% 
+  mutate(Phenotype = factor(Phenotype)) %>%
+  dplyr::select(Phenotype)
+
+phenos<-setNames(as.character(pheno_discrete$Phenotype), row.names(pheno_discrete))
+phenos <- gsub("TYPE_II", "TP", phenos)
+phenos <- gsub("TYPE_I", "TP", phenos)
+phenos<-as.factor(phenos)
+## set colors for plotting 
+col.pheno<-setNames(c("blue","red","purple"),levels(phenos)) 
+
+phenos_df <- data.frame(Sample = names(phenos), Phenotype = as.factor(phenos))
+```
+
+## Plotting
+
+### Make Genotype Matrix Plots
+```{r}
+
+# Perform a fuzzy join to match chr and position ranges (start to end)
+df.merged <- long_genotype %>%
+  fuzzy_inner_join(
+    df.bed,
+    by = c(
+      "chr" = "chr",          # Match chromosomes
+      "pos" = "start",        # Ensure pos is >= start
+      "pos" = "end"           # Ensure pos is <= end
+    ),
+    match_fun = list(`==`, `>=`, `<=`)  # Match chr exactly, and pos within start and end
+  ) %>%
+  dplyr::select(-chr.y,-start,-end,-lg) %>%  # Explicitly drop chr.y
+  dplyr::rename(chr = chr.x)  # Rename chr.x to chr
+
+
+# Add SNP order within individual, grouped by peak and name
+df.genos.sub <- df.merged %>%
+  arrange(peak, name, pos) %>%
+  group_by(peak, name) %>%
+  mutate(snp_order_within_individual = row_number()) %>%
+  ungroup()
+
+# Convert geno to a factor with desired levels
+df.genos.sub$geno <- factor(ifelse(is.na(df.genos.sub$geno), "NA", as.character(df.genos.sub$geno)),
+                            levels = c("NA", "0", "1", "2"))
+
+# Merge phenotype information
+df.genos.sub <- df.genos.sub %>%
+  mutate(population = sub("_.*", "", name)) %>%  # Extract population from the name
+  left_join(phenos_df, by = c("name" = "Sample"))  # Merge phenos_df to include Phenotype
+
+# Sort by phenotype within each population and reverse name order for plotting
+df.genos.sub <- df.genos.sub %>%
+  group_by(peak, population) %>%
+  arrange(Phenotype, name, .by_group = TRUE) %>%
+  ungroup() %>%
+  mutate(name = factor(name, levels = rev(unique(name))))  # Reverse levels for top-to-bottom plotting
+
+# Convert population to factor
+df.genos.sub$population <- as.factor(df.genos.sub$population)
+df.genos.sub$peak <- as.factor(df.genos.sub$peak)
+df.genos.sub$name <- as.character(df.genos.sub$name)
+
+```
+
+```{r,fig.height=12}
+
+keep_pops <- c("APA","BAM","BEN","BAVA")
+pheno_levels <- c("TP","BP","Wobble")  # desired order TOP→BOTTOM
+
+# 1) Normalize phenotype labels and population order
+df_norm <- df.genos.sub %>%
+  mutate(
+    # unify phenotype spellings; add/adjust mappings as needed:
+    Phenotype = case_when(
+      Phenotype %in% c("Mixed","mix","MIXED") ~ "Wobble",
+      Phenotype %in% c("TP","tp") ~ "TP",
+      Phenotype %in% c("BP","bp") ~ "BP",
+      TRUE ~ as.character(Phenotype)
+    ),
+    Phenotype = factor(Phenotype, levels = pheno_levels),
+    population = factor(population, levels = keep_pops)
+  ) %>%
+  filter(population %in% keep_pops)
+
+library(dplyr)
+library(ggplot2)
+library(forcats)
+
+# 1) Row-wise sums per (peak, Phenotype, name)
+geno_map <- c("0" = 0, "1" = 1, "2" = 2)
+
+row_sums <- df_norm %>%
+  mutate(geno_num = geno_map[as.character(geno)]) %>%
+  group_by(peak, Phenotype, name) %>%
+  summarise(row_sum = sum(geno_num, na.rm = TRUE), .groups = "drop")
+
+# 2) Build one plot per peak
+peaks <- sort(unique(df_norm$peak))
+
+plots_by_peak <- lapply(peaks, function(pk) {
+  # order within this peak: Phenotype panel-wise by descending sum, then name
+  levs_pk <- row_sums %>%
+    filter(peak == pk) %>%
+    arrange(Phenotype, desc(row_sum), name) %>%
+    transmute(y_level = paste(Phenotype, name, sep = "|")) %>%
+    pull(y_level)
+
+  df_pk <- df_norm %>%
+    filter(peak == pk) %>%
+    mutate(
+      y_panel = paste(Phenotype, name, sep = "|"),
+      y_panel = factor(y_panel, levels = levs_pk)
+    )
+  
+    df_pk_outline <- df_pk %>%
+    dplyr::filter(!is.na(maxp_pos) & pos == maxp_pos)
+
+  ggplot(
+    df_pk,
+    aes(x = snp_order_within_individual, y = y_panel, fill = geno)
+  ) +
+    geom_tile() +
+    # outline the max pos with a blue box
+    geom_tile(
+      data = df_pk_outline,
+      aes(x = snp_order_within_individual, y = y_panel),
+      fill = NA, color = "blue", linewidth = 0.6
+    ) +
+    facet_grid(
+      rows = vars(Phenotype,population),
+      scales = "free_y",
+      space = "free_y"
+    ) +
+    scale_y_discrete(labels = function(z) sub("^[^|]*\\|", "", z)) +
+    scale_fill_manual(values = c("0" = "white", "1" = "black", "2" = "red")) +
+    labs(
+      title = paste("Peak", pk),
+      x = "Genomic position",
+      y = "Individual",
+      fill = "Genotype"
+    ) +
+    theme_bw(base_size = 12) +
+    theme(
+      axis.text.y = element_text(size = 6),
+      strip.background = element_rect(fill = "grey90")
+    )
+})
+
+names(plots_by_peak) <- as.character(peaks)
+
+# print them (one figure per peak)
+for (p in plots_by_peak) print(p)
+
+# Optional: save each figure
+# dir.create("peak_plots", showWarnings = FALSE)
+# invisible(lapply(names(plots_by_peak), function(pk) {
+#   ggsave(filename = file.path("peak_plots", paste0("peak_", pk, ".png")),
+#          plot = plots_by_peak[[pk]], width = 10, height = 7, dpi = 300)
+# }))
+
+
+
+```
+
+
+
+
+```{r, fig.width=12}
+
+colnames(overlapping_annotations_df)[colnames(overlapping_annotations_df) == "peak"] <- "PEAK"
+
+
+maxp<-max(-log10(pk.lmm.filt_new$p))
+
+# Replace NA values in `external_gene_name` with `gene_id`
+overlapping_annotations_df <- overlapping_annotations_df %>%
+  mutate(label_name = ifelse(is.na(external_gene_name), gene_id, external_gene_name)) %>%
+  mutate(label_direction = ifelse(row_number() %% 2 == 0, "up", "down"))  # Alternate "up" and "down"
+
+peaks_per_plot <- 4
+
+# Extract unique peaks and split into groups
+  ordered_levels <- index_snps_simp$PEAK[order(index_snps_simp$p)]
+  index_snps_simp$PEAK <- factor(index_snps_simp$PEAK, levels = unique(ordered_levels))
+  peak_levels <- levels(index_snps_simp$PEAK)
+  peak_levels <- paste0("peak",peak_levels)
+  peak_groups <- split(peak_levels, ceiling(seq_along(peak_levels) / peaks_per_plot))
+  
+snp_plot_list <- list()  # Initialize an empty list to store plots
+
+for (group in peak_groups) {
+  
+  peak.pk.lmm_group <- pk.lmm.filt_new %>% filter(paste0("peak",PEAK) %in% group)
+  peak.gwas_ld_data_group <- gwas_and_ld_data_only_new %>% filter(paste0("peak",PEAK) %in% group)
+  overlapping_annotations_df_group <- overlapping_annotations_df %>% filter(paste0("peak",PEAK) %in% group)
+  
+  overlapping_annotations_df_group <- overlapping_annotations_df_group %>%
+  mutate(
+    forward = case_when(
+      strand == "+" ~ TRUE,
+      strand == "-" ~ FALSE,
+      TRUE          ~ NA
+    )
+  ) %>%
+  mutate(
+    ypos = case_when(
+      strand == "+" ~ (maxp + 3),  # shift slightly upward
+      strand == "-" ~ (maxp + 1),  # shift slightly downward
+      TRUE          ~ (maxp + 3)         # in case of '*'
+    )
+  )
+  
+  snp_plot <- ggplot() +
+    geom_point(data = peak.pk.lmm_group, mapping = aes(x = ps / 1e6, y = -log10(P)), color = "grey") +
+    geom_point(data = peak.gwas_ld_data_group, mapping = aes(x = BP_B / 1e6, y = -log10(P), color = R2)) +
+  scale_color_gradientn(
+      colours = rev(brewer.pal(9, "RdYlBu")),  # Reverse the palette for intuitive hot-to-cold mapping
+      name = expression(R^2)                  # Label the legend for R²
+    ) +
+    scale_x_continuous(expand = c(0.01, 0), name = "Chromosome Position (Mb)",  breaks = scales::breaks_extended(n = 4)) +
+    facet_wrap(~ PEAK, scales = "free_x",ncol=4) +
+    geom_hline(yintercept = significant, linetype = "dashed", color = "red", size = 0.5) +
+    geom_hline(yintercept = suggestive, linetype = "dashed", color = "blue", size = 0.5) +
+    geom_gene_arrow(data = overlapping_annotations_df_group, 
+                    mapping = aes(xmin = start / 1e6, xmax = end / 1e6, y = ypos,forward = forward),
+                    fill = "darkgreen",
+                    alpha=0.4,
+                    show.legend = FALSE) +
+    # Upward-moving labels
+  geom_text_repel(
+    data = overlapping_annotations_df_group %>% filter(label_direction == "up"),
+    aes(x = (start / 1e6 + end / 1e6) / 2, y = ypos, label = label_name),
+    nudge_y = 1,  # Move upward
+    inherit.aes = FALSE,
+    arrow = arrow(length = unit(0.1, "cm")),
+    segment.color = "black",
+    size = 5,
+    force = 2,
+    max.overlaps = Inf,
+    box.padding = 0.6,
+    point.padding = 0.3
+  ) +
+  # Downward-moving labels
+  geom_text_repel(
+    data = overlapping_annotations_df_group %>% filter(label_direction == "down"),
+    aes(x = (start / 1e6 + end / 1e6) / 2, y = ypos-1, label = label_name),
+    nudge_y = -1,  # Move downward
+    inherit.aes = FALSE,
+    arrow = arrow(length = unit(0.1, "cm")),
+    segment.color = "black",
+    size = 5,
+    force = 2,
+    max.overlaps = Inf,
+    box.padding = 0.5,
+    point.padding = 0.3
+  )+
+    theme_minimal() +
+    theme(
+      strip.background = element_blank(), 
+            #strip.text = element_blank(),
+      panel.grid.major.x = element_blank(),
+      panel.grid.minor.x = element_blank(),
+      panel.grid.minor.y = element_blank(),
+      axis.line.x = element_line(color = "black", size = 0.5),
+      axis.ticks.x = element_line(color = "black", size = 0.5),
+      axis.text.x = element_text(size = rel(2), family = "Arial", angle = 90, hjust = 1),
+      axis.text.y = element_text(size = rel(2), family = "Arial", angle = 0, hjust = 1),
+      axis.title.x = element_text(size = rel(2), family = "Arial", margin = margin(t = 20)),
+      axis.title.y = element_text(size = rel(2), family = "Arial", margin = margin(r = 20)),
+      legend.position = "right",
+      legend.text = element_text(size=rel(1.2), family = "Arial"),
+      panel.spacing = unit(2, "lines")
+    ) +
+    labs(y = expression("-log"[10] * " p-value"))
+  
+  # Add the plot to the list
+  snp_plot_list <- c(snp_plot_list, list(snp_plot))
+}
+
+print(snp_plot_list)
+```
+
+
+```{r, echo = FALSE, results='asis'}
+
+ensembl_112 <- useEnsembl(biomart = "ensembl", version = 112,host="https://may2024.archive.ensembl.org")
+ensembl_112 <-useDataset("pkingsleyae_gene_ensembl",mart=ensembl_112)
+
+# Assuming the attribute 'description' exists, retrieve the gene descriptions
+gene_descriptions <- getBM(values=overlapping_annotations_df$gene_id,
+                                filters = "ensembl_gene_id",
+  attributes = c("ensembl_gene_id", "description"),
+  mart = ensembl_112
+)
+
+
+suggestive_snps<-NULL
+snp_count_per_peak<-NULL
+genes_per_peak<-NULL
+final_report<-NULL
+kable_table<-NULL
+
+gwas_and_ld_data_only_new$PEAK<-as.factor(gwas_and_ld_data_only_new$PEAK)
+
+
+suggestive_snps <- gwas_and_ld_data_only_new %>%
+  filter(-log10(p_lrt) > suggestive)
+
+index_snps_simp$PEAK<-as.factor(index_snps_simp$PEAK)
+
+snps_count_per_peak <- suggestive_snps %>%
+  #inner_join(index_snps_simp, by = c("PEAK" = "PEAK")) %>%
+  group_by(PEAK) %>%
+  summarise(SNP_Count = n())
+
+snps_count_per_peak$PEAK<-as.factor(snps_count_per_peak$PEAK)
+
+
+genes_per_peak <- overlapping_annotations_df %>%
+  left_join(gene_descriptions, by = c("gene_id" = "ensembl_gene_id")) %>%
+  mutate(
+    external_gene_name = if_else(is.na(external_gene_name), gene_id, external_gene_name),
+    description.y = gsub("\\[.*?\\]", "", description.y),  # Remove text in brackets
+    description.y = if_else(is.na(description.y) | description.y == "", "Unknown Gene", description.y)  # Replace NA or blank with "Unknown Gene"
+  ) %>%
+  group_by(PEAK) %>%
+  summarise(Associated_Genes = toString(external_gene_name), Names = toString(description.y))
+
+
+genes_per_peak$PEAK<-as.factor(genes_per_peak$PEAK)
+
+# Create the final report
+final_report <- index_snps_simp %>%
+  dplyr::select(PEAK, CHR_A, maximum, minimum) %>%
+  left_join(snps_count_per_peak, c("PEAK" = "PEAK")) %>%
+  left_join(genes_per_peak, c("PEAK" = "PEAK"))
+
+colnames(final_report) <- c("Peak", "Chromosome", "Start", "End", "n SNPs", "Associated Genes", "Descriptions")
+
+# Replace commas with newlines for specific columns (e.g., "Associated Genes" and "Descriptions")
+final_report <- final_report %>%
+  mutate(
+    `Associated Genes` = gsub(", ", "\n", `Associated Genes`),
+    Descriptions = gsub(", ", "\n", Descriptions)
+  )
+
+
+# Replace commas with newlines for specific columns (e.g., "Associated Genes" and "Descriptions")
+final_report <- final_report %>%
+  rowwise() %>% # Process each row individually
+  mutate(
+    `Associated Genes` = strsplit(`Associated Genes`, ", "),  # Split into a list
+    Descriptions = strsplit(Descriptions, ", ")              # Split into a list
+  ) %>%
+  unnest(cols = c(`Associated Genes`, Descriptions)) %>%     # Expand rows for each pair
+  group_by(Peak, Chromosome, Start, End, `n SNPs`) %>%       # Regroup data
+  summarize(
+    `Associated Genes` = paste(`Associated Genes`, collapse = "\n"),
+    Descriptions = paste(Descriptions, collapse = "\n"),
+    .groups = "drop"
+  )
+
+# Create the flextable
+flextable_table <- flextable(final_report) %>%
+  bg(part = "header", bg = "#D3D3D3") %>%  # Set header background color
+  bold(part = "header") %>%               # Bold the header row
+  #fontsize(size = 10, part = "all") %>%   # Set font size for the entire table
+  autofit() %>%                           # Adjust column widths
+  #width(j = 1:ncol(final_report), width = 1.5) %>%  # Set column widths
+  set_table_properties(layout = "autofit") %>%      # Fit table to layout
+  line_spacing(i = NULL, space = 1.2)     # Add line spacing for better readability
+
+
+
+
+# Define landscape section properties
+landscape_section <- block_section(
+  prop_section(
+    page_size = page_size(orient = "landscape") # Set the page orientation to landscape
+  )
+)
+
+# Create the Word document
+doc <- read_docx() %>%
+  body_add_flextable(flextable_table) %>% # Add the flextable
+  body_add(landscape_section)      # Apply landscape section properties
+
+
+# Export the Word document
+print(doc, target = file.path(root,"output_data/08_Peak_Analysis",params$data_path,paste0(params$data_path,".peak_report.docx")))
+
+flextable_table
+
+```

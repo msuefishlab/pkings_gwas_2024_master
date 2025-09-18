@@ -1,0 +1,377 @@
+---
+title: "Gene Expression Atlas for Paramormyrops kingsleyae"
+output: html_notebook
+---
+
+```{r setup}
+root <- rprojroot::find_root(".git/index")
+knitr::opts_knit$set(root.dir = root)
+library(tximport)
+library(tximport)
+library(GenomicFeatures)
+library(DESeq2)
+library(ggplot2)
+library(pheatmap)
+library(RColorBrewer)
+library(stringr)
+library(data.table)
+library(circlize)
+library(ComplexHeatmap)
+library(txdbmaker)
+library(dplyr)
+library(matrixStats)
+```
+
+
+```{r}
+samples <- read.table(file.path(root, "input_data/09_RNASeq/", "sample_table_for_kallisto.csv"), sep = ",", header = T)
+
+paramormyrops_tx2gene <- read.csv(file.path(root, "input_data/09_RNASeq/", "paramormyrops_ncbi_0.4_tx2gene.csv"))
+
+paramormyrops_tx2gene$X <- NULL
+
+paramormyrops_files <- file.path(root, "output_data/09_RNASeq/atlas_data", samples$tissue, samples$species, samples$individual, "abundance.h5")
+
+names(paramormyrops_files) <- paste0(samples$tissue, "_", samples$individual)
+
+paramormyrops_data <- tximport(paramormyrops_files, type = "kallisto", tx2gene = paramormyrops_tx2gene, txOut = TRUE)
+```
+
+```{r}
+dds <- DESeqDataSetFromTximport(paramormyrops_data, colData = samples, design = ~tissue)
+round(colSums(assay(dds)) / 1e6, 1)
+table(dds$tissue)
+```
+
+```{r}
+keep <- rowSums(counts(dds) >= 5) >= 4
+table(keep)
+```
+
+```{r}
+dds <- dds[keep, ]
+```
+
+```{r}
+boxplot(log10(counts(dds) + 1))
+```
+
+```{r}
+dds <- estimateSizeFactors(dds)
+boxplot(log10(counts(dds, normalized = TRUE) + 1))
+normalized_counts <- counts(dds, normalized = TRUE)
+```
+
+
+```{r}
+vsd <- vst(dds)
+
+pcaData <- plotPCA(vsd, intgroup = c("individual", "tissue"), returnData = TRUE)
+percentVar <- round(100 * attr(pcaData, "percentVar"))
+ggplot(pcaData, aes(x = PC1, y = PC2, color = tissue)) +
+  geom_text(aes(label = tissue)) +
+  xlab(paste0("PC1: ", percentVar[1], "% variance")) +
+  ylab(paste0("PC2: ", percentVar[2], "% variance")) +
+  coord_fixed()
+```
+
+```{r, fig.height=12}
+sampleDists <- dist(t(assay(vsd)))
+sampleDistMatrix <- as.matrix(sampleDists)
+rownames(sampleDistMatrix) <- paste(vsd$tissue, vsd$isolate, sep = "-")
+colnames(sampleDistMatrix) <- NULL
+colors <- colorRampPalette(rev(brewer.pal(9, "Blues")))(255)
+pheatmap(sampleDistMatrix,
+  clustering_distance_rows = sampleDists,
+  clustering_distance_cols = sampleDists,
+  col = colors
+)
+```
+
+
+```{r}
+overlapping_annotations <- fread(file.path(root, "output_data/06_Association/PKINGS_ALL_WOB_EXCLUDED", "PKINGS_ALL_WOB_EXCLUDED_GENES_IN_PEAKS_manual_annos_add.txt"))
+
+df <- as.data.frame(colData(dds)[, c("tissue")])
+colnames(df) <- "tissue"
+
+
+custom_order <- c("EO", "HEART", "Muscle", "Spinal_Cord", "Brain", "Gill", "Kidney", "Spleen", "Swim_Bladder", "Ovary", "Testis", "Fin", "Flank_Skin", "Head_Skin")
+
+col_fun <- colorRamp2(c(-4, -2, 0, 2, 4), c("blue", "lightblue", "white", "orange", "red"))
+col_fun(seq(-4, 4))
+
+
+## Get Peaks Data
+peaks.file <- file.path(root, "output_data/06_Association/PKINGS_ALL_WOB_EXCLUDED/PKINGS_ALL_WOB_EXCLUDED_PEAKS.bed")
+peaks.bed <- read.table(peaks.file)
+names(peaks.bed) <- c("chrom", "start", "end", "peak", "idx_p", "idx_bp")
+peaks.bed$chrom <- paste0("chr", peaks.bed$chrom)
+peaks.bed <- peaks.bed[order(peaks.bed$peak), ]
+
+gr_anno <- GRanges(
+  overlapping_annotations$seqnames,
+  IRanges(overlapping_annotations$start, overlapping_annotations$end)
+)
+gr_peaks <- GRanges(peaks.bed$chrom, IRanges(peaks.bed$start, peaks.bed$end))
+
+## 1) exact overlaps
+hits <- findOverlaps(gr_anno, gr_peaks, ignore.strand = TRUE)
+peak_vec <- rep(NA_integer_, nrow(overlapping_annotations))
+if (length(hits) > 0) {
+  first_by_q <- tapply(subjectHits(hits), queryHits(hits), function(x) x[1])
+  peak_vec[as.integer(names(first_by_q))] <- peaks.bed$peak[unlist(first_by_q)]
+}
+
+## 2) nearest fallback within 25 kb only where still NA
+need <- which(is.na(peak_vec))
+if (length(need)) {
+  nearest_idx <- nearest(gr_anno[need], gr_peaks, select = "arbitrary")
+  dists <- distance(gr_anno[need], gr_peaks[nearest_idx])
+  use <- which(!is.na(nearest_idx) & dists <= 25000)
+  peak_vec[need[use]] <- peaks.bed$peak[nearest_idx[use]]
+}
+
+## 3) assigned_name column
+assigned_name <- ifelse(
+  is.na(overlapping_annotations$manual_name) | overlapping_annotations$manual_name == "",
+  overlapping_annotations$gene,
+  overlapping_annotations$manual_name
+)
+
+## 4) final table
+overlapping_with_peak <- cbind(
+  overlapping_annotations,
+  peak = peak_vec,
+  assigned_name = assigned_name
+)
+```
+
+```{r, fig.width=18}
+## ==============================
+## Absolute-expression heatmap (log2 TPM + 1) for peak-proximal genes
+## ==============================
+
+# 1) Absolute expression matrix (TPM from tximport), aligned to dds columns
+abs_expr <- as.matrix(paramormyrops_data$abundance) # genes x samples (TPM)
+abs_expr <- abs_expr[, colnames(dds), drop = FALSE] # align sample order
+
+# 2) Column/tissue ordering (reuse your custom tissue order)
+tissue_fac <- factor(df$tissue, levels = custom_order)
+ord_cols <- order(tissue_fac)
+
+# 3) Determine which annotation column matches rownames(abs_expr)
+ann <- overlapping_with_peak[, c("gene", "manual_name", "assigned_name")]
+ann <- data.frame(lapply(ann, function(x) trimws(as.character(x))), stringsAsFactors = FALSE)
+cand_cols <- c("gene", "manual_name", "assigned_name")
+match_counts <- sapply(cand_cols, function(cc) sum(unique(ann[[cc]]) %in% rownames(abs_expr)))
+best_col <- cand_cols[which.max(match_counts)]
+
+# 4) Build symbol ↔ expression-row-ID lookup
+sym_lookup <- overlapping_with_peak |>
+  mutate(across(all_of(c("gene", "manual_name", "assigned_name")), ~ trimws(as.character(.)))) |>
+  transmute(
+    expr_row_id = .data[[best_col]], # key matching rownames(abs_expr)
+    symbol      = dplyr::coalesce(assigned_name, gene)
+  ) |>
+  distinct() |>
+  filter(!is.na(expr_row_id), expr_row_id %in% rownames(abs_expr))
+
+# 5) Peak ↔ ID map (keep only genes we can plot)
+peak_gene_map <- overlapping_with_peak |>
+  mutate(symbol = dplyr::coalesce(assigned_name, gene)) |>
+  select(symbol, peak) |>
+  distinct() |>
+  left_join(sym_lookup, by = "symbol") |>
+  filter(!is.na(expr_row_id)) |>
+  distinct(expr_row_id, symbol, peak)
+
+sel_ids <- intersect(peak_gene_map$expr_row_id, rownames(abs_expr))
+stopifnot(length(sel_ids) > 0)
+peak_gene_map <- peak_gene_map %>% filter(expr_row_id %in% sel_ids)
+
+# 6) EO absolute-expression metrics (median TPM in EO and replicate rule)
+eo_idx <- which(df$tissue == "EO")
+eo_expr <- abs_expr[, eo_idx, drop = FALSE]
+eo_med <- matrixStats::rowMedians(eo_expr, na.rm = TRUE)
+eo_n_ge1 <- rowSums(eo_expr >= 1)
+eo_n_ge5 <- rowSums(eo_expr >= 5)
+
+eo_abs_df <- data.frame(
+  expr_row_id = rownames(eo_expr),
+  EO_median   = eo_med,
+  EO_n_ge1    = eo_n_ge1,
+  EO_n_ge5    = eo_n_ge5,
+  EIE_loose   = eo_med >= 1 & eo_n_ge1 >= 2,
+  EIE_strict  = eo_med >= 5 & eo_n_ge5 >= 2,
+  check.names = FALSE
+)
+
+# 7) Lookups for ordering/annotations
+peak_by_id <- setNames(peak_gene_map$peak, peak_gene_map$expr_row_id)
+symbol_by_id <- setNames(peak_gene_map$symbol, peak_gene_map$expr_row_id)
+EO_median_by_id <- setNames(eo_abs_df$EO_median, eo_abs_df$expr_row_id)
+EIE_strict_by_id <- setNames(eo_abs_df$EIE_strict, eo_abs_df$expr_row_id)
+
+# 8) Row ordering: by peak, then EO-expressed (strict yes first), then EO_median desc, then symbol
+is_eo <- as.integer(EIE_strict_by_id[sel_ids])
+is_eo[is.na(is_eo)] <- 0
+eo_medkey <- EO_median_by_id[sel_ids]
+eo_medkey[is.na(eo_medkey)] <- -Inf
+
+peak_levels <- sort(unique(peak_gene_map$peak))
+ord_rows <- order(
+  factor(peak_by_id[sel_ids], levels = peak_levels),
+  -is_eo,
+  -eo_medkey,
+  symbol_by_id[sel_ids]
+)
+sel_ids_ord <- sel_ids[ord_rows]
+
+# 9) Build plotting matrix (log2(TPM+1)), set pretty rownames
+mat_abs <- log2(abs_expr[sel_ids_ord, colnames(dds), drop = FALSE] + 1)
+mat_abs <- mat_abs[, ord_cols, drop = FALSE]
+rownames(mat_abs) <- symbol_by_id[sel_ids_ord]
+
+# 10) Row split and annotation
+row_split_factor <- factor(peak_by_id[sel_ids_ord], levels = peak_levels)
+row_df <- data.frame(
+  `EO-expressed` = ifelse(EIE_strict_by_id[sel_ids_ord], "yes", "no"),
+  row.names = rownames(mat_abs),
+  check.names = FALSE
+)
+row_ann <- ComplexHeatmap::rowAnnotation(
+  df  = row_df,
+  col = list(`EO-expressed` = c("no" = "#d3d3d3", "yes" = "#1ea8e0")),
+  gp  = grid::gpar(col = NA)
+)
+
+# 11) Warm-only color function with quantile knots (emphasize low-but-real signal)
+qs <- as.numeric(quantile(as.vector(mat_abs), probs = c(0, .20, .40, .70, .95), na.rm = TRUE))
+col_fun_abs <- circlize::colorRamp2(
+  qs,
+  c("#ffffff", "#fff5eb", "#fdd0a2", "#f16913", "#b30000")
+)
+
+# 12) Draw heatmap (no row dendrogram; group rows by peak; columns split by tissue)
+ht <- ComplexHeatmap::Heatmap(
+  mat_abs,
+  name = "log2(TPM+1)",
+  col = col_fun_abs,
+  show_row_names = TRUE,
+  row_names_gp = grid::gpar(fontsize = 9),
+  show_column_names = FALSE,
+  cluster_rows = FALSE,
+  cluster_columns = FALSE,
+  row_split = row_split_factor,
+  row_title_rot = 0,
+  row_title_gp = grid::gpar(fontsize = 9, fontface = "bold"),
+  column_split = tissue_fac[ord_cols],
+  column_gap = grid::unit(2, "mm"),
+  row_gap = grid::unit(1.5, "mm"),
+  border = FALSE,
+  left_annotation = row_ann
+)
+
+ComplexHeatmap::draw(ht, heatmap_legend_side = "right", annotation_legend_side = "right")
+
+# 13) Save ranked table for SI/inspection
+out_tbl <- data.frame(
+  gene = symbol_by_id[sel_ids_ord],
+  peak = as.integer(peak_by_id[sel_ids_ord]),
+  EO_median = EO_median_by_id[sel_ids_ord],
+  EO_expressed_strict = as.logical(EIE_strict_by_id[sel_ids_ord]),
+  stringsAsFactors = FALSE,
+  check.names = FALSE
+)
+write.table(out_tbl,
+  file.path(root, "output_data/09_RNASeq/peak_genes_EO_absolute_expression.tsv"),
+  sep = "\t", quote = FALSE, row.names = FALSE
+)
+```
+
+```{r, fig.width=18}
+## ----- focal gene info with friendly names + peak labels -----
+gene_info <- overlapping_with_peak[
+  overlapping_with_peak$gene %in% rownames(vsd),
+  c("gene", "assigned_name", "peak")
+]
+stopifnot(nrow(gene_info) > 0)
+
+## ----- column order by tissue -----
+ord_idx <- order(match(colData(vsd)$tissue, custom_order))
+ordered_df <- df[ord_idx, , drop = FALSE]
+col_split <- factor(ordered_df$tissue, levels = custom_order)
+
+## ----- expression matrix (use friendly rownames) -----
+mat <- assay(vsd)[gene_info$gene, , drop = FALSE]
+rownames(mat) <- make.unique(gene_info$assigned_name)
+mat <- mat[, ord_idx, drop = FALSE]
+
+## ----- z-score by gene -----
+mat <- t(scale(t(mat)))
+
+## ----- splitting -----
+row_split <- factor(gene_info$peak, levels = sort(unique(gene_info$peak)))
+
+## ----- labeled blocks: top (tissues) and right (peaks) -----
+tissue_levels_present <- levels(droplevels(col_split))
+top_anno <- HeatmapAnnotation(
+  Tissue = anno_block(
+    labels    = tissue_levels_present,
+    labels_gp = gpar(fontsize = 10, fontface = "bold"),
+    gp        = gpar(fill = NA, col = NA) # <-- no fill, no border
+  )
+)
+
+peak_levels_present <- levels(droplevels(row_split))
+left_anno <- rowAnnotation(
+  Peak = anno_block(
+    labels    = peak_levels_present,
+    labels_gp = gpar(fontsize = 10, fontface = "bold"),
+    gp        = gpar(fill = "grey80", col = NA) # text only; no shaded bars
+  )
+)
+
+## ----- heatmap -----
+h <- Heatmap(
+  mat,
+  name = "z-scored Normalized Counts",
+  col = col_fun,
+  show_row_names = TRUE,
+  show_column_names = FALSE,
+  cluster_rows = FALSE,
+  cluster_columns = FALSE,
+  row_names_side = "left",
+  row_names_gp = gpar(fontsize = 14),
+  column_names_gp = gpar(fontsize = 10),
+
+  # splits
+  column_split = col_split,
+  row_split = row_split,
+
+  # titles
+  column_title = "Normalized tissue expression of genes in peaks",
+  column_title_gp = gpar(fontsize = 20, fontface = "bold"),
+
+  # layout
+  column_gap = unit(5, "mm"),
+
+  # annotations
+  top_annotation = top_anno, # <-- tissue labels above each split
+  left_annotation = left_anno, # <-- keep ONLY the right-side peak labels
+  row_title = NULL, # <-- suppress default row-slice titles (prevents duplicates)
+
+  heatmap_legend_param = list(
+    legend_direction = "horizontal",
+    legend_width = unit(14, "cm")
+  )
+)
+
+draw(
+  h,
+  heatmap_legend_side = "bottom",
+  annotation_legend_side = "right",
+  padding = unit(c(8, 6, 8, 6), "mm")
+)
+```

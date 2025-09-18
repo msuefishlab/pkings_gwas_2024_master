@@ -1,0 +1,400 @@
+---
+title: "RNASeq Report"
+output: html_notebook
+params:
+  g1_data_path: APA_BEN_BAM_TP1_BP2_WOB9
+  g2_data_path: MOV_BIR_DOG_DOV_BAVA_BIK_APA_BEN_TP1_BP2_WOB9
+---
+
+```{r setup, include=FALSE}
+root <- rprojroot::find_root(".git/index")
+knitr::opts_knit$set(root.dir = root)
+library(tximport)
+library(tidyverse)
+library("DESeq2")
+library(stringr)
+require(rtracklayer)
+library(ggrepel)
+library(patchwork) # For combining plots
+library(biomaRt)
+library(ggpubr)
+library(openxlsx)
+library(ggh4x)
+library(legendry)
+library(data.table)   # <-- added (for fread)
+source(file.path(root, "code", "09_RNASeq", "go_analysis.R"))
+library(matrixStats)
+
+```
+
+
+```{r}
+
+library(dplyr)
+library(readr)
+library(tibble)
+
+# ----------------------------
+# 1) Metadata + unified filters
+# ----------------------------
+sample_data <- file.path(root, "input_data/09_RNASeq/rnaseq_metadata.txt")
+coldata <- read.table(sample_data, header = TRUE, sep = "", check.names = FALSE)
+
+# Keep one row per PN/SpecNo combo; drop raw read paths
+pheno_data <- coldata %>%
+  dplyr::select(-R1, -R2) %>%
+  distinct()
+
+# Define filters in one place
+gwas_1_set <- c("APA", "BAM", "BEN", "MOV", "BIR", "DOG", "DOV", "BAVA", "BIK", "APA", "BEN")
+values_to_drop <- c("PK1", "PK2", "PK3") # <- set as needed
+
+# Apply both filters at once
+gw1_pheno_data <- pheno_data %>%
+  filter(Population %in% gwas_1_set) %>%
+  filter(!SpecNo %in% values_to_drop)
+
+# Factors (optional: lock levels to what remains)
+gw1_pheno_data <- gw1_pheno_data %>%
+  mutate(
+    Population = factor(Population, levels = sort(unique(Population))),
+    Phenotype  = factor(Phenotype)
+  )
+
+# Ensure PN exists and is unique; use as rownames for colData
+stopifnot("PN" %in% names(gw1_pheno_data))
+if (anyDuplicated(gw1_pheno_data$PN) > 0) {
+  dupPN <- gw1_pheno_data$PN[duplicated(gw1_pheno_data$PN)]
+  stop(paste("Duplicate PN values found:", paste(unique(dupPN), collapse = ", ")))
+}
+rownames(gw1_pheno_data) <- gw1_pheno_data$PN
+
+# Tidy pheno table keyed by PN
+pheno_tbl <- as.data.frame(gw1_pheno_data)
+
+population_groups <- c(
+  "APA"  = "TP1",
+  "BAM"  = "BP1",
+  "BEN"  = "TP1",
+  "MOV"  = "TP_OUT",
+  "BIR"  = "BP3",
+  "DOG"  = "TP2",
+  "DOV"  = "TP2",
+  "BAVA" = "BP2",
+  "BIK"  = "BP2"
+)
+
+
+```
+
+```{r}
+# ----------------------------
+# 2) Files for tximport (names MUST be PN)
+# ----------------------------
+gw1_gene_files <- file.path(
+  root, "output_data/09_RNASeq/quantification",
+  paste0(gw1_pheno_data$SpecNo, ".genes.results")  # <-- switch to genes.results
+)
+names(gw1_gene_files) <- gw1_pheno_data$PN # critical: names == PN
+
+# Optional: quick file existence check
+missing <- gw1_gene_files[!file.exists(gw1_gene_files)]
+if (length(missing) > 0) {
+  warning(paste(
+    "Missing gene quant files for PN:",
+    paste(names(missing), collapse = ", ")
+  ))
+}
+```
+
+
+```{r}
+# ----------------------------
+# 3) tximport and DESeq2 object (GENE level)
+# ----------------------------
+gw1_gene.rsem <- tximport(
+  files = gw1_gene_files,
+  type = "none",         # keep your custom importer style
+  txIn = FALSE,          # <-- gene input
+  txOut = FALSE,         # <-- summarize at gene level
+  geneIdCol = "gene_id", # present in RSEM genes.results
+  abundanceCol = "TPM",
+  countsCol = "expected_count",
+  lengthCol = "effective_length",
+  importer = function(x) readr::read_tsv(x)
+)
+
+# Fix zero lengths (rare RSEM artifact)
+gw1_gene.rsem$length[gw1_gene.rsem$length == 0] <- 0.01
+
+gw1_dds <- DESeqDataSetFromTximport(
+  txi     = gw1_gene.rsem,
+  colData = gw1_pheno_data,
+  design  = ~Population
+)
+
+# Sanity check: columns (samples) must match PN
+stopifnot(identical(colnames(gw1_dds), rownames(gw1_pheno_data)))
+
+# Filter low-count genes and fit model
+keep <- rowSums(counts(gw1_dds)) >= 10
+gw1_dds <- gw1_dds[keep, ]
+gw1_dds <- DESeq(gw1_dds)
+```
+
+```{r}
+
+# Original transcript overlaps table
+overlapping_annotations <- fread(file.path(
+  root, "output_data/06_Association/PKINGS_ALL_WOB_EXCLUDED",
+  "PKINGS_ALL_WOB_EXCLUDED_TRANSCRIPTS_IN_PEAKS_manual_annos_add.txt"
+))
+
+## Get Peaks Data
+peaks.file <- file.path(root, "output_data/06_Association/PKINGS_ALL_WOB_EXCLUDED/PKINGS_ALL_WOB_EXCLUDED_PEAKS.bed")
+peaks.bed <- read.table(peaks.file)
+names(peaks.bed) <- c("chrom", "start", "end", "peak", "idx_p", "idx_bp")
+peaks.bed$chrom <- paste0("chr", peaks.bed$chrom)
+peaks.bed <- peaks.bed[order(peaks.bed$peak), ]
+
+# GRanges for transcripts & peaks (we'll then collapse to genes)
+gr_anno  <- GRanges(overlapping_annotations$seqnames,
+                    IRanges(overlapping_annotations$start, overlapping_annotations$end))
+gr_peaks <- GRanges(peaks.bed$chrom, IRanges(peaks.bed$start, peaks.bed$end))
+
+## 1) exact overlaps -> peak per transcript row
+hits <- findOverlaps(gr_anno, gr_peaks, ignore.strand = TRUE)
+peak_vec <- rep(NA_integer_, nrow(overlapping_annotations))
+if (length(hits) > 0) {
+  first_by_q <- tapply(subjectHits(hits), queryHits(hits), function(x) x[1])
+  peak_vec[as.integer(names(first_by_q))] <- peaks.bed$peak[unlist(first_by_q)]
+}
+
+## 2) nearest fallback within 25 kb only where still NA
+need <- which(is.na(peak_vec))
+if (length(need)) {
+  nearest_idx <- nearest(gr_anno[need], gr_peaks, select = "arbitrary")
+  dists <- distance(gr_anno[need], gr_peaks[nearest_idx])
+  use <- which(!is.na(nearest_idx) & dists <= 25000)
+  peak_vec[need[use]] <- peaks.bed$peak[nearest_idx[use]]
+}
+
+## 3) gene display name
+assigned_name <- ifelse(
+  is.na(overlapping_annotations$manual_name) | overlapping_annotations$manual_name == "",
+  overlapping_annotations$gene,
+  overlapping_annotations$manual_name
+)
+
+## 4) collapse to GENE level (map to RSEM gene_id "gene-<gene>")
+overlapping_with_peak <- cbind(
+  overlapping_annotations,
+  peak = peak_vec,
+  assigned_name = assigned_name
+)
+
+overlap_gene_tbl <- overlapping_with_peak %>%
+  dplyr::filter(!is.na(gene), !is.na(peak)) %>%
+  dplyr::mutate(
+    gene_key     = gene,   # matches RSEM gene_id rownames
+    display_name = assigned_name
+  ) %>%
+  dplyr::distinct(gene_key, display_name, peak)
+```
+
+
+
+```{r, fig.height=12}
+# Gene-level abundance (TPM); align to DDS column order
+gene_abs_expr <- as.matrix(gw1_gene.rsem$abundance) # genes x samples (TPM)
+gene_abs_expr <- gene_abs_expr[, colnames(gw1_dds), drop = FALSE]
+
+# Keep only genes in both expr and overlap
+sel_gene_ids <- intersect(overlap_gene_tbl$gene_key, rownames(gene_abs_expr))
+stopifnot(length(sel_gene_ids) > 0)
+
+# Map helpers
+peak_by_geneid   <- setNames(overlap_gene_tbl$peak, overlap_gene_tbl$gene_key)
+label_by_geneid  <- overlap_gene_tbl %>%
+  dplyr::distinct(gene_key, display_name) %>%
+  deframe()
+
+# Some genes may map to multiple peaks; keep one row per (gene,peak) by expanding
+gp_map <- overlap_gene_tbl %>% dplyr::filter(gene_key %in% sel_gene_ids)
+
+# Build a row index that repeats a gene row once per peak assignment
+row_index <- gp_map$gene_key
+mat_abs <- log2(gene_abs_expr[row_index, , drop = FALSE] + 1)
+
+# Unique rownames for display: "Gene — p<peak>"
+rownames(mat_abs) <- paste0(label_by_geneid[row_index], " \u2014 p", gp_map$peak)
+
+# Column order + split
+df <- as.data.frame(colData(gw1_dds)[, c("Population")])
+colnames(df) <- "Population"
+pop_fac  <- factor(df$Population)
+ord_cols <- order(pop_fac)
+mat_abs  <- mat_abs[, ord_cols, drop = FALSE]
+
+# Row splits by Peak
+row_split_df <- data.frame(
+  Peak = factor(paste0("p", gp_map$peak), levels = paste0("p", sort(unique(gp_map$peak)))),
+  row.names = rownames(mat_abs),
+  check.names = FALSE
+)
+
+# Color function
+qs <- as.numeric(quantile(as.vector(mat_abs), probs = c(0, .20, .40, .70, .95), na.rm = TRUE))
+col_fun_abs <- circlize::colorRamp2(
+  qs,
+  c("#ffffff", "#fff5eb", "#fdd0a2", "#f16913", "#b30000")
+)
+
+# Heatmap
+ht <- ComplexHeatmap::Heatmap(
+  mat_abs,
+  name = "log2(TPM+1)",
+  col = col_fun_abs,
+  show_row_names = TRUE,
+  row_names_gp = grid::gpar(fontsize = 9),
+  show_column_names = FALSE,
+  cluster_rows = FALSE,
+  cluster_columns = FALSE,
+  row_split = row_split_df,
+  row_title_rot = 0,
+  row_title_gp = grid::gpar(fontsize = 9, fontface = "bold"),
+  column_split = pop_fac[ord_cols],
+  column_gap = grid::unit(2, "mm"),
+  row_gap = grid::unit(1.5, "mm"),
+  border = FALSE
+)
+
+ComplexHeatmap::draw(ht, heatmap_legend_side = "right", annotation_legend_side = "right")
+```
+```{r per_gene_boxplots, message=FALSE, warning=FALSE, fig.width=12, fig.height=6}
+
+# -----------------------------------------------------------
+# Global gene-level median TPM filter (across all samples)
+# -----------------------------------------------------------
+gene_median_tpm_min <- 1   # <-- tweak this threshold as you like (e.g., 0.5, 1, 2)
+
+# gene_abs_expr is genes x samples TPM matrix
+stopifnot(is.matrix(gene_abs_expr))
+gene_medians <- matrixStats::rowMedians(gene_abs_expr, na.rm = TRUE)
+
+keep_genes <- names(gene_medians)[gene_medians >= gene_median_tpm_min]
+message(sprintf("Keeping %d/%d genes with median TPM \u2265 %.3f",
+                length(keep_genes), length(gene_medians), gene_median_tpm_min))
+
+
+# Plot map for genes present (and passing median filter)
+plot_map_gene <- overlap_gene_tbl %>%
+  dplyr::filter(gene_key %in% rownames(gene_abs_expr),
+                gene_key %in% keep_genes) %>%
+  dplyr::select(gene_key, display_name, peak) %>%
+  dplyr::distinct()
+
+# Long-format gene TPM, joined to labels, Peak, and Population
+expr_long_gene <- as.data.frame(gene_abs_expr[plot_map_gene$gene_key, , drop = FALSE]) %>%
+  tibble::rownames_to_column("gene_key") %>%
+  tidyr::pivot_longer(-gene_key, names_to = "PN", values_to = "TPM") %>%
+  dplyr::left_join(plot_map_gene, by = "gene_key") %>%
+  dplyr::left_join(pheno_tbl %>% dplyr::select(PN, Population), by = "PN") %>%
+  dplyr::mutate(
+    Population = factor(Population, levels = levels(gw1_pheno_data$Population)),
+    log2_TPM1  = log2(TPM + 1)
+  ) %>%
+  dplyr::filter(!is.na(Population), !is.na(peak))
+
+
+# ---- Population groups + ordering ----
+group_order <- c("TP1", "TP2", "TP_OUT", "BP1", "BP2", "BP3")
+
+expr_long_gene <- expr_long_gene %>%
+  mutate(
+    PopGroup = population_groups[as.character(Population)],
+    PopGroup = factor(PopGroup, levels = group_order)
+  )
+
+# Order populations within each group
+pop_order <- unlist(lapply(group_order, function(g) {
+  names(population_groups)[population_groups == g]
+}))
+expr_long_gene <- expr_long_gene %>%
+  mutate(Population = factor(Population, levels = pop_order))
+
+# ----- Gene-level single-peak plot (faceted by gene) -----
+# ----- Gene-level single-peak plot (faceted by gene) -----
+make_peak_plot <- function(pk) {
+  df_p <- expr_long_gene %>%
+    dplyr::filter(.data$peak == pk, !is.na(.data$PopGroup))
+
+  # Populations present (in global order) + groups
+  pops_present   <- as.character(pop_order[pop_order %in% df_p$Population])
+  groups_present <- as.character(unname(population_groups[pops_present]))
+
+  # Display-safe group text so "TP_OUT" doesn't split across lines
+  groups_disp <- gsub("_", "\u2011", groups_present)  # non-breaking hyphen
+
+  # Relevel and build nested x label as "Population::Group"
+  df_p <- df_p %>%
+    dplyr::mutate(
+      Population    = factor(Population, levels = pops_present),
+      PopGroup      = factor(PopGroup, levels = c("TP1","TP2","TP_OUT","BP1","BP2","BP3")),
+      PopGroup_disp = groups_disp[ match(as.character(Population), pops_present) ],
+      x_nested      = paste(as.character(Population), PopGroup_disp, sep = "::")
+    )
+
+  x_levels <- paste(pops_present, groups_disp, sep = "::")
+
+  # Positions for dashed separators between group blocks
+  r <- rle(groups_disp)
+  grp_ends <- cumsum(r$lengths)
+  vlines_x <- if (length(grp_ends) > 1) grp_ends[-length(grp_ends)] + 0.5 else numeric(0)
+
+  ggplot(df_p, aes(x = x_nested, y = TPM)) +
+    geom_boxplot(outlier.shape = NA, na.rm = TRUE) +
+    geom_jitter(
+      width = 0.15, height = 0, alpha = 0.70, size = 1.8, shape = 16, na.rm = TRUE
+    ) +
+    facet_wrap(~ display_name, nrow = 1, scales = "free_y") +
+    scale_x_discrete(limits = x_levels, drop = FALSE) +
+    guides(x = legendry::guide_axis_nested(key = "::", angle = 45)) +
+    { if (length(vlines_x)) geom_vline(xintercept = vlines_x, linetype = "dashed") } +
+    labs(
+      title = paste0("Peak ", pk, " \u2014 gene TPM by population"),
+      x = "Population (top row = group)",
+      y = "TPM"
+    ) +
+    coord_cartesian(clip = "off") +
+    theme_bw(base_size = 11) +
+    theme(
+      legend.position = "none",
+      axis.text.x  = element_text(margin = margin(t = 10)),
+      axis.title.x = element_text(margin = margin(t = 16)),
+      plot.margin  = margin(t = 24, r = 16, b = 28, l = 16),
+      strip.background = element_rect(fill = NA, colour = NA),
+      strip.text      = element_text(face = "bold"),
+      panel.spacing.x = unit(6, "mm")
+    )
+}
+
+
+# Build list of plots, one per peak
+peaks_for_plots <- sort(unique(plot_map_gene$peak))
+plots_by_peak <- lapply(peaks_for_plots, make_peak_plot)
+names(plots_by_peak) <- paste0("Peak_", peaks_for_plots)
+
+# Print all plots to the notebook (one after another)
+for (pk in peaks_for_plots) {
+  print(plots_by_peak[[paste0("Peak_", pk)]])
+}
+
+# Optional: save a multi-page PDF (one page per peak)
+# plots_dir <- file.path(root, "output_data", "09_RNASeq", "plots")
+# dir.create(plots_dir, recursive = TRUE, showWarnings = FALSE)
+# pdf_fn <- file.path(plots_dir, "peaks_faceted_by_gene_boxplots.pdf")
+# pdf(pdf_fn, width = 12, height = 6)
+# for (pk in peaks_for_plots) {
+#   print(plots_by_peak[[paste0("Peak
+```

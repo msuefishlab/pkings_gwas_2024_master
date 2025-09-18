@@ -1,0 +1,68 @@
+---
+title: "Pairwise Distances"
+output: html_notebook
+params:
+  output_file: NULL
+  species: NULL
+  bn: NULL
+---
+
+```{r setup, include=FALSE}
+root<-rprojroot::find_root(".git/index")
+knitr::opts_knit$set(root.dir = root)
+
+library(riverdist)
+library(sf)
+```
+
+
+```{r}
+shape<-st_read(paste0(root,"/input_data/XX_Mapping/SimplifiedDrainage/IsolatedDrainage.shp"))
+shape2<-st_read(paste0(root,"/input_data/XX_Mapping/Ndnde_Network/DrainageLine.shp"))
+MyRivernetwork <- line2network(shape)
+```
+
+```{r}
+#rivs_cleaned<-cleanup(MyRivernetwork)
+save(rivs_cleaned,file = paste0(root,"/input_data/XX_Mapping/","rivs_cleaned.R"))
+```
+
+
+```{r}
+kings_riv <- pointshp2segvert(path=paste0(root,"/input_data/XX_Mapping/Ndnde_Network"), layer="collection_sites_kings_only_XYTableToPoint", rivers=rivs_cleaned)
+
+kings_samp_locations<-read.csv(paste0(root,"/input_data/XX_Mapping/collection_sites_kings_only.csv"))
+
+
+hist(kings_riv$snapdist, main="snapping distance (m)")
+
+
+```
+
+```{r,fig.height=8}
+topologydots(rivs_cleaned)
+zoomtoseg(seg=c(393,495,692), rivers=rivs_cleaned)
+
+
+points(kings_samp_locations$Lat, kings_samp_locations$Long, pch=16, col="red")
+
+riverpoints(seg=kings_riv$seg, vert=kings_riv$vert, rivers=rivs_cleaned, pch=15, 
+            col="blue")
+```
+```{r}
+#zoomtoseg(seg=c(485,674), rivers=rivs_cleaned)
+
+riverdistance(startseg=546, startvert=31, endseg=19, endvert=1, rivers=rivs_cleaned, map=TRUE)
+
+```
+
+
+
+```{r}
+dmat <- riverdistancemat(kings_riv$seg,kings_riv$vert,rivs_cleaned, ID=kings_riv$Row_Labels, stopiferror=FALSE)
+
+#colnames(dmat)<-kings_riv$Row_Labels
+#rownames(dmat)<-kings_riv$Row_Labels
+
+dmat
+```

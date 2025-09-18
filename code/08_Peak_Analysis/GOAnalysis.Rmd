@@ -1,0 +1,239 @@
+---
+title: "GO Report"
+output: html_notebook
+params:
+---
+
+```{r setup, include=FALSE}
+root <- rprojroot::find_root(".git/index")
+knitr::opts_knit$set(root.dir = root)
+library(data.table)
+library(topGO)
+library(GO.db)
+library(ontologyIndex)
+```
+
+```{r}
+
+
+## ---- inputs ----
+gaf_path  <- file.path(root, "input_data/00_Reference_Genome","GCF_048594095.1-RS_2025_03_gene_ontology.gaf")
+candidate_genes <- fread(file.path(root, "output_data/06_Association/PKINGS_ALL_WOB_EXCLUDED", "PKINGS_ALL_WOB_EXCLUDED_TRANSCRIPTS_IN_PEAKS_manual_annos_add.txt"))
+candidate_genes<- unique(candidate_genes$gene)
+
+## ---- read GAF (GAF 2.1/2.2 tab format) ----
+# Keep quotes literally, ignore comment lines starting with '!'
+
+gaf <- read.delim(gaf_path, comment.char="!", header=FALSE)
+
+
+# Name the core columns we need (per GAF spec)
+# 1:DB, 2:DB_Object_ID, 3:DB_Object_Symbol, 4:Qualifier, 5:GO_ID, 9:Aspect
+colnames(gaf)[c(1,2,3,4,5,9)] <- c("DB","DB_Object_ID","DB_Object_Symbol","Qualifier","GO_ID","Aspect")
+
+# Optional: drop negated annotations
+gaf <- gaf[!startsWith(gaf$Qualifier %||% "", "NOT"), , drop = FALSE]
+
+## ---- pick the identifier that matches your peak list ----
+
+
+## ---- build gene->GO mapping (topGO's preferred input) ----
+# many-to-many: each gene mapped to unique GO IDs
+gene2GO <- tapply(gaf$GO_ID, gaf$DB_Object_Symbol, function(x) unique(na.omit(x)))
+gene2GO <- gene2GO[!is.na(names(gene2GO))]
+
+all_genes <- names(gene2GO)
+
+# vector of 0/1 over the universe
+geneList <- factor(as.integer(all_genes %in% candidate_genes))
+names(geneList) <- all_genes
+
+## ---- helper to run one ontology ----
+run_one_onto <- function(onto = "BP",
+                         nodeSize = 5,
+                         algorithm = "weight01",   # "classic", "elim", "weight", "weight01", "parentchild"
+                         statistic = "fisher",     # "fisher" (most common), "ks", "ks.ties"
+                         topN = 200) {
+  # Build the ontology object
+  GOdata <- new("topGOdata",
+                ontology = onto,
+                allGenes = geneList,
+                annot    = annFUN.gene2GO,
+                gene2GO  = gene2GO,
+                nodeSize = nodeSize)
+
+  # Run enrichment with requested algorithm/statistic
+  res <- runTest(GOdata, algorithm = algorithm, statistic = statistic)
+
+  # Tabulate results (raw p only; no multiple-testing correction)
+  tab <- GenTable(GOdata,
+                  raw_p = res,                 # this column will be named "raw_p"
+                  orderBy = "raw_p",
+                  topNodes = min(topN, length(score(res))))
+
+  # Ensure raw_p is numeric
+  suppressWarnings(tab$raw_p <- as.numeric(tab$raw_p))
+
+  # Add some provenance columns
+  tab$ontology  <- onto
+  tab$algorithm <- algorithm
+  tab$statistic <- statistic
+  tab$nodeSize  <- nodeSize
+
+  tab
+}
+
+## ---- run all three ontologies ----
+res_BP <- run_one_onto(onto="BP",algorithm="elim")
+res_MF <- run_one_onto(onto="MF",algorithm="elim")
+res_CC <- run_one_onto(onto="CC",algorithm="elim")
+
+```
+
+
+
+```{r}
+## -- Load GO-slim (generic) IDs from the OBO you downloaded --
+
+slim_obo  <- file.path(root, "input_data/00_Reference_Genome","goslim_generic.obo")
+slim <- get_ontology(slim_obo, extract_tags = "everything")
+slim_ids <- names(slim$name)       # vector of GO IDs in the slim
+
+## -- Helpers to access GO ancestors (by ontology) --
+.get_anc_map <- function(onto=c("BP","MF","CC")) {
+  onto <- match.arg(onto)
+  switch(onto,
+         BP = as.list(GOBPANCESTOR),
+         MF = as.list(GOMFANCESTOR),
+         CC = as.list(GOCCANCESTOR))
+}
+
+# Given a GO term and ontology, return its ancestors + itself
+go_with_ancestors <- function(goid, onto) {
+  anc_map <- .get_anc_map(onto)
+  unique(na.omit(c(goid, anc_map[[goid]])))
+}
+
+## ============================================================
+## OPTION A: Post-hoc summarization of full-GO enrichment to slim
+## ============================================================
+# Use after you've run topGO on the full GO (not slim) and have a results table
+# with columns GO.ID and a numeric p-value column (here called 'raw_p').
+
+map_enriched_to_slim <- function(enrich_df,
+                                 GOdata,
+                                 onto = c("BP","MF","CC"),
+                                 pcol = "raw_p",
+                                 aggregate = c("min","fisher"),
+                                 selected_genes,                 # character vector of candidate genes (the 1’s)
+                                 count_scope = c("all_children","enriched_children"),
+                                 include_members = TRUE) {
+  stopifnot(nrow(enrich_df) > 0, pcol %in% colnames(enrich_df))
+  onto         <- match.arg(onto)
+  aggregate    <- match.arg(aggregate)
+  count_scope  <- match.arg(count_scope)
+
+  # Ancestor closure helper (you already defined these earlier)
+  enr_ids <- enrich_df$GO.ID
+  closure <- setNames(lapply(enr_ids, go_with_ancestors, onto = onto), enr_ids)
+
+  # Universe genes and a quick accessor for genes in terms
+  # 'usedGO(GOdata)' are the terms considered for this ontology (after nodeSize etc.)
+  all_terms <- usedGO(GOdata)
+  genes_in  <- function(term_ids) {
+    if (!length(term_ids)) return(character(0))
+    term_ids <- intersect(term_ids, all_terms)
+    if (!length(term_ids)) return(character(0))
+    unlist(genesInTerm(GOdata, term_ids), use.names = FALSE) |> unique()
+  }
+
+  # If counting across ALL children, we need the full child set of each slim across the tested DAG,
+  # not just the enriched children present in enrich_df
+  # Build a map: for every GO term tested, its ancestors (incl. self)
+  if (count_scope == "all_children") {
+    all_closure <- setNames(lapply(all_terms, go_with_ancestors, onto = onto), all_terms)
+  }
+
+  out <- lapply(slim_ids, function(sid) {
+    # Which child terms descend to this slim?
+    kids_enriched <- names(closure)[vapply(closure, function(v) sid %in% v, logical(1))]
+
+    if (count_scope == "all_children") {
+      kids_all <- names(all_closure)[vapply(all_closure, function(v) sid %in% v, logical(1))]
+      kids_for_counts <- kids_all
+    } else {
+      kids_for_counts <- kids_enriched
+    }
+
+    # If nothing maps, skip
+    if (!length(kids_for_counts) && !length(kids_enriched)) return(NULL)
+
+    ## --- aggregate p-value over *enriched* children only (as before) ---
+    ps <- suppressWarnings(as.numeric(enrich_df[[pcol]][match(kids_enriched, enrich_df$GO.ID)]))
+    ps <- ps[is.finite(ps) & ps > 0]
+    if (!length(ps)) return(NULL)
+    p_agg <- if (aggregate == "min") {
+      min(ps)
+    } else {
+      X2 <- -2 * sum(log(ps))
+      1 - pchisq(X2, df = 2 * length(ps))
+    }
+
+    ## --- gene counts under the slim ---
+    genes_universe <- genes_in(kids_for_counts)
+    n_genes_universe <- length(genes_universe)
+
+    genes_hit <- intersect(genes_universe, selected_genes)
+    n_genes_hit <- length(genes_hit)
+
+    data.frame(
+      slim_id          = sid,
+      slim_term        = AnnotationDbi::Term(sid),
+      n_child          = length(kids_enriched),     # children that were enriched and used for p-agg
+      p_agg            = p_agg,
+      n_genes_hit      = n_genes_hit,               # candidate genes (1’s) under this slim
+      n_genes_universe = n_genes_universe,          # universe genes under this slim
+      child_ids        = paste(kids_enriched, collapse = ";"),
+      members_hit      = if (include_members) paste(genes_hit, collapse = ",") else NA_character_,
+      members_universe = if (include_members) paste(genes_universe, collapse = ",") else NA_character_,
+      stringsAsFactors = FALSE
+    )
+  })
+
+  data.table::rbindlist(out, use.names = TRUE, fill = TRUE)
+}
+
+# Rebuild CC GOdata to pass in (mirroring your run_one_onto)
+keep_by_onto <- function(go) Ontology(go) %in% "CC"
+gene2GO_CC   <- lapply(gene2GO, function(v) unique(v[keep_by_onto(v)]))
+gene2GO_CC   <- gene2GO_CC[vapply(gene2GO_CC, length, 1L) > 0]
+univ_CC      <- intersect(names(geneList), names(gene2GO_CC))
+gl_CC        <- geneList[names(geneList) %in% univ_CC]
+gl_CC        <- factor(as.integer(gl_CC == 1), levels = c(0,1))
+names(gl_CC) <- univ_CC
+
+GOdata_CC <- new("topGOdata",
+                 ontology = "CC",
+                 allGenes = gl_CC,
+                 annot    = annFUN.gene2GO,
+                 gene2GO  = gene2GO_CC,
+                 nodeSize = 5)
+
+selected_genes_CC <- names(gl_CC)[gl_CC == 1]
+
+
+# Now make the slim summary with counts
+slim_summary_CC <- map_enriched_to_slim(
+  enrich_df      = res_CC,                # your existing CC results table
+  GOdata         = GOdata_CC,
+  onto           = "CC",
+  pcol           = "raw_p",
+  aggregate      = "min",                 # or "fisher"
+  selected_genes = selected_genes_CC,
+  count_scope    = "all_children",        # or "enriched_children"
+  include_members= TRUE
+)
+
+slim_summary_CC[order(-n_genes_hit), c("slim_id","slim_term","p_agg","n_child","n_genes_hit","n_genes_universe")]
+
+```

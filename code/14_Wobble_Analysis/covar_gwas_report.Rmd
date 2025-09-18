@@ -2,9 +2,9 @@
 title: "GWAS Report"
 output: html_notebook
 params:
-  data_path: BAM_ONLY_BP0_TPWOB1
+  data_path: PKINGS_ALL_WOB_INCLUDED
   output_file: NULL
-  MAF_thresh: 0.05
+  MAF_thresh: 0.15
 ---
 
 ```{r setup, include=FALSE}
@@ -21,8 +21,8 @@ source(file.path(root,"code","06_Association","gemma_gwas_functions.R"))
 
 # Load Data
 ```{r}
-gemma_file<-file.path(root,"output_data","06_Association",params$data_path,paste0(params$data_path,".lmm2.assoc.txt"))
-minpath<-file.path(root,"output_data","06_Association",params$data_path,paste0(params$data_path,"_permution"),"min.txt")
+gemma_file<-file.path(root,"output_data","14_Wobble_Analysis",params$data_path,paste0(params$data_path,".conditional.lmm2.assoc.txt"))
+minpath<-file.path(root,"output_data","14_Wobble_Analysis",params$data_path,paste0(params$data_path,"_permution"),"min.txt")
 ```
 
 # Determine Thresholds for Significant and Suggestive SNPs
@@ -32,7 +32,6 @@ min_data<-read.csv(minpath,header=F,sep="\t")
 pvals<-sort(min_data$V10, decreasing = F)
 significant = -log10(pvals[length(pvals) - floor(length(pvals)*0.95)])
 suggestive = -log10(pvals[length(pvals) - floor(length(pvals)*0.67)])
-#significant=7
 #suggestive=6
 print(paste0("The threshold for signficant association is: ",significant))
 print(paste0("The threshold for suggestive association is: ",suggestive))
@@ -62,7 +61,7 @@ pk.lmm.filt %>%
 
 pk.lmm.bed.f <- pk.lmm.bed %>% 
   filter(max.log_p > suggestive ) %>% 
-  filter(num.snps.above.threshold > 0) %>% 
+  filter(num.snps.above.threshold > 2) %>% 
   ungroup() %>% 
   arrange(numeric_chr, start) %>% #arrange by chr order
   mutate(peak.original = peak, #new col for original peak name
@@ -74,7 +73,7 @@ ggplot(pk.lmm.bed.f,aes(x=num.snps)) + geom_histogram(bins=10) + scale_x_log10()
 ```
 
 ```{r}
-peak_data_path<-file.path(root,"output_data","06_Association",params$data_path)
+peak_data_path<-file.path(root,"output_data","14_Wobble_Analysis",params$data_path)
 
 if (!dir.exists(peak_data_path)){
   dir.create(peak_data_path)
@@ -125,8 +124,6 @@ pk.lmm.bed.f %>% dplyr::arrange(max.log_p) %>% dplyr::select(numeric_chr,start,e
 
 ```{r, fig.width=20,fig.height=5}
 dynamic_max <- quantile(pk.lmm.filt$log_p, 0.99999)
-dynamic_max <- significant+1
-
 
 peak_bounds <- pk.lmm.peaks.out %>%
   group_by(peak) %>%
@@ -163,7 +160,7 @@ man_final<-
   ) +
   geom_hline(yintercept = suggestive, linetype = 2, color = "blue") +
   geom_hline(yintercept = significant, linetype = 2, color = "red") +
-    geom_point(data = subset(pk.lmm.peaks.out, log_p > suggestive-2), aes(x = row, y = log_p,size=log_p), color = "red", shape=20,stroke=0.2,alpha=0.25) +
+    geom_point(data = subset(pk.lmm.peaks.out, log_p > suggestive), aes(x = row, y = log_p,size=log_p), color = "red", shape=20,stroke=0.2,alpha=0.25) +
    
   scale_size_continuous(range = c(0.9, 3)) +
   labs(y = expression(paste("-log"[10], italic("P"),"-value")),x= "Chromosome")+
@@ -178,5 +175,5 @@ man_final
 ```
 
 ```{r}
-ggsave(file.path(root,"output_data/06_Association",params$data_path,paste0(params$data_path,".gwas.svg")), plot = man_final, width = 12, height = 4, units = "in")
+ggsave(file.path(root,"output_data/14_Wobble_Analysis",params$data_path,paste0(params$data_path,".gwas.svg")), plot = man_final, width = 12, height = 4, units = "in")
 ```

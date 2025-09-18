@@ -1,0 +1,302 @@
+version 1.0
+
+#import "AlignAndCall.wdl" as AlignAndCall
+
+import "https://api.firecloud.org/ga4gh/v1/tools/mitochondria:AlignAndCall/versions/24/plain-WDL/descriptor" as AlignAndCall
+
+workflow MitochondriaPipeline {
+
+  meta {
+    description: "Takes in an hg38 bam or cram and outputsf VCF of SNP/Indel calls on the mitochondria."
+    allowNestedInputs: true
+  }
+
+  input {
+    File wgs_aligned_input_bam_or_cram
+    File wgs_aligned_input_bam_or_cram_index
+    String contig_name = "Scaffold_269__1_contigs__length_38835"
+
+    # Read length used for optimization only. If this is too small CollectWgsMetrics might fail, but the results are not
+    # affected by this number. Default is 151.
+    Int? max_read_length
+
+    # Full reference is only requred if starting with a CRAM (BAM doesn't need these files)
+    File? ref_fasta
+    File? ref_fasta_index
+    File? ref_dict
+
+    File mt_dict
+    File mt_fasta
+    File mt_fasta_index
+    File mt_amb
+    File mt_ann
+    File mt_bwt
+    File mt_pac
+    File mt_sa
+    File blacklisted_sites
+    File blacklisted_sites_index
+
+    #Shifted reference is used for calling the control region (edge of mitochondria reference).
+    #This solves the problem that BWA doesn't support alignment to circular contigs.
+    File mt_shifted_dict
+    File mt_shifted_fasta
+    File mt_shifted_fasta_index
+    File mt_shifted_amb
+    File mt_shifted_ann
+    File mt_shifted_bwt
+    File mt_shifted_pac
+    File mt_shifted_sa
+
+    File shift_back_chain
+
+    File control_region_shifted_reference_interval_list
+    File non_control_region_interval_list
+
+    String? requester_pays_project
+    File? gatk_override
+    String? gatk_docker_override
+    String? m2_extra_args
+    String? m2_filter_extra_args
+    Float? vaf_filter_threshold
+    Float? f_score_beta
+    Float? verifyBamID
+    Boolean compress_output_vcf = false
+
+    #Optional runtime arguments
+    Int? preemptible_tries
+  }
+
+  parameter_meta {
+    wgs_aligned_input_bam_or_cram: "Full WGS hg38 bam or cram"
+    out_vcf: "Final VCF of mitochondrial SNPs and INDELs"
+    vaf_filter_threshold: "Hard threshold for filtering low VAF sites"
+    f_score_beta: "F-Score beta balances the filtering strategy between recall and precision. The relative weight of recall to precision."
+    contig_name: "Name of mitochondria contig in reference that wgs_aligned_input_bam_or_cram is aligned to"
+  }
+
+  call SubsetBamToChrM {
+    input:
+      input_bam = wgs_aligned_input_bam_or_cram,
+      input_bai = wgs_aligned_input_bam_or_cram_index,
+      contig_name = contig_name,
+      ref_fasta = ref_fasta,
+      ref_fasta_index = ref_fasta_index,
+      ref_dict = ref_dict,
+      requester_pays_project = requester_pays_project,
+      gatk_override = gatk_override,
+      gatk_docker_override = gatk_docker_override,
+      preemptible_tries = preemptible_tries
+  }
+
+  call RevertSam {
+    input:
+      input_bam = SubsetBamToChrM.output_bam,
+      preemptible_tries = preemptible_tries
+  }
+
+  String base_name = basename(SubsetBamToChrM.output_bam, ".bam")
+
+
+  call AlignAndCall.AlignAndCall as AlignAndCall {
+    input:
+      unmapped_bam = RevertSam.unmapped_bam,
+      base_name = base_name,
+      mt_dict = mt_dict,
+      mt_fasta = mt_fasta,
+      mt_fasta_index = mt_fasta_index,
+      mt_amb = mt_amb,
+      mt_ann = mt_ann,
+      mt_bwt = mt_bwt,
+      mt_pac = mt_pac,
+      mt_sa = mt_sa,
+      blacklisted_sites = blacklisted_sites,
+      blacklisted_sites_index = blacklisted_sites_index,
+      mt_shifted_dict = mt_shifted_dict,
+      mt_shifted_fasta = mt_shifted_fasta,
+      mt_shifted_fasta_index = mt_shifted_fasta_index,
+      mt_shifted_amb = mt_shifted_amb,
+      mt_shifted_ann = mt_shifted_ann,
+      mt_shifted_bwt = mt_shifted_bwt,
+      mt_shifted_pac = mt_shifted_pac,
+      mt_shifted_sa = mt_shifted_sa,
+      shift_back_chain = shift_back_chain,
+      gatk_override = gatk_override,
+      gatk_docker_override = gatk_docker_override,
+      m2_extra_args = m2_extra_args,
+      m2_filter_extra_args = m2_filter_extra_args,
+      vaf_filter_threshold = vaf_filter_threshold,
+      f_score_beta = f_score_beta,
+      verifyBamID = verifyBamID,
+      compress_output_vcf = compress_output_vcf,
+      max_read_length = max_read_length,
+      preemptible_tries = preemptible_tries
+  }
+
+  
+  call SplitMultiAllelicSites {
+    input:
+      input_vcf = AlignAndCall.out_vcf,
+      base_name = base_name,
+      ref_fasta = mt_fasta,
+      ref_fasta_index = mt_fasta_index,
+      ref_dict = mt_dict,
+      gatk_override = gatk_override,
+      gatk_docker_override = gatk_docker_override,
+      preemptible_tries = preemptible_tries
+  }
+
+  output {
+    File subset_bam = SubsetBamToChrM.output_bam
+    File subset_bai = SubsetBamToChrM.output_bai
+    File mt_aligned_bam = AlignAndCall.mt_aligned_bam
+    File mt_aligned_bai = AlignAndCall.mt_aligned_bai
+    File out_vcf = AlignAndCall.out_vcf
+    File out_vcf_index = AlignAndCall.out_vcf_index
+    File split_vcf = SplitMultiAllelicSites.split_vcf
+    File split_vcf_index = SplitMultiAllelicSites.split_vcf_index
+    File input_vcf_for_haplochecker = AlignAndCall.input_vcf_for_haplochecker
+    File duplicate_metrics = AlignAndCall.duplicate_metrics
+    File coverage_metrics = AlignAndCall.coverage_metrics
+    File theoretical_sensitivity_metrics = AlignAndCall.theoretical_sensitivity_metrics
+    File contamination_metrics = AlignAndCall.contamination_metrics
+    Int mean_coverage = AlignAndCall.mean_coverage
+    Float median_coverage = AlignAndCall.median_coverage
+    String major_haplogroup = AlignAndCall.major_haplogroup
+    Float contamination = AlignAndCall.contamination
+  }
+}
+
+task SubsetBamToChrM {
+  input {
+    File input_bam
+    File input_bai
+    String contig_name
+    String basename = basename(basename(input_bam, ".cram"), ".bam")
+    String? requester_pays_project
+    File? ref_fasta
+    File? ref_fasta_index
+    File? ref_dict
+
+    File? gatk_override
+    String? gatk_docker_override
+
+    # runtime
+    Int? preemptible_tries
+  }
+  Float ref_size = if defined(ref_fasta) then size(ref_fasta, "GB") + size(ref_fasta_index, "GB") + size(ref_dict, "GB") else 0
+  Int disk_size = ceil(size(input_bam, "GB") + ref_size) + 20
+
+  meta {
+    description: "Subsets a whole genome bam to just Mitochondria reads"
+  }
+  parameter_meta {
+    ref_fasta: "Reference is only required for cram input. If it is provided ref_fasta_index and ref_dict are also required."
+    input_bam: {
+      localization_optional: true
+    }
+    input_bai: {
+      localization_optional: true
+    }
+  }
+  command <<<
+    set -e
+    export GATK_LOCAL_JAR=~{default="/root/gatk.jar" gatk_override}
+
+    gatk PrintReads \
+      ~{"-R " + ref_fasta} \
+      -L ~{contig_name} \
+      --read-filter MateOnSameContigOrNoMappedMateReadFilter \
+      --read-filter MateUnmappedAndUnmappedReadFilter \
+      ~{"--gcs-project-for-requester-pays " + requester_pays_project} \
+      -I ~{input_bam} \
+      --read-index ~{input_bai} \
+      -O ~{basename}.bam
+  >>>
+  runtime {
+    memory: "3 GB"
+    disks: "local-disk " + disk_size + " HDD"
+    docker: select_first([gatk_docker_override, "us.gcr.io/broad-gatk/gatk:4.1.7.0"])
+    preemptible: select_first([preemptible_tries, 5])
+  }
+  output {
+    File output_bam = "~{basename}.bam"
+    File output_bai = "~{basename}.bai"
+  }
+}
+
+task RevertSam {
+  input {
+    File input_bam
+    String basename = basename(input_bam, ".bam")
+
+    # runtime
+    Int? preemptible_tries
+  }
+  Int disk_size = ceil(size(input_bam, "GB") * 2.5) + 20
+
+  meta {
+    description: "Removes alignment information while retaining recalibrated base qualities and original alignment tags"
+  }
+  parameter_meta {
+    input_bam: "aligned bam"
+  }
+  command {
+    java -Xmx1000m -jar /usr/gitc/picard.jar \
+    RevertSam \
+    INPUT=~{input_bam} \
+    OUTPUT_BY_READGROUP=false \
+    OUTPUT=~{basename}.bam \
+    VALIDATION_STRINGENCY=LENIENT \
+    ATTRIBUTE_TO_CLEAR=FT \
+    ATTRIBUTE_TO_CLEAR=CO \
+    SORT_ORDER=queryname \
+    RESTORE_ORIGINAL_QUALITIES=false
+  }
+  runtime {
+    disks: "local-disk " + disk_size + " HDD"
+    memory: "2 GB"
+    docker: "us.gcr.io/broad-gotc-prod/genomes-in-the-cloud:2.4.2-1552931386"
+    preemptible: select_first([preemptible_tries, 5])
+  }
+  output {
+    File unmapped_bam = "~{basename}.bam"
+  }
+}
+
+task SplitMultiAllelicSites {
+  input {
+    File ref_fasta
+    File ref_fasta_index
+    File ref_dict
+    File input_vcf
+    String base_name
+    Int? preemptible_tries
+    File? gatk_override
+    String? gatk_docker_override
+  }
+
+  String output_vcf = base_name + ".final.split.vcf"
+  String output_vcf_index = output_vcf + ".idx"
+
+  command {
+    set -e
+    export GATK_LOCAL_JAR=~{default="/root/gatk.jar" gatk_override}
+    gatk LeftAlignAndTrimVariants \
+      -R ~{ref_fasta} \
+      -V ~{input_vcf} \
+      -O ~{output_vcf} \
+      --split-multi-allelics \
+      --dont-trim-alleles \
+      --keep-original-ac
+  }
+  output {
+    File split_vcf = "~{output_vcf}"
+    File split_vcf_index = "~{output_vcf}"
+  }
+  runtime {
+      docker: select_first([gatk_docker_override, "us.gcr.io/broad-gatk/gatk:4.1.7.0"])
+      memory: "3 MB"
+      disks: "local-disk 20 HDD"
+      preemptible: select_first([preemptible_tries, 5])
+  } 
+}

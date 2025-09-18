@@ -1,0 +1,30 @@
+#!/bin/bash
+
+root="$(git rev-parse --show-toplevel)"
+source ${root}/"pkings_gwas.env"
+
+#make popmap
+cat ${root}/input_data/01_Terra/data_model/fish_data_2024a.txt | cut -f1,9 > ${root}/output_data/07_Phasing/popmap.txt
+
+#replace header line
+gsed -i '1d' ${root}/output_data/07_Phasing/popmap.txt
+
+cut -f2 ${root}/output_data/07_Phasing/popmap.txt | sort | uniq > ${root}/output_data/07_Phasing/populations.txt
+
+
+for pop in $(cat ${root}/output_data/07_Phasing/populations.txt); do
+    awk -v p=$pop '$2 == p {print $1}' ${root}/output_data/07_Phasing/popmap.txt > ${root}/output_data/07_Phasing/${pop}_samples.txt
+done
+
+#cat ${root}/output_data/06_Association/APA_BEN_BAM_TP1_BP2_WOB9/APA_BEN_BAM_TP1_BP2_WOB9_PEAKS.bed | cut -f1,2,3 > ${root}/output_data/07_Phasing/gw1_regions.bed
+#cat ${root}/output_data/06_Association/MOV_BIR_DOG_DOV_BAVA_BIK_APA_BEN_TP1_BP2_WOB9/MOV_BIR_DOG_DOV_BAVA_BIK_APA_BEN_TP1_BP2_WOB9_PEAKS.bed | cut -f1,2,3 > ${root}/output_data/07_Phasing/gw2_regions.bed
+
+#awk '{print "chr"$1, $2+100000000, $3+100000000}' OFS='\t' ${root}/output_data/07_Phasing/gw1_regions.bed > ${root}/output_data/07_Phasing/gw1_regions.chr.bed
+
+#awk '{print "chr"$1, $2+100000000, $3+100000000}' OFS='\t' ${root}/output_data/07_Phasing/gw2_regions.bed > ${root}/output_data/07_Phasing/gw2_regions.chr.bed
+
+
+parallel -j 4 "bcftools view -S ${root}/output_data/07_Phasing/{}_samples.txt -q 0.05:minor \
+    -Oz --threads 4 -o ${root}/output_data/07_Phasing/{}.vcf.gz \
+    --force-samples ${root}/output_data/07_Phasing/MIC4273_HAP2_NEWREF_MSU618_all_fish_all_sites.FILTERED_BIALLELIC_SNPS_ONLY.phased.renamed.vcf.gz" \
+    ::: $(cat ${root}/output_data/07_Phasing/populations.txt)

@@ -1,0 +1,394 @@
+---
+title: "RNASeq Report"
+output: html_notebook
+params:
+  g1_data_path: APA_BEN_BAM_TP1_BP2_WOB9
+  g2_data_path: MOV_BIR_DOG_DOV_BAVA_BIK_APA_BEN_TP1_BP2_WOB9
+---
+
+```{r setup, include=FALSE}
+root<-rprojroot::find_root(".git/index")
+knitr::opts_knit$set(root.dir = root)
+library(tximport)
+library(tidyverse)
+library("DESeq2")
+library(stringr)
+require(rtracklayer)
+library(ggrepel)
+library(patchwork)   # For combining plots
+library(biomaRt)
+library(ggpubr)
+library(openxlsx)
+source(file.path(root,"code","09_RNASeq","go_analysis.R"))
+```
+
+
+```{r}
+
+library(dplyr)
+library(readr)
+library(tibble)
+
+# ----------------------------
+# 1) Metadata + unified filters
+# ----------------------------
+sample_data <- file.path(root, "input_data/09_RNASeq/rnaseq_metadata.txt")
+coldata <- read.table(sample_data, header = TRUE, sep = "", check.names = FALSE)
+
+# Keep one row per PN/SpecNo combo; drop raw read paths
+pheno_data <- coldata %>%
+  dplyr::select(-R1, -R2) %>%
+  distinct()
+
+# Define filters in one place
+gwas_1_set    <- c("APA","BAM","BEN","MOV","BIR","DOG","DOV","BAVA","BIK","APA","BEN")
+values_to_drop <- c("PK1", "PK2", "PK3")  # <- set as needed
+
+# Apply both filters at once
+gw1_pheno_data <- pheno_data %>%
+  filter(Population %in% gwas_1_set) %>%
+  filter(!SpecNo %in% values_to_drop)
+
+# Factors (optional: lock levels to what remains)
+gw1_pheno_data <- gw1_pheno_data %>%
+  mutate(
+    Population = factor(Population, levels = sort(unique(Population))),
+    Phenotype  = factor(Phenotype)
+  )
+
+# Ensure PN exists and is unique; use as rownames for colData
+stopifnot("PN" %in% names(gw1_pheno_data))
+if (anyDuplicated(gw1_pheno_data$PN) > 0) {
+  dupPN <- gw1_pheno_data$PN[duplicated(gw1_pheno_data$PN)]
+  stop(paste("Duplicate PN values found:", paste(unique(dupPN), collapse = ", ")))
+}
+rownames(gw1_pheno_data) <- gw1_pheno_data$PN
+
+# Tidy pheno table keyed by PN (no rownames_to_column to avoid PN dup)
+pheno_tbl <- as.data.frame(gw1_pheno_data)
+
+population_groups <- c(
+  "APA"  = "TP1",
+  "BAM"  = "BP1",
+  "BEN"  = "TP1",
+  "MOV"  = "TP_OUT",
+  "BIR"  = "BP3",
+  "DOG"  = "TP2",
+  "DOV"  = "TP2",
+  "BAVA" = "BP2",
+  "BIK"  = "BP2"
+)
+
+# ----------------------------
+# 2) Files for tximport (names MUST be PN)
+# ----------------------------
+gw1_genes_files <- file.path(
+  root, "output_data/09_RNASeq/quantification",
+  paste0(gw1_pheno_data$SpecNo, ".genes.results")
+)
+names(gw1_genes_files) <- gw1_pheno_data$PN  # critical: names == PN
+
+# Optional: quick file existence check
+missing <- gw1_genes_files[!file.exists(gw1_genes_files)]
+if (length(missing) > 0) {
+  warning(paste("Missing quant files for PN:",
+                paste(names(missing), collapse = ", ")))
+}
+
+```
+
+```{r}
+# ----------------------------
+# 3) tximport and DESeq2 object
+# ----------------------------
+gw1_genes.rsem <- tximport(
+  files          = gw1_genes_files,
+  type           = "none",
+  txIn           = FALSE,
+  txOut          = FALSE,
+  geneIdCol      = "gene_id",
+  abundanceCol   = "TPM",
+  countsCol      = "expected_count",
+  lengthCol      = "effective_length",
+  importer       = function(x) readr::read_tsv(x)
+)
+
+# Fix zero lengths (rare RSEM artifact)
+gw1_genes.rsem$length[gw1_genes.rsem$length == 0] <- 0.01
+
+gw1_dds <- DESeqDataSetFromTximport(
+  txi     = gw1_genes.rsem,
+  colData = gw1_pheno_data,
+  design  = ~ Population
+)
+
+# Sanity check: columns (samples) must match PN
+stopifnot(identical(colnames(gw1_dds), rownames(gw1_pheno_data)))
+
+# Filter low-count genes and fit model
+keep <- rowSums(counts(gw1_dds)) >= 10
+gw1_dds <- gw1_dds[keep, ]
+gw1_dds <- DESeq(gw1_dds)
+
+# ----------------------------
+# 4) Selected genes & tidy tables
+# ----------------------------
+genes_of_interest <- c(
+  "ENSPKIG00000008497","ENSPKIG00000008545","ENSPKIG00000004799","ENSPKIG00000004648",
+  "ENSPKIG00000000098","ENSPKIG00000009096","ENSPKIG00000006520","ENSPKIG00000025014",
+  "ENSPKIG00000004553","ENSPKIG00000005195","ENSPKIG00000000155","ENSPKIG00000006468"
+)
+names_of_interest <- c(
+  "cntnap5b","gypc","sptbn4b","itpr3","htt","itih3a.1","slc7a10b","slx4",
+  "frs3","mustn1a","rgs12b","slc7a9"
+)
+```
+
+
+```{r}
+# Optional: mapping ENS IDs -> readable labels
+gene_label_map <- setNames(names_of_interest, genes_of_interest)
+
+# Normalized counts (for tables)
+norm_counts_long <- counts(gw1_dds, normalized = TRUE) %>%
+  as.data.frame() %>%
+  rownames_to_column("gene_id") %>%
+  filter(gene_id %in% genes_of_interest) %>%
+  pivot_longer(-gene_id, names_to = "PN", values_to = "norm_count") %>%
+  left_join(pheno_tbl, by = "PN") %>%
+  mutate(gene_label = ifelse(gene_id %in% names(gene_label_map),
+                             gene_label_map[gene_id], gene_id))
+
+norm_counts_long <- norm_counts_long %>%
+  mutate(Group = recode(Population, !!!population_groups))
+
+# VST for nicer plots
+vst_mat <- assay(vst(gw1_dds, blind = FALSE))
+vst_df <- vst_mat %>%
+  as.data.frame() %>%
+  rownames_to_column("gene_id") %>%
+  filter(gene_id %in% genes_of_interest) %>%
+  pivot_longer(-gene_id, names_to = "PN", values_to = "vst_expr") %>%
+  left_join(pheno_tbl, by = "PN") %>%
+  mutate(gene_label = ifelse(gene_id %in% names(gene_label_map),
+                             gene_label_map[gene_id], gene_id))
+
+```
+
+```{r, fig.width=12}
+# ----------------------------
+# 5) Plot (VST by Population), faceted by gene
+# ----------------------------
+
+norm_counts_long <- norm_counts_long %>%
+  mutate(log_norm_count = log10(norm_count + 1))
+
+
+ggplot(norm_counts_long, aes(Population, log_norm_count, fill=Group)) +
+  geom_boxplot(outlier.shape = NA) +
+  geom_jitter(width = 0.15, alpha = 0.6) +
+  facet_wrap(~ gene_label, scales = "fixed") +
+  labs(x = "Population", y = "log10(Normalized count + 1)") +
+  theme_bw(base_size = 12)
+```
+```{r}
+ggplot(spectrin_counts, aes(NewPhenotype, norm_count)) +
+  geom_point() #+
+  #facet_wrap(~ Population, scales = "fixed") 
+
+```
+
+```{r}
+# Connect to Ensembl release 112 for Paramormyrops kingsleyae
+ensembl_112 <- useEnsembl(
+    biomart = "ensembl", 
+    version = 112, 
+    host = "https://may2024.archive.ensembl.org"
+)
+
+# Select the Paramormyrops kingsleyae dataset
+ensembl_112 <- useDataset("pkingsleyae_gene_ensembl", mart = ensembl_112)
+
+# Retrieve ENSEMBL IDs and GO terms
+go_annotations <- getBM(
+    attributes = c("ensembl_gene_id", "go_id"),
+    mart = ensembl_112
+)
+
+# Remove entries with missing GO IDs
+go_annotations <- go_annotations[go_annotations$go_id != "", ]
+
+# Create a named list mapping genes to GO terms
+gene_to_go <- split(go_annotations$go_id, go_annotations$ensembl_gene_id)
+```
+
+```{r}
+# Define gene sets based on log2 fold change.
+up_genes <- gw1_sig$ensembl_gene_id[gw1_sig$log2FoldChange > 0]
+down_genes <- gw1_sig$ensembl_gene_id[gw1_sig$log2FoldChange < 0]
+
+# Run GO analysis for upregulated genes.
+filtered_results_up <- run_go_analysis(
+  de_genes = up_genes,
+  gene_to_go = gene_to_go,
+  ontology = "CC",       # Change to "BP" or "MF" if desired.
+  p_threshold = 0.05
+)
+
+# Run GO analysis for downregulated genes.
+filtered_results_down <- run_go_analysis(
+  de_genes = down_genes,
+  gene_to_go = gene_to_go,
+  ontology = "CC",
+  p_threshold = 0.05
+)
+
+gw1_go<-plot_combined_go_results(subset(filtered_results_up, Significant > 2), subset(filtered_results_down, Significant > 2))
+
+gw1_go
+```
+```{r}
+# Define gene sets based on log2 fold change.
+up_genes <- gw2_sig$ensembl_gene_id[gw2_sig$log2FoldChange > 0]
+down_genes <- gw2_sig$ensembl_gene_id[gw2_sig$log2FoldChange < 0]
+
+# Run GO analysis for upregulated genes.
+filtered_results_up <- run_go_analysis(
+  de_genes = up_genes,
+  gene_to_go = gene_to_go,
+  ontology = "CC",       # Change to "BP" or "MF" if desired.
+  p_threshold = 0.05
+)
+
+# Run GO analysis for downregulated genes.
+filtered_results_down <- run_go_analysis(
+  de_genes = down_genes,
+  gene_to_go = gene_to_go,
+  ontology = "CC",
+  p_threshold = 0.05
+)
+
+gw2_go<-plot_combined_go_results(subset(filtered_results_up, Significant > 2), subset(filtered_results_down, Significant > 2))
+
+gw2_go
+```
+
+```{r, fig.width=24, fig.height=8}
+
+p1 <- (g1_plot / cntn + plot_layout(heights = c(2, 1))) | gw1_go + 
+      plot_layout(widths = c(2, 1))
+
+p2 <- (g2_plot / ith + plot_layout(heights = c(2, 1))) | gw2_go + 
+      plot_layout(widths = c(2, 1))
+
+final_plot <- wrap_elements(p1) + wrap_elements(p2) + plot_layout(ncol = 2)
+
+final_plot
+
+ggsave(
+    file.path(root, "output_data", "09_RNASeq", "volcano_plot_RNAseq.svg"),
+    plot = final_plot, width = 24, height = 8
+ )
+
+```
+
+
+```{r} 
+# Create a data frame with the ensembl_gene_id and a concatenated string of GO terms
+go_df <- data.frame(
+  ensembl_gene_id = names(gene_to_go),
+  go_terms = sapply(gene_to_go, function(x) paste(x, collapse = "; ")),
+  stringsAsFactors = FALSE
+)
+
+gw1_res_table <- subset(gw1_res, abs(log2FoldChange) > 0.5 & padj < 0.1) %>%
+  left_join(go_df, by = "ensembl_gene_id") %>%
+  dplyr::select(
+    # Select columns 6-8 by their names
+    all_of(names(gw1_res)[6:8]),
+    # Then select all remaining columns; they won't duplicate the ones already selected
+    everything()
+  )
+
+gw2_res_table <- subset(gw2_res, abs(log2FoldChange) > 0.5 & padj < 0.1) %>%
+  left_join(go_df, by = "ensembl_gene_id") %>%
+  dplyr::select(
+    # Select columns 6-8 by their names
+    all_of(names(gw2_res)[6:8]),
+    # Then select all remaining columns; they won't duplicate the ones already selected
+    everything()
+  )
+
+gw1_sig_genes <- file.path(root, "output_data/09_RNASeq/r1_sig_genes.xlsx")
+gw2_sig_genes <- file.path(root, "output_data/09_RNASeq/r2_sig_genes.xlsx")
+
+
+write.xlsx(gw1_res_table, file = gw1_sig_genes, sheetName = "R1 Significant Genes", overwrite = TRUE)
+write.xlsx(gw2_res_table, file = gw2_sig_genes, sheetName = "R2 Significant Genes", overwrite = TRUE)
+
+```
+
+```{r}
+#— your “universe” of all genes tested in RNA-seq
+universe    <- rownames(gw1_res)
+
+#— your set of DE genes
+de_genes    <- rownames(gw1_sig)
+
+#— your GWAS hits (replace with your 4 gene names)
+gwas_genes  <- g1_overlapping_annotations_df$gene_id
+
+#— observed overlap
+obs_overlap <- length(intersect(de_genes, gwas_genes))
+
+#— number of permutations
+n_perm      <- 10000
+
+set.seed(42)  # for reproducibility
+
+#— run permutations
+perm_overlaps <- replicate(
+  n_perm,
+  sum(sample(universe, length(de_genes)) %in% gwas_genes)
+)
+
+#— empirical p-value (chance of ≥ observed overlap)
+p_value <- mean(perm_overlaps >= obs_overlap)
+
+#— summary
+cat("Observed overlap:", obs_overlap, "\n",
+    "Mean permuted overlap:", mean(perm_overlaps), "\n",
+    "Permutation-based p-value:", p_value, "\n")
+```
+```{r}
+#— your “universe” of all genes tested in RNA-seq
+universe    <- rownames(gw2_res)
+
+#— your set of DE genes
+de_genes    <- rownames(gw2_sig)
+
+#— your GWAS hits (replace with your 4 gene names)
+gwas_genes  <- g2_overlapping_annotations_df$gene_id
+
+#— observed overlap
+obs_overlap <- length(intersect(de_genes, gwas_genes))
+
+#— number of permutations
+n_perm      <- 10000
+
+set.seed(42)  # for reproducibility
+
+#— run permutations
+perm_overlaps <- replicate(
+  n_perm,
+  sum(sample(universe, length(de_genes)) %in% gwas_genes)
+)
+
+#— empirical p-value (chance of ≥ observed overlap)
+p_value <- mean(perm_overlaps >= obs_overlap)
+
+#— summary
+cat("Observed overlap:", obs_overlap, "\n",
+    "Mean permuted overlap:", mean(perm_overlaps), "\n",
+    "Permutation-based p-value:", p_value, "\n")
+```

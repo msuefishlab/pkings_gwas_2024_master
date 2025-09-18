@@ -1,0 +1,61 @@
+---
+title: "GWAS Report"
+output: html_notebook
+params:
+  data_path: BAM_ONLY_BP0_TPWOB1
+  output_file: NULL
+  MAF_thresh: 0.15
+---
+
+```{r setup, include=FALSE}
+root<-rprojroot::find_root(".git/index")
+knitr::opts_knit$set(root.dir = root)
+require(yaml)
+require(tidyverse)
+require(stringr)
+require(GenomicRanges)
+require(rtracklayer)
+require(data.table)
+require(purrr)
+source(file.path(root,"code","06_Association","gemma_gwas_functions.R"))
+source(file.path(root,"code","06_Association","plink_gwas_helpers.r"))
+```
+
+```{r}
+# ---- Paths & data ----
+plink_file <- file.path(root,"output_data","06_Association", params$data_path,
+                        paste0(params$data_path,"_PLINK_assoc.model"))
+freq_file  <- file.path(root,"output_data","06_Association", params$data_path,
+                        paste0(params$data_path,"_PLINK_assoc.frq"))
+minpath    <- file.path(root,"output_data","06_Association", params$data_path,
+                        paste0(params$data_path,"_perm_min_by_test.long.tsv"))
+peak_data_path <- file.path(root,"output_data","06_Association", params$data_path)
+if (!dir.exists(peak_data_path)) dir.create(peak_data_path, recursive = TRUE)
+
+# Load & join
+pk.lmm  <- plink.order(plink_file, "P")
+pk.freq <- data.table::fread(freq_file)
+pk.lmm  <- dplyr::left_join(pk.lmm, pk.freq[,c(2,5)], by = c("SNP" = "SNP"))
+
+# Thresholds (once)
+min_data <- readr::read_tsv(minpath, show_col_types = FALSE)
+thr_by_test_ord <- min_data %>%
+  dplyr::group_by(TEST) %>%
+  dplyr::arrange(minP, .by_group = TRUE) %>%
+  dplyr::summarise(
+    n = dplyr::n(),
+    i_sig  = max(1L, n - floor(n*0.95)),
+    i_sugg = max(1L, n - floor(n*0.67)),
+    significant = -log10(minP[i_sig]),
+    suggestive  = -log10(minP[i_sugg]),
+    .groups = "drop"
+  ) %>% dplyr::select(TEST, significant, suggestive)
+
+thr_by_test_ord
+
+# ---- Run the pipeline ----
+tests_to_run <- c("ALLELIC","REC")   # choose a subset if you like
+library(purrr)
+results_by_test <- purrr::map(tests_to_run, process_test)
+
+```

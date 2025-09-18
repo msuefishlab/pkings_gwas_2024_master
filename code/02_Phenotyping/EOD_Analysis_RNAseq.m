@@ -13,7 +13,7 @@ for b = 1:length(subjectlist)
     elseif isempty(subjectlist{b})
         continue
     else
-        filename = fullfile(root,'input_data/02_Phenotyping/eods',subjectlist{b}); % Assuming full path is provided in the TSV
+        filename = fullfile(root,'input_data/09_RNASeq/rnaseq_eods',subjectlist{b}); % Assuming full path is provided in the TSV
         samplename=samplenamelist{b};
         eod = loadEODData(filename);
         if isempty(eod)

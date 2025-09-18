@@ -1,0 +1,326 @@
+---
+title: "GWAS Report"
+output: html_notebook
+params:
+  data_path: BAM_ONLY_BP0_TPWOB1
+  output_file: NULL
+  MAF_thresh: 0.15
+---
+
+```{r setup, include=FALSE}
+root<-rprojroot::find_root(".git/index")
+knitr::opts_knit$set(root.dir = root)
+require(yaml)
+require(tidyverse)
+require(stringr)
+require(GenomicRanges)
+require(rtracklayer)
+require(data.table)
+source(file.path(root,"code","06_Association","gemma_gwas_functions.R"))
+```
+
+# Load Data
+```{r}
+plink_file<-file.path(root,"output_data","06_Association",params$data_path,paste0(params$data_path,"_PLINK_assoc.model"))
+freq_file<-file.path(root,"output_data","06_Association",params$data_path,paste0(params$data_path,"_PLINK_assoc.frq"))
+minpath<-file.path(root,"output_data","06_Association",params$data_path,paste0(params$data_path,"_perm_min_by_test.long.tsv"))
+```
+
+# Determine Thresholds for Significant and Suggestive SNPs
+```{r}
+pk.lmm<- plink.order(plink_file, "P")
+pk.freq<-fread(freq_file)
+pk.lmm<- left_join(pk.lmm,pk.freq[,c(2,5)],by = c("SNP" = "SNP"))
+```
+
+
+```{r}
+min_data<-read.csv(minpath,header=T,sep="\t")
+
+thr_by_test_ord <- min_data %>%
+  group_by(TEST) %>%
+  arrange(minP, .by_group = TRUE) %>%
+  summarise(
+    n = n(),
+    i_sig  = max(1L, n - floor(n*0.95)),  # e.g., n=100 -> 5th smallest
+    i_sugg = max(1L, n - floor(n*0.67)),  # e.g., n=100 -> 33rd smallest
+    significant = -log10(minP[i_sig]),
+    suggestive  = -log10(minP[i_sugg]),
+    .groups = "drop"
+  ) %>%
+  select(TEST, significant, suggestive)
+
+thr_by_test_ord
+```
+# Define Peaks
+```{r}
+#remove low log p to reduce memory footprint
+pk.lmm.filt <- pk.lmm %>% filter(log_p > 1) %>% filter(MAF > params$MAF_thresh) %>% filter((!grepl("ups", CHR)) & !is.na(log_p)) %>% arrange(numeric_chr)
+
+#define peaks using an arbitrarily low threshold, merging windows within 75kb and removing singleton SNP peaks
+pk.lmm.peaks_REC <- peak_list_permutation_plink(pk.lmm.filt, "log_p",3, 4,"REC") 
+pk.lmm.peaks_GENO <- peak_list_permutation_plink(pk.lmm.filt, "log_p",3, 4,"GENO") 
+pk.lmm.peaks_TREND <- peak_list_permutation_plink(pk.lmm.filt, "log_p",3, 4,"TREND") 
+pk.lmm.peaks_ALLELIC <- peak_list_permutation_plink(pk.lmm.filt, "log_p",3, 4,"ALLELIC") 
+pk.lmm.peaks_DOM <- peak_list_permutation_plink(pk.lmm.filt, "log_p",3, 4,"DOM") 
+```
+
+```{r}
+#define intervals where the peaks are, keeping information on length and mean/max p values
+pk.lmm.bed_REC <- plink.peak.bed(pk.lmm.peaks_REC,thr_by_test_ord[thr_by_test_ord$TEST=="REC",]$suggestive)
+pk.lmm.bed_GENO <- plink.peak.bed(pk.lmm.peaks_GENO,thr_by_test_ord[thr_by_test_ord$TEST=="GENO",]$suggestive)
+pk.lmm.bed_TREND<- plink.peak.bed(pk.lmm.peaks_TREND,thr_by_test_ord[thr_by_test_ord$TEST=="TREND",]$suggestive)
+pk.lmm.bed_ALLELIC <- plink.peak.bed(pk.lmm.peaks_ALLELIC,thr_by_test_ord[thr_by_test_ord$TEST=="ALLELIC",]$suggestive)
+pk.lmm.bed_DOM <- plink.peak.bed(pk.lmm.peaks_DOM,thr_by_test_ord[thr_by_test_ord$TEST=="DOM",]$suggestive)
+```
+
+```{r}
+pk.lmm.filt %>% 
+  filter(TEST== "ALLELIC") %>%
+  ggplot(aes(x = MAF)) +
+  geom_density(fill="lightblue",aes(y=..scaled..))
+```
+
+# Refine Peaks
+```{r}
+#create a filtered bed file that has peaks only with snps above the threshold
+
+pk.lmm.bed_ALLELIC.f <- pk.lmm.bed_ALLELIC %>% 
+  filter(max_log_p > thr_by_test_ord[thr_by_test_ord$TEST=="ALLELIC",]$suggestive) %>% 
+  filter(num_snps_above_threshold > 0) %>% 
+  ungroup() %>% 
+  arrange(numeric_chr, start_bp) %>% #arrange by chr order
+  mutate(peak.original = peak, #new col for original peak name
+       peak.new = row_number(), #new names for peaks using row_number()
+       peak = peak.new) #reset original peak column to the renumbered version
+
+# Plot how many snps are in each peak
+ggplot(pk.lmm.bed_ALLELIC.f,aes(x=num_snps)) + geom_histogram(bins=10) + scale_x_log10()
+```
+```{r}
+#create a filtered bed file that has peaks only with snps above the threshold
+
+pk.lmm.bed_REC.f <- pk.lmm.bed_REC %>% 
+  filter(max_log_p > thr_by_test_ord[thr_by_test_ord$TEST=="REC",]$suggestive) %>% 
+  filter(num_snps_above_threshold > 0) %>% 
+  ungroup() %>% 
+  arrange(numeric_chr, start_bp) %>% #arrange by chr order
+  mutate(peak.original = peak, #new col for original peak name
+       peak.new = row_number(), #new names for peaks using row_number()
+       peak = peak.new) #reset original peak column to the renumbered version
+
+# Plot how many snps are in each peak
+ggplot(pk.lmm.bed_REC.f,aes(x=num_snps)) + geom_histogram(bins=10) + scale_x_log10()
+```
+```{r}
+peak_data_path<-file.path(root,"output_data","06_Association",params$data_path)
+
+if (!dir.exists(peak_data_path)){
+  dir.create(peak_data_path)
+}
+
+peak.name.simple <- pk.lmm.bed_ALLELIC.f %>% dplyr::select(peak.new, peak.original)
+
+#create a SNP file that is only the peaks after filtering
+pk.lmm.peaks.out <- pk.lmm.peaks_ALLELIC %>% 
+  filter(peak %in% pk.lmm.bed_ALLELIC.f$peak.original)
+pk.lmm.peaks.out <- left_join(pk.lmm.peaks.out, peak.name.simple, by = c("peak" = "peak.original")) %>% 
+  dplyr::rename(peak.original = peak, peak= peak.new) %>% arrange(peak)
+write.table(pk.lmm.peaks.out,file.path(peak_data_path,paste0(params$data_path,"_PLINK_ALLELIC_SNPS_IN_PEAKS.txt")), sep = "\t", quote = F, row.names = F, col.names = T)
+
+#create a file that is only the top 250 SNPs per peak
+pk.lmm.peaks.slice <- pk.lmm.peaks.out %>% group_by(peak) %>% 
+  slice_max(log_p, n = 250) %>% 
+  dplyr::select(CHR, ps, log_p, peak)
+write.table(pk.lmm.peaks.slice,file.path(peak_data_path,paste0(params$data_path,"_PLINK_ALLELIC_SNPS_IN_PEAKS_TOP250.txt")), sep = "\t", quote = F, row.names = F, col.names = F)
+
+pk.lmm.peaks.slice %>% group_by(peak) %>% 
+  summarise(n = n(),
+            min = min(log_p),
+            max = max(log_p))
+
+# write index SNPS
+index_snps <- pk.lmm.peaks.out %>%
+  group_by(peak) %>%
+  # Filter for rows with the maximum log_p value within each peak
+  filter(log_p == max(log_p)) %>%
+  # Sample one row randomly in case of ties
+  slice_sample(n = 1) %>%
+  ungroup()
+
+
+write.table(index_snps$SNP,file.path(peak_data_path,paste0(params$data_path,"_PLINK_ALLELIC_index_snps.txt")), sep = "\t", quote = F, row.names = F, col.names = F)
+
+#output bed file of UNFILTERED peaks
+pk.lmm.bed_ALLELIC %>% dplyr::select(numeric_chr,start_bp,end_bp, peak) %>% 
+  write.table(file.path(peak_data_path,paste0(params$data_path,"_PLINK_ALLELIC_PEAKS_unfiltered.bed")), sep = "\t", quote = F, row.names = F, col.names = F)
+
+#output bed file of peaks
+pk.lmm.bed_ALLELIC.f %>% dplyr::arrange(max_log_p) %>% dplyr::select(numeric_chr,start_bp,end_bp, peak,max_log_p,most_significant_bp) %>% 
+  write.table(file.path(peak_data_path,paste0(params$data_path,"_PLINK_ALLELIC_PEAKS.bed")), sep = "\t", quote = F, row.names = F, col.names = F)
+
+```
+
+
+```{r}
+peak_data_path<-file.path(root,"output_data","06_Association",params$data_path)
+
+if (!dir.exists(peak_data_path)){
+  dir.create(peak_data_path)
+}
+
+peak.name.simple <- pk.lmm.bed_REC.f %>% dplyr::select(peak.new, peak.original)
+
+#create a SNP file that is only the peaks after filtering
+pk.lmm.peaks.out <- pk.lmm.peaks_REC %>% 
+  filter(peak %in% pk.lmm.bed_REC.f$peak.original)
+pk.lmm.peaks.out <- left_join(pk.lmm.peaks.out, peak.name.simple, by = c("peak" = "peak.original")) %>% 
+  dplyr::rename(peak.original = peak, peak= peak.new) %>% arrange(peak)
+write.table(pk.lmm.peaks.out,file.path(peak_data_path,paste0(params$data_path,"_PLINK_REC_SNPS_IN_PEAKS.txt")), sep = "\t", quote = F, row.names = F, col.names = T)
+
+#create a file that is only the top 250 SNPs per peak
+pk.lmm.peaks.slice <- pk.lmm.peaks.out %>% group_by(peak) %>% 
+  slice_max(log_p, n = 250) %>% 
+  dplyr::select(CHR, ps, log_p, peak)
+write.table(pk.lmm.peaks.slice,file.path(peak_data_path,paste0(params$data_path,"_PLINK_REC_SNPS_IN_PEAKS_TOP250.txt")), sep = "\t", quote = F, row.names = F, col.names = F)
+
+pk.lmm.peaks.slice %>% group_by(peak) %>% 
+  summarise(n = n(),
+            min = min(log_p),
+            max = max(log_p))
+
+# write index SNPS
+index_snps <- pk.lmm.peaks.out %>%
+  group_by(peak) %>%
+  # Filter for rows with the maximum log_p value within each peak
+  filter(log_p == max(log_p)) %>%
+  # Sample one row randomly in case of ties
+  slice_sample(n = 1) %>%
+  ungroup()
+
+
+write.table(index_snps$SNP,file.path(peak_data_path,paste0(params$data_path,"_PLINK_REC_index_snps.txt")), sep = "\t", quote = F, row.names = F, col.names = F)
+
+#output bed file of UNFILTERED peaks
+pk.lmm.bed_REC %>% dplyr::select(numeric_chr,start_bp,end_bp, peak) %>% 
+  write.table(file.path(peak_data_path,paste0(params$data_path,"_PLINK_REC_PEAKS_unfiltered.bed")), sep = "\t", quote = F, row.names = F, col.names = F)
+
+#output bed file of peaks
+pk.lmm.bed_REC.f %>% dplyr::arrange(max_log_p) %>% dplyr::select(numeric_chr,start_bp,end_bp, peak,max_log_p,most_significant_bp) %>% 
+  write.table(file.path(peak_data_path,paste0(params$data_path,"_PLINK_REC_PEAKS.bed")), sep = "\t", quote = F, row.names = F, col.names = F)
+
+```
+
+```{r, fig.width=20,fig.height=5}
+pk.lmm.filt.allelic<-pk.lmm.filt %>% filter(TEST=="ALLELIC")
+dynamic_max <- quantile(pk.lmm.filt.allelic$log_p, 0.99999)
+
+peak_bounds <- pk.lmm.peaks.out %>%
+  group_by(peak) %>%
+  summarise(
+    xmin = min(row)-10000,
+    xmax = max(row)+10000,
+    ymin = 1,  # Lower limit for the rectangle
+    ymax = dynamic_max # Upper limit (use dynamic_max for finite height in plots)
+  )
+
+
+p.plink <- manc2.labels.plink(pk.lmm.filt.allelic, "log_p")
+man_final<-
+    p.plink +
+
+  geom_rect(
+    data = peak_bounds,
+    aes(
+      xmin = xmin, xmax = xmax,
+      ymin = ymin, ymax = dynamic_max
+    ),
+    fill = "grey", alpha = 0.3, inherit.aes = FALSE   # Avoid inheriting from base plot  # Adjust color and transparency as needed
+  ) +
+  geom_text(
+    data = peak_bounds,
+    aes(
+      x = (xmin + xmax) / 2,    # Center of the rectangle
+      y = dynamic_max + 1,    # Slightly above the dynamic_max
+      label = peak
+    ),
+    inherit.aes = FALSE,
+    size = 4,                  # Adjust size for readability
+    color = "black"            # Adjust color for visibility
+  ) +
+  geom_hline(yintercept = thr_by_test_ord[thr_by_test_ord$TEST=="ALLELIC",]$suggestive, linetype = 2, color = "blue") +
+  geom_hline(yintercept = thr_by_test_ord[thr_by_test_ord$TEST=="ALLELIC",]$significant, linetype = 2, color = "red") +
+  geom_point(data = subset(pk.lmm.peaks.out, log_p > thr_by_test_ord[thr_by_test_ord$TEST=="ALLELIC",]$suggestive), aes(x = row, y = log_p,size=log_p), color = "red", shape=20,stroke=0.2,alpha=0.25) +
+   
+  scale_size_continuous(range = c(0.9, 3)) +
+  labs(y = expression(paste("-log"[10], italic("P"),"-value")),x= "Chromosome")+
+  ylim(c(1,dynamic_max+2))+
+  theme(
+    axis.text = element_text(size = 14),  # Adjust tick label font size
+    axis.title.x = element_text(size = 16),      # x-axis label font size
+    axis.title.y = element_text(size = 16)       # y-axis label font size
+    )
+
+man_final
+```
+
+```{r}
+ggsave(file.path(root,"output_data/06_Association",params$data_path,paste0(params$data_path,".gwas.plink.allelic.svg")), plot = man_final, width = 12, height = 4, units = "in")
+```
+
+```{r, fig.width=20,fig.height=5}
+pk.lmm.filt.rec<-pk.lmm.filt %>% filter(TEST=="REC")
+dynamic_max <- quantile(pk.lmm.filt.rec$log_p, 0.99999)
+
+peak_bounds <- pk.lmm.peaks.out %>%
+  group_by(peak) %>%
+  summarise(
+    xmin = min(row)-10000,
+    xmax = max(row)+10000,
+    ymin = 1,  # Lower limit for the rectangle
+    ymax = dynamic_max # Upper limit (use dynamic_max for finite height in plots)
+  )
+
+
+p.plink <- manc2.labels.plink(pk.lmm.filt.rec, "log_p")
+man_final<-
+    p.plink +
+
+  geom_rect(
+    data = peak_bounds,
+    aes(
+      xmin = xmin, xmax = xmax,
+      ymin = ymin, ymax = dynamic_max
+    ),
+    fill = "grey", alpha = 0.3, inherit.aes = FALSE   # Avoid inheriting from base plot  # Adjust color and transparency as needed
+  ) +
+  geom_text(
+    data = peak_bounds,
+    aes(
+      x = (xmin + xmax) / 2,    # Center of the rectangle
+      y = dynamic_max + 1,    # Slightly above the dynamic_max
+      label = peak
+    ),
+    inherit.aes = FALSE,
+    size = 4,                  # Adjust size for readability
+    color = "black"            # Adjust color for visibility
+  ) +
+  geom_hline(yintercept = thr_by_test_ord[thr_by_test_ord$TEST=="REC",]$suggestive, linetype = 2, color = "blue") +
+  geom_hline(yintercept = thr_by_test_ord[thr_by_test_ord$TEST=="REC",]$significant, linetype = 2, color = "red") +
+  geom_point(data = subset(pk.lmm.peaks.out, log_p > thr_by_test_ord[thr_by_test_ord$TEST=="REC",]$suggestive), aes(x = row, y = log_p,size=log_p), color = "red", shape=20,stroke=0.2,alpha=0.25) +
+   
+  scale_size_continuous(range = c(0.9, 3)) +
+  labs(y = expression(paste("-log"[10], italic("P"),"-value")),x= "Chromosome")+
+  ylim(c(1,dynamic_max+2))+
+  theme(
+    axis.text = element_text(size = 14),  # Adjust tick label font size
+    axis.title.x = element_text(size = 16),      # x-axis label font size
+    axis.title.y = element_text(size = 16)       # y-axis label font size
+    )
+
+man_final
+```
+
+```{r}
+ggsave(file.path(root,"output_data/06_Association",params$data_path,paste0(params$data_path,".gwas.plink.rec.svg")), plot = man_final, width = 12, height = 4, units = "in")
+```

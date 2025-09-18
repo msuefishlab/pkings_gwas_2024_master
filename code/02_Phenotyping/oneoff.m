@@ -1,88 +1,12 @@
-root=get_root();
-
-tsvFilename = fullfile(root,'input_data/01_Terra/data_model/fish_data_2024a.txt'); % Replace with your actual TSV file name
-[subjectlist,samplenamelist] = getSubjectListFromTSV(tsvFilename);
-
 normalized_eods = {};
 averaged_eods = {};
 a = 1;
 
-for b = 1:length(subjectlist)
-    if subjectlist{b} == "ND"
-        continue
-    elseif isempty(subjectlist{b})
-        continue
-    else
-        filename = fullfile(root,'input_data/02_Phenotyping/eods',subjectlist{b}); % Assuming full path is provided in the TSV
-        samplename=samplenamelist{b};
-        eod = loadEODData(filename);
-        if isempty(eod)
-            continue;
-        end
-        
-        message = ['Currently working on ', samplename, ' from file ', filename];
-        disp(message);
-        neodwave = processEODWaveforms(eod);
-        normalized_eods = updateEODStruct(normalized_eods, neodwave, eod, samplename, a);
-        averaged_eods = updateAveragedEODStruct(averaged_eods, neodwave, eod, samplename, a);
-        a = a + 1;
-    end
-end
+samplename="PSN9_531";
 
-function gitRoot=get_root()
-    [status, cmdout] = system('git rev-parse --show-toplevel');
-    if status == 0
-        gitRoot = strtrim(cmdout);
-    else
-        disp('Not a Git repository or Git is not installed.');
-    end
-end
-
-function [subjectlist,samplenamelist] = getSubjectListFromTSV(tsvFilename)
-    opts = detectImportOptions(tsvFilename, 'FileType', 'text');
-    tsvData = readtable(tsvFilename, opts);
-    subjectlist = tsvData.EOD_FILE;
-    samplenamelist=tsvData.PN;
-end
-
-
-function eod = loadEODData(filename)
-    [~, ~, extension] = fileparts(filename);
-    if strcmpi(extension, '.eod')
-        eod = ReadEODFileWithConversionto2019(filename);
-    else
-        load(filename);
-        eod = updateEODFormat(eod);
-    end
-end
-
-function eod = updateEODFormat(eod)
-    % Try to convert the date using a standard format
-    try
-        eodDate = datetime(datestr(eod(1).date));
-    catch
-        % If the standard format fails, try the 'July 06, 2019' format
-        try
-            eodDate = datetime(eod(1).date, 'InputFormat', 'MMMM dd, yyyy');
-            disp(eodDate)
-        catch
-            % Handle other potential errors or formats
-            disp('Unknown date format');
-            return;
-        end
-    end
-
-    if eodDate < datetime('1/1/2019','InputFormat','MM/dd/uuuu')
-        % Old format EOD, convert fields to proper names for compatibility
-        [eod.('specimenno')] = eod.('specimen');
-        [eod.('temp')] = eod.('temperature');
-        [eod.('Rate')]=eod.('s_rate');
-        [eod.('Range')]=eod.('adrange');
-    else
-        % New format, do nothing
-    end
-end
-
+neodwave = processEODWaveforms(eod);
+normalized_eods = updateEODStruct(normalized_eods, neodwave, eod, samplename, a);
+averaged_eods = updateAveragedEODStruct(averaged_eods, neodwave, eod, samplename, a);
 
 function neodwave = processEODWaveforms(eod)
         neodwave={};
@@ -225,5 +149,3 @@ function isLonger = getLongerDimension(dim1, dim2)
     dims2 = sscanf(dim2, '%dx%d');
     isLonger = prod(dims1) > prod(dims2);
 end
-
-
