@@ -8,21 +8,24 @@
 #SBATCH --mem=64G                    # memory required per node - amount of memory (in bytes)
 #SBATCH --job-name STAR_ALIGN      # you can give your job a name for easier identification (same as -J)
 #SBATCH --output=slurm-%x.%j.out
+#SBATCH -A data-machine
+
 ########## Command Lines to Run ##########
 
 root="$(git rev-parse --show-toplevel)"
 source $root/"pkings_gwas.env"
 
-
+zcat ${root}/output_data/03_QC/${snps_only_vcf} > $TMPDIR/tmp_wasp_vars.snps.vcf
 singularity exec ${rnaseq_tools_image} STAR \
---runThreadN 16 \
---runMode alignReads \
---genomeDir ${root}/output_data/09_RNASeq/star_index_genome/ \
---readFilesIn ${READ1} ${READ2} \
---outFileNamePrefix ${OUTDIR}/${SAMPLE} \
---readFilesCommand gunzip -c \
---outSAMunmapped Within \
---outSAMattributes NH HI AS NM MD XS --twopassMode Basic \
---alignSJDBoverhangMin 1 --alignSJoverhangMin 8 --alignEndsType EndToEnd \
---outSAMtype BAM SortedByCoordinate \
---outSAMstrandField intronMotif
+  --runThreadN 16 \
+  --runMode alignReads \
+  --genomeDir ${root}/output_data/09_RNASeq/star_index_genome/ \
+  --readFilesIn ${READ1} ${READ2} \
+  --readFilesCommand gunzip -c \
+  --outFileNamePrefix ${OUTDIR}/${SAMPLE} \
+  --outSAMtype BAM SortedByCoordinate \
+  --outSAMunmapped Within \
+  --outSAMattributes NH HI AS NM MD XS \
+  --twopassMode Basic \
+  --waspOutputMode SAMtag \
+  --varVCFfile $TMPDIR/tmp_wasp_vars.snps.vcf
