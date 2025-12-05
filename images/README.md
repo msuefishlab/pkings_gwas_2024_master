@@ -70,3 +70,12 @@
 
     cd images
     singularity build dadi_tools.sif docker://jasongallant/dadi_tools:latest
+
+## SweepFinder2
+
+    docker build --platform linux/amd64 -f Dockerfile.sweepfinder2 -t sweepfinder2 .
+    docker tag sweepfinder2 jasongallant/sweepfinder2
+    docker push jasongallant/sweepfinder2
+
+    cd images
+    singularity build sweepfinder2.sif docker://jasongallant/sweepfinder2:latest

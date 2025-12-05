@@ -121,7 +121,17 @@ In addition to the peak-specific EHH analysis above, this module includes a **Sw
 
 ```bash
 # 0. Build SweepFinder2 container (one-time setup)
-singularity build images/sweepfinder2.sif images/sweepfinder2.def
+# See images/README.md for full instructions
+#
+# On local Mac:
+cd images/
+docker build --platform linux/amd64 -f Dockerfile.sweepfinder2 -t sweepfinder2 .
+docker tag sweepfinder2 jasongallant/sweepfinder2  # Replace with your Docker Hub username
+docker push jasongallant/sweepfinder2
+#
+# On HPCC:
+cd images/
+singularity build sweepfinder2.sif docker://jasongallant/sweepfinder2:latest
 
 # 1. Convert polarized VCFs to SweepFinder2 format
 bash code/12_Sweep_Detection/01_convert_vcf_to_sf2.sh
