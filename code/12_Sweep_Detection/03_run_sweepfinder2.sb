@@ -14,7 +14,7 @@
 ##   CHR: chromosome (e.g., chr6, chr8)
 ##
 ## SweepFinder2 parameters:
-##   -lg 10000: grid spacing of 10kb for CLR calculation
+##   -lg 1000: grid spacing of 1kb for CLR calculation
 ##
 ## Author: Jason Gallant Lab
 ## Date: 2024
@@ -83,14 +83,14 @@ echo "Output CLR file: ${output_file}"
 echo ""
 
 # Run SweepFinder2
-# -lg 10000: grid spacing of 10kb (adjust as needed)
+# -lg 1000: grid spacing of 1kb (finer resolution for GWAS peak analysis)
 # Input format: SweepFinder2 [options] input_file spectrum_file output_file grid_spacing
 echo "Running SweepFinder2..."
-echo "Command: SweepFinder2 -lg 10000 <input> <spectrum> <output>"
+echo "Command: SweepFinder2 -lg 1000 <input> <spectrum> <output>"
 echo ""
 
 singularity exec --bind ${root}:/project_root ${sweepfinder2_image} \
-  SweepFinder2 -lg 10000 \
+  SweepFinder2 -lg 1000 \
     "/project_root/output_data/12_Sweep_Detection/sweepfinder2/sfs_input/${POP}.${CHR}.sf2.txt" \
     "/project_root/output_data/12_Sweep_Detection/sweepfinder2/background/${POP}.spectrum" \
     "/project_root/output_data/12_Sweep_Detection/sweepfinder2/clr_results/${POP}.${CHR}.clr.txt"
