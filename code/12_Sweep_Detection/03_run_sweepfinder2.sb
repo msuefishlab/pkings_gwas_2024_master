@@ -1,0 +1,126 @@
+#!/bin/bash --login
+#SBATCH --time=04:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=8GB
+#SBATCH --job-name=sweepfinder2_scan
+
+## 03_run_sweepfinder2.sb
+## SLURM batch script to run SweepFinder2 CLR scan for one population, one chromosome
+##
+## This script is called by 03_submit_sweepfinder2.sh with environment variables:
+##   POP: population name (e.g., BP1, TP1)
+##   CHR: chromosome (e.g., chr6, chr8)
+##
+## SweepFinder2 parameters:
+##   -lg 10000: grid spacing of 10kb for CLR calculation
+##
+## Author: Jason Gallant Lab
+## Date: 2024
+
+# Get root directory and source environment
+root="$(git rev-parse --show-toplevel)"
+source "${root}/pkings_gwas.env"
+
+# Check required environment variables
+if [[ -z "${POP:-}" ]] || [[ -z "${CHR:-}" ]]; then
+  echo "ERROR: Required environment variables not set"
+  echo "  POP: ${POP:-NOT SET}"
+  echo "  CHR: ${CHR:-NOT SET}"
+  exit 1
+fi
+
+# Define input/output paths
+indir="${root}/output_data/12_Sweep_Detection/sweepfinder2/sfs_input"
+specdir="${root}/output_data/12_Sweep_Detection/sweepfinder2/background"
+outdir="${root}/output_data/12_Sweep_Detection/sweepfinder2/clr_results"
+mkdir -p "${outdir}"
+
+input_file="${indir}/${POP}.${CHR}.sf2.txt"
+spectrum_file="${specdir}/${POP}.spectrum"
+output_file="${outdir}/${POP}.${CHR}.clr.txt"
+
+# Log job information
+echo "=========================================="
+echo "SweepFinder2 CLR Scan"
+echo "=========================================="
+echo "Job ID: ${SLURM_JOB_ID}"
+echo "Node: ${SLURMD_NODENAME}"
+echo "Population: ${POP}"
+echo "Chromosome: ${CHR}"
+echo "Started: $(date)"
+echo "=========================================="
+echo ""
+
+# Check input files exist
+if [[ ! -f "${input_file}" ]]; then
+  echo "ERROR: Input file not found: ${input_file}"
+  exit 1
+fi
+
+if [[ ! -f "${spectrum_file}" ]]; then
+  echo "ERROR: Spectrum file not found: ${spectrum_file}"
+  exit 1
+fi
+
+# Check container exists
+if [[ ! -f "${sweepfinder2_image}" ]]; then
+  echo "ERROR: SweepFinder2 container not found: ${sweepfinder2_image}"
+  exit 1
+fi
+
+# Print file information
+echo "Input SFS file: ${input_file}"
+echo "  Size: $(du -h ${input_file} | cut -f1)"
+echo "  Lines: $(wc -l < ${input_file})"
+echo ""
+echo "Background spectrum: ${spectrum_file}"
+echo "  Size: $(du -h ${spectrum_file} | cut -f1)"
+echo "  Lines: $(wc -l < ${spectrum_file})"
+echo ""
+echo "Output CLR file: ${output_file}"
+echo ""
+
+# Run SweepFinder2
+# -lg 10000: grid spacing of 10kb (adjust as needed)
+# Input format: SweepFinder2 [options] input_file spectrum_file output_file grid_spacing
+echo "Running SweepFinder2..."
+echo "Command: SweepFinder2 -lg 10000 <input> <spectrum> <output>"
+echo ""
+
+singularity exec --bind ${root}:/project_root ${sweepfinder2_image} \
+  SweepFinder2 -lg 10000 \
+    "/project_root/output_data/12_Sweep_Detection/sweepfinder2/sfs_input/${POP}.${CHR}.sf2.txt" \
+    "/project_root/output_data/12_Sweep_Detection/sweepfinder2/background/${POP}.spectrum" \
+    "/project_root/output_data/12_Sweep_Detection/sweepfinder2/clr_results/${POP}.${CHR}.clr.txt"
+
+exit_code=$?
+
+echo ""
+echo "=========================================="
+if [[ ${exit_code} -eq 0 ]]; then
+  echo "SweepFinder2 completed successfully"
+else
+  echo "SweepFinder2 failed with exit code: ${exit_code}"
+fi
+echo "=========================================="
+echo ""
+
+# Check output file
+if [[ -f "${output_file}" ]]; then
+  echo "Output file created: ${output_file}"
+  echo "  Size: $(du -h ${output_file} | cut -f1)"
+  echo "  Lines: $(wc -l < ${output_file})"
+  echo ""
+  echo "First 10 lines of output:"
+  head -n 10 "${output_file}"
+else
+  echo "ERROR: Output file not created!"
+  exit 1
+fi
+
+echo ""
+echo "Finished: $(date)"
+
+exit ${exit_code}

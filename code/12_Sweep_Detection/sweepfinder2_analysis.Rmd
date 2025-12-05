@@ -1,0 +1,482 @@
+---
+title: "SweepFinder2 Genome-Wide Sweep Analysis"
+author: "Jason Gallant Lab"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    code_folding: hide
+    theme: flatly
+    fig_width: 12
+    fig_height: 8
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE,
+                      fig.width = 12, fig.height = 8)
+library(tidyverse)
+library(patchwork)
+library(scales)
+library(knitr)
+
+root <- rprojroot::find_root(".git/index")
+knitr::opts_knit$set(root.dir = root)
+
+# ggplot2 theme
+theme_set(theme_bw(base_size = 12))
+```
+
+# Overview
+
+This notebook analyzes genome-wide selective sweep patterns using **SweepFinder2** Composite Likelihood Ratio (CLR) statistics. We compare CLR values in GWAS peaks versus genome-wide background to determine how "sweepy" our GWAS loci are relative to the rest of the genome.
+
+**Populations analyzed:**
+
+- **BP1**: Bambomo BP phenotypes
+- **TP1**: Ipassa/Bengue TP phenotypes
+- **BP2**: Bikagala/Bavavela BP phenotypes
+- **TP2**: Douvalou/Douengi TP phenotypes
+- **BP3**: Biroundou BP phenotypes
+
+**GWAS Peaks:** 6 major peaks on chr6, chr8, chr13, chr16, chr17, chr24
+
+---
+
+# 1. Load Data
+
+## 1.1 Genome-Wide CLR Distributions
+
+```{r load_genome_wide}
+cat("Loading genome-wide CLR distributions...\n")
+
+pops <- c("BP1", "TP1", "BP2", "TP2", "BP3")
+clr_data_list <- list()
+
+for (pop in pops) {
+  file <- file.path(root, "output_data/12_Sweep_Detection/sweepfinder2/merged",
+                    paste0(pop, ".genome_wide_clr.txt"))
+
+  if (file.exists(file)) {
+    cat("  Loading:", pop, "\n")
+    clr_data_list[[pop]] <- read_tsv(file, show_col_types = FALSE) %>%
+      mutate(population = pop)
+  } else {
+    warning("File not found: ", file)
+  }
+}
+
+# Combine all populations
+clr_data <- bind_rows(clr_data_list)
+
+cat("\nGenome-wide CLR data:\n")
+cat("  Total positions:", nrow(clr_data), "\n")
+cat("  Populations:", paste(unique(clr_data$population), collapse = ", "), "\n")
+cat("  Chromosomes:", length(unique(clr_data$chromosome)), "\n")
+```
+
+## 1.2 Peak-Specific CLR Values
+
+```{r load_peaks}
+cat("\nLoading peak-specific CLR values...\n")
+
+peak_clr <- read_tsv(
+  file.path(root, "output_data/12_Sweep_Detection/sweepfinder2/peak_clr_values.txt"),
+  show_col_types = FALSE
+)
+
+cat("  Peak CLR positions:", nrow(peak_clr), "\n")
+cat("  Peaks:", paste(unique(peak_clr$peak), collapse = ", "), "\n")
+
+# Load peak summary
+peak_summary <- read_tsv(
+  file.path(root, "output_data/12_Sweep_Detection/sweepfinder2/peak_clr_summary.txt"),
+  show_col_types = FALSE
+)
+```
+
+## 1.3 GWAS Peak Definitions
+
+```{r load_peak_defs}
+peaks_bed <- read.table(
+  file.path(root, "output_data/06_Association/PKINGS_ALL_WOB_EXCLUDED/PKINGS_ALL_WOB_EXCLUDED_PEAKS.bed"),
+  col.names = c("chromosome", "start", "end", "peak", "max_log_p", "idx_bp")
+)
+
+# Add chr prefix if needed
+if (!grepl("^chr", peaks_bed$chromosome[1])) {
+  peaks_bed$chromosome <- paste0("chr", peaks_bed$chromosome)
+}
+
+kable(peaks_bed, caption = "GWAS Peak Definitions")
+```
+
+---
+
+# 2. Genome-Wide CLR Distributions
+
+## 2.1 Calculate Percentiles
+
+```{r genome_percentiles}
+genome_wide_percentiles <- clr_data %>%
+  group_by(population) %>%
+  summarize(
+    n_positions = n(),
+    mean = mean(CLR, na.rm = TRUE),
+    median = median(CLR, na.rm = TRUE),
+    sd = sd(CLR, na.rm = TRUE),
+    p50 = quantile(CLR, 0.50, na.rm = TRUE),
+    p90 = quantile(CLR, 0.90, na.rm = TRUE),
+    p95 = quantile(CLR, 0.95, na.rm = TRUE),
+    p99 = quantile(CLR, 0.99, na.rm = TRUE),
+    p99.9 = quantile(CLR, 0.999, na.rm = TRUE),
+    max_CLR = max(CLR, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+kable(genome_wide_percentiles, digits = 3,
+      caption = "Genome-wide CLR Percentiles by Population")
+```
+
+## 2.2 CLR Distribution Histograms
+
+```{r clr_histograms, fig.height=10}
+ggplot(clr_data %>% filter(CLR < 50), aes(x = CLR, fill = population)) +
+  geom_histogram(bins = 100, alpha = 0.7) +
+  geom_vline(data = genome_wide_percentiles,
+             aes(xintercept = p95, color = population),
+             linetype = "dashed", size = 1) +
+  facet_wrap(~population, scales = "free_y", ncol = 2) +
+  scale_fill_brewer(palette = "Set2") +
+  scale_color_brewer(palette = "Set2") +
+  labs(title = "Genome-wide CLR Distributions",
+       subtitle = "Dashed line: 95th percentile",
+       x = "Composite Likelihood Ratio (CLR)",
+       y = "Count") +
+  theme(legend.position = "none")
+```
+
+---
+
+# 3. Peak vs Background Comparison
+
+## 3.1 Classify SNPs by Region
+
+```{r classify_regions}
+# Classify SNPs as peak or background
+clr_classified <- clr_data %>%
+  left_join(
+    peak_clr %>% distinct(chromosome, position, peak, population),
+    by = c("chromosome", "position", "population")
+  ) %>%
+  mutate(region_type = if_else(is.na(peak), "Background", "GWAS Peak"))
+
+# Summary
+region_summary <- clr_classified %>%
+  group_by(population, region_type) %>%
+  summarize(
+    n = n(),
+    mean_CLR = mean(CLR, na.rm = TRUE),
+    median_CLR = median(CLR, na.rm = TRUE),
+    max_CLR = max(CLR, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+kable(region_summary, digits = 3,
+      caption = "CLR Summary: Peaks vs Background")
+```
+
+## 3.2 Density Comparison
+
+```{r density_comparison, fig.height=10}
+ggplot(clr_classified %>% filter(CLR < 50),
+       aes(x = CLR, fill = region_type)) +
+  geom_density(alpha = 0.5) +
+  facet_wrap(~population, ncol = 2, scales = "free_y") +
+  scale_fill_manual(values = c("Background" = "grey60", "GWAS Peak" = "red")) +
+  labs(title = "CLR Distribution: GWAS Peaks vs Genome-wide Background",
+       x = "Composite Likelihood Ratio (CLR)",
+       y = "Density",
+       fill = "Region Type") +
+  theme(legend.position = "bottom")
+```
+
+## 3.3 Statistical Tests
+
+```{r stats_tests}
+cat("Wilcoxon Rank-Sum Tests (Peaks vs Background):\n\n")
+
+stat_tests <- clr_classified %>%
+  group_by(population) %>%
+  summarize(
+    n_peak = sum(region_type == "GWAS Peak"),
+    n_background = sum(region_type == "Background"),
+    mean_peak = mean(CLR[region_type == "GWAS Peak"], na.rm = TRUE),
+    mean_background = mean(CLR[region_type == "Background"], na.rm = TRUE),
+    median_peak = median(CLR[region_type == "GWAS Peak"], na.rm = TRUE),
+    median_background = median(CLR[region_type == "Background"], na.rm = TRUE),
+    wilcox_p = wilcox.test(
+      CLR[region_type == "GWAS Peak"],
+      CLR[region_type == "Background"],
+      alternative = "greater"
+    )$p.value,
+    fold_enrichment = mean_peak / mean_background,
+    .groups = "drop"
+  )
+
+kable(stat_tests, digits = 4,
+      caption = "Peak vs Background Statistical Comparison (Wilcoxon Test)")
+```
+
+---
+
+# 4. Peak-Specific Analysis
+
+## 4.1 Peak Summary Statistics
+
+```{r peak_stats}
+kable(peak_summary %>% arrange(desc(max_CLR)) %>% head(20),
+      digits = 3,
+      caption = "Top 20 Peak-Population Combinations by Max CLR")
+```
+
+## 4.2 Per-Peak CLR Plots
+
+```{r peak_plots, fig.height=24}
+peak_plots <- lapply(1:6, function(peak_num) {
+
+  data <- peak_clr %>% filter(peak == peak_num)
+
+  if (nrow(data) == 0) return(NULL)
+
+  chr <- unique(data$chromosome)[1]
+
+  # Get peak boundaries
+  peak_bounds <- peaks_bed %>% filter(peak == peak_num)
+
+  ggplot(data, aes(x = position / 1e6, y = CLR, color = population)) +
+    geom_line(alpha = 0.8, size = 0.8) +
+    geom_vline(xintercept = peak_bounds$idx_bp / 1e6,
+               linetype = "dashed", color = "black") +
+    facet_wrap(~population, ncol = 1) +
+    scale_color_brewer(palette = "Set2") +
+    labs(title = paste0("Peak ", peak_num, " (", chr, ")"),
+         subtitle = paste0("GWAS index SNP: ",
+                          chr, ":", format(peak_bounds$idx_bp, big.mark = ",")),
+         x = "Position (Mb)",
+         y = "CLR") +
+    theme(legend.position = "none")
+})
+
+# Remove NULL plots
+peak_plots <- peak_plots[!sapply(peak_plots, is.null)]
+
+# Arrange plots
+wrap_plots(peak_plots, ncol = 2)
+```
+
+---
+
+# 5. Population-Specific Patterns
+
+## 5.1 BP vs TP Comparison
+
+```{r bp_vs_tp, fig.height=8}
+# Assign phenotype categories
+comparison_data <- peak_clr %>%
+  mutate(phenotype = case_when(
+    population %in% c("BP1", "BP2", "BP3") ~ "BP",
+    population %in% c("TP1", "TP2") ~ "TP",
+    TRUE ~ "Other"
+  )) %>%
+  filter(phenotype != "Other")
+
+ggplot(comparison_data, aes(x = phenotype, y = CLR, fill = phenotype)) +
+  geom_boxplot(outlier.alpha = 0.3) +
+  facet_wrap(~peak, scales = "free_y", ncol = 3) +
+  scale_fill_manual(values = c("BP" = "#1ea8e0", "TP" = "#ed2224")) +
+  labs(title = "CLR at GWAS Peaks: BP vs TP Populations",
+       subtitle = "Comparing biphasic (BP) and triphasic (TP) populations",
+       x = "Phenotype",
+       y = "Composite Likelihood Ratio (CLR)",
+       fill = "Phenotype") +
+  theme(legend.position = "bottom")
+```
+
+## 5.2 Heatmap of Mean CLR by Peak and Population
+
+```{r heatmap}
+peak_heatmap_data <- peak_summary %>%
+  select(population, peak, mean_CLR) %>%
+  pivot_wider(names_from = population, values_from = mean_CLR)
+
+kable(peak_heatmap_data, digits = 2,
+      caption = "Mean CLR by Peak and Population")
+
+# Heatmap plot
+peak_summary %>%
+  ggplot(aes(x = population, y = factor(peak), fill = mean_CLR)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = round(mean_CLR, 1)), color = "white", size = 4) +
+  scale_fill_viridis_c(option = "plasma") +
+  labs(title = "Mean CLR Heatmap: Peaks × Populations",
+       x = "Population",
+       y = "GWAS Peak",
+       fill = "Mean CLR") +
+  theme_minimal()
+```
+
+---
+
+# 6. Genome-Wide Manhattan Plots
+
+## 6.1 CLR Manhattan by Population
+
+```{r manhattan, fig.height=12}
+# Subset data for plotting (to avoid overplotting)
+clr_plot_data <- clr_data %>%
+  group_by(population, chromosome) %>%
+  slice_sample(prop = 0.1) %>%  # Sample 10% for speed
+  ungroup()
+
+# Add chromosome numeric for x-axis
+chr_order <- paste0("chr", c(1:25))
+clr_plot_data <- clr_plot_data %>%
+  mutate(chr_num = match(chromosome, chr_order))
+
+# Create Manhattan plot function
+plot_manhattan <- function(pop_name) {
+  data <- clr_plot_data %>% filter(population == pop_name)
+
+  # Highlight GWAS peaks
+  peak_regions <- peaks_bed %>%
+    mutate(chr_num = match(chromosome, chr_order))
+
+  ggplot(data, aes(x = chr_num, y = CLR)) +
+    geom_point(alpha = 0.3, size = 0.5, color = "grey40") +
+    geom_rect(data = peak_regions,
+              aes(xmin = chr_num - 0.4, xmax = chr_num + 0.4,
+                  ymin = 0, ymax = Inf),
+              fill = "gold", alpha = 0.2, inherit.aes = FALSE) +
+    geom_hline(yintercept = genome_wide_percentiles %>%
+                 filter(population == pop_name) %>% pull(p95),
+               linetype = "dashed", color = "red") +
+    geom_hline(yintercept = genome_wide_percentiles %>%
+                 filter(population == pop_name) %>% pull(p99),
+               linetype = "dashed", color = "darkred") +
+    scale_x_continuous(breaks = 1:25, labels = chr_order) +
+    labs(title = paste("CLR Manhattan Plot:", pop_name),
+         subtitle = "Gold = GWAS peaks | Red dashed = 95th percentile | Dark red = 99th",
+         x = "Chromosome",
+         y = "CLR") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+}
+
+# Create plots for each population
+manhattan_plots <- lapply(pops, plot_manhattan)
+wrap_plots(manhattan_plots, ncol = 1)
+```
+
+---
+
+# 7. Percentile Rankings
+
+## 7.1 Calculate Peak Percentiles
+
+```{r percentiles}
+# For each peak, calculate what percentile its max CLR falls in genome-wide
+peak_percentiles <- peak_summary %>%
+  left_join(clr_data, by = "population") %>%
+  group_by(population, peak) %>%
+  summarize(
+    peak_max_CLR = first(max_CLR),
+    genome_percentile = sum(CLR < peak_max_CLR, na.rm = TRUE) / n() * 100,
+    .groups = "drop"
+  ) %>%
+  arrange(desc(genome_percentile))
+
+kable(peak_percentiles, digits = 2,
+      caption = "GWAS Peak Max CLR Genome-Wide Percentile Rankings")
+```
+
+## 7.2 Percentile Visualization
+
+```{r percentile_viz}
+peak_percentiles %>%
+  mutate(peak_pop = paste0("Peak ", peak, " (", population, ")")) %>%
+  ggplot(aes(x = reorder(peak_pop, genome_percentile),
+             y = genome_percentile,
+             fill = population)) +
+  geom_col() +
+  geom_hline(yintercept = 95, linetype = "dashed", color = "red") +
+  geom_hline(yintercept = 99, linetype = "dashed", color = "darkred") +
+  coord_flip() +
+  scale_fill_brewer(palette = "Set2") +
+  labs(title = "Genome-Wide Percentile Ranking of Peak Max CLR",
+       subtitle = "Higher = more extreme sweep signal relative to genome",
+       x = "Peak × Population",
+       y = "Genome-Wide Percentile (%)",
+       fill = "Population") +
+  theme(legend.position = "bottom")
+```
+
+---
+
+# 8. Summary and Conclusions
+
+## 8.1 Key Findings
+
+```{r summary}
+cat("SUMMARY STATISTICS\n")
+cat("==================\n\n")
+
+cat("Genome-wide CLR ranges:\n")
+for (pop in pops) {
+  pop_data <- genome_wide_percentiles %>% filter(population == pop)
+  cat(sprintf("  %s: mean=%.2f, 95th=%.2f, 99th=%.2f, max=%.2f\n",
+              pop, pop_data$mean, pop_data$p95, pop_data$p99, pop_data$max_CLR))
+}
+
+cat("\nPeak vs Background enrichment:\n")
+for (pop in pops) {
+  test_data <- stat_tests %>% filter(population == pop)
+  cat(sprintf("  %s: %.2f-fold, p=%.2e\n",
+              pop, test_data$fold_enrichment, test_data$wilcox_p))
+}
+
+cat("\nTop 3 peaks by max CLR:\n")
+top_peaks <- peak_summary %>%
+  arrange(desc(max_CLR)) %>%
+  head(3)
+for (i in 1:nrow(top_peaks)) {
+  cat(sprintf("  %d. Peak %d (%s, %s): CLR=%.2f at %s\n",
+              i, top_peaks$peak[i], top_peaks$population[i],
+              top_peaks$chromosome[i], top_peaks$max_CLR[i],
+              format(top_peaks$position_max[i], big.mark = ",")))
+}
+
+cat("\nPeaks above 99th genome-wide percentile:\n")
+high_percentile_peaks <- peak_percentiles %>% filter(genome_percentile > 99)
+cat(sprintf("  %d peak-population combinations (out of %d total)\n",
+            nrow(high_percentile_peaks), nrow(peak_percentiles)))
+```
+
+## 8.2 Interpretation
+
+**High CLR percentile (>95%)** indicates the peak shows stronger sweep signal than 95% of the genome.
+
+**Population-specific CLR patterns** can reveal whether BP and TP populations show different selection signatures at shared GWAS peaks.
+
+**Peaks NOT showing extreme CLR** may indicate:
+- Polygenic selection (many small-effect variants)
+- Selection on standing variation (softer sweeps)
+- GWAS signal driven by linkage disequilibrium or population structure
+
+---
+
+# Session Info
+
+```{r session_info}
+sessionInfo()
+```
