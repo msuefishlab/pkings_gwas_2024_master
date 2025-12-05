@@ -61,7 +61,7 @@ for pop in "${POPS[@]}"; do
     echo "[$current/$total_files] Converting ${pop} ${chr}..." | tee -a "${log_file}"
 
     # Input VCF path (per-chromosome subset)
-    vcf_by_chr="${root}/output_data/12_Sweep_Detection/by_chrom/${pop}.polarized.${chr}.vcf.gz"
+    vcf_by_chr="${root}/output_data/12_Sweep_Detection/vcfs/by_chrom/${pop}.polarized.${chr}.vcf.gz"
 
     # If per-chromosome VCF doesn't exist, try to create it from full VCF
     if [[ ! -f "${vcf_by_chr}" ]]; then
