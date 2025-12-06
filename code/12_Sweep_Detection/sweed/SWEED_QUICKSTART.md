@@ -311,6 +311,25 @@ bcftools view -h output_data/12_Sweep_Detection/vcfs/BP1.polarized.vcf.gz | grep
 
 ---
 
+**Problem:** SweeD fails with gzipped VCF error
+
+**Explanation:** SweeD does not support gzipped (.vcf.gz) VCF files directly
+
+**Solution:** The workflow scripts automatically decompress VCFs to temporary uncompressed files before running SweeD, then clean up afterward. No user action needed!
+
+**Manual workaround (if needed):**
+```bash
+# Decompress VCF manually
+gunzip -c input.vcf.gz > input.vcf
+
+# Run SweeD on uncompressed VCF
+singularity exec sweed.sif SweeD -input input.vcf -name test
+```
+
+**Note:** Decompression adds ~1-2 minutes per VCF but is handled transparently by the workflow.
+
+---
+
 ### Job Failures
 
 **Problem:** SweeD jobs failing

@@ -74,22 +74,37 @@ for pop in "${POPS[@]}"; do
   echo "  Started: $(date)" | tee -a "${log_file}"
   echo "" | tee -a "${log_file}"
 
-  # Run SweeD with -osfs flag to output empirical SFS
-  # We run on the full genome to get comprehensive background spectrum
-  # -osfs: output site frequency spectrum
-  # -name: run name (for output file naming)
+  # SweeD does not support gzipped VCF files directly
+  # Decompress to temporary uncompressed VCF
+  temp_vcf="${temp_dir}/${pop}.polarized.vcf"
 
-  cd "${temp_dir}"
+  echo "  Decompressing VCF (SweeD requires uncompressed VCF)..." | tee -a "${log_file}"
+  gunzip -c "${vcf}" > "${temp_vcf}"
 
-  singularity exec --bind ${root}:/project_root ${sweed_image} \
-    SweeD -input "/project_root/output_data/12_Sweep_Detection/vcfs/by_group/${pop}.polarized.vcf.gz" \
-          -name "${pop}_genome_sfs" \
-          -osfs "/project_root/output_data/12_Sweep_Detection/sweed/background/${pop}.genome_sfs.txt" \
-          2>&1 | tee -a "${log_file}"
+  if [[ ! -f "${temp_vcf}" ]]; then
+    echo "  ERROR: Failed to decompress VCF" | tee -a "${log_file}"
+    exit_code=1
+  else
+    echo "  Decompressed VCF size: $(du -h ${temp_vcf} | cut -f1)" | tee -a "${log_file}"
+    echo "" | tee -a "${log_file}"
 
-  exit_code=$?
+    # Run SweeD with -osfs flag to output empirical SFS
+    # We run on the full genome to get comprehensive background spectrum
+    # -osfs: output site frequency spectrum
+    # -name: run name (for output file naming)
 
-  cd "${root}"
+    cd "${temp_dir}"
+
+    singularity exec --bind ${temp_dir}:/temp,${sfs_dir}:/output ${sweed_image} \
+      SweeD -input "/temp/${pop}.polarized.vcf" \
+            -name "${pop}_genome_sfs" \
+            -osfs "/output/${pop}.genome_sfs.txt" \
+            2>&1 | tee -a "${log_file}"
+
+    exit_code=$?
+
+    cd "${root}"
+  fi
 
   if [[ ${exit_code} -eq 0 ]] && [[ -f "${sfs_file}" ]]; then
     echo "" | tee -a "${log_file}"

@@ -101,41 +101,57 @@ echo ""
 # Change to temp directory (SweeD writes output files to current directory)
 cd "${temp_dir}"
 
+# SweeD does not support gzipped VCF files directly
+# Decompress to temporary uncompressed VCF
+temp_vcf="${temp_dir}/$(basename ${VCF} .gz)"
+
+echo "Decompressing VCF (SweeD requires uncompressed VCF)..."
+gunzip -c "${VCF}" > "${temp_vcf}"
+
+if [[ ! -f "${temp_vcf}" ]]; then
+  echo "ERROR: Failed to decompress VCF"
+  exit 1
+fi
+
+echo "Decompressed VCF size: $(du -h ${temp_vcf} | cut -f1)"
+echo ""
+
 # Determine if we need to filter VCF to specific chromosome
 vcf_basename=$(basename "${VCF}")
 if [[ "${vcf_basename}" == *"${CHR}"* ]]; then
   # VCF is already chromosome-specific
   echo "Using chromosome-specific VCF"
-  vcf_region=""
 else
-  # VCF is full genome, need to filter to chromosome
-  echo "VCF is full genome, will process ${CHR} only"
-  vcf_region="-r ${CHR}"
+  # VCF is full genome, will process entire file (chromosome filtering handled upstream)
+  echo "Processing VCF (assumed to be ${CHR} or will process all chromosomes)"
 fi
 
 # Run SweeD
 echo "Running SweeD..."
-echo "Command: SweeD -input <vcf> -name ${POP}.${CHR} -isfs <sfs> -t 8 -checkpoint 3600"
+echo "Command: SweeD -input ${temp_vcf} -name ${POP}.${CHR} -isfs <sfs> -t 8 -checkpoint 3600"
 echo ""
 
 if [[ "${use_sfs}" == "true" ]]; then
   # Use empirical background SFS
-  singularity exec --bind ${root}:/project_root ${sweed_image} \
-    SweeD -input "/project_root/${VCF#${root}/}" \
+  singularity exec --bind ${temp_dir}:/data,${root}/output_data/12_Sweep_Detection/sweed:/sweed ${sweed_image} \
+    SweeD -input "/data/$(basename ${temp_vcf})" \
           -name "${POP}.${CHR}" \
-          -isfs "/project_root/output_data/12_Sweep_Detection/sweed/background/${POP}.genome_sfs.txt" \
+          -isfs "/sweed/background/${POP}.genome_sfs.txt" \
           -t 8 \
           -checkpoint 3600
 else
   # No background SFS - SweeD will calculate on-the-fly
-  singularity exec --bind ${root}:/project_root ${sweed_image} \
-    SweeD -input "/project_root/${VCF#${root}/}" \
+  singularity exec --bind ${temp_dir}:/data ${sweed_image} \
+    SweeD -input "/data/$(basename ${temp_vcf})" \
           -name "${POP}.${CHR}" \
           -t 8 \
           -checkpoint 3600
 fi
 
 exit_code=$?
+
+# Clean up temporary decompressed VCF
+rm -f "${temp_vcf}"
 
 echo ""
 echo "=========================================="
