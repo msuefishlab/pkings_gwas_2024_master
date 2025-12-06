@@ -53,7 +53,7 @@ for pop in "${POPS[@]}"; do
   echo "========================================" | tee -a "${log_file}"
 
   # Input VCF (full genome, polarized)
-  vcf="${root}/output_data/12_Sweep_Detection/vcfs/${pop}.polarized.vcf.gz"
+  vcf="${root}/output_data/12_Sweep_Detection/${pop}.polarized.vcf.gz"
 
   # Check if VCF exists
   if [[ ! -f "${vcf}" ]]; then
