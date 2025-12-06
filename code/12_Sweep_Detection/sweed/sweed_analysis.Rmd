@@ -1,5 +1,5 @@
 ---
-title: "SweepFinder2 Genome-Wide Sweep Analysis"
+title: "SweeD Genome-Wide Sweep Analysis"
 author: "Jason Gallant Lab"
 date: "`r Sys.Date()`"
 output:
@@ -29,7 +29,14 @@ theme_set(theme_bw(base_size = 10))
 
 # Overview
 
-This notebook analyzes genome-wide selective sweep patterns using **SweepFinder2** Composite Likelihood Ratio (CLR) statistics. We compare CLR values in GWAS peaks versus genome-wide background to determine how "sweepy" our GWAS loci are relative to the rest of the genome.
+This notebook analyzes genome-wide selective sweep patterns using **SweeD** Composite Likelihood Ratio (CLR) statistics. We compare CLR values in GWAS peaks versus genome-wide background to determine how "sweepy" our GWAS loci are relative to the rest of the genome.
+
+**SweeD advantages over SweepFinder2:**
+
+- 21x faster sequential execution
+- Multi-threaded parallel computation
+- Native VCF support (no conversion step)
+- Improved numerical stability
 
 **Populations analyzed:**
 
@@ -54,7 +61,7 @@ pops <- c("BP1", "TP1", "BP2", "TP2", "BP3")
 clr_data_list <- list()
 
 for (pop in pops) {
-  file <- file.path(root, "output_data/12_Sweep_Detection/sweepfinder2/merged",
+  file <- file.path(root, "output_data/12_Sweep_Detection/sweed/merged",
                     paste0(pop, ".genome_wide_clr.txt"))
 
   if (file.exists(file)) {
@@ -81,7 +88,7 @@ cat("  Chromosomes:", length(unique(clr_data$chromosome)), "\n")
 cat("\nLoading peak-specific CLR values...\n")
 
 peak_clr <- read_tsv(
-  file.path(root, "output_data/12_Sweep_Detection/sweepfinder2/peak_clr_values.txt"),
+  file.path(root, "output_data/12_Sweep_Detection/sweed/peak_clr_values.txt"),
   show_col_types = FALSE
 )
 
@@ -90,7 +97,7 @@ cat("  Peaks:", paste(unique(peak_clr$peak), collapse = ", "), "\n")
 
 # Load peak summary
 peak_summary <- read_tsv(
-  file.path(root, "output_data/12_Sweep_Detection/sweepfinder2/peak_clr_summary.txt"),
+  file.path(root, "output_data/12_Sweep_Detection/sweed/peak_clr_summary.txt"),
   show_col_types = FALSE
 )
 ```
@@ -245,19 +252,19 @@ p_manhattan
 
 # Save high-resolution version
 ggsave(
-  file.path(root, "output_data/12_Sweep_Detection/sweepfinder2/clr_manhattan.pdf"),
+  file.path(root, "output_data/12_Sweep_Detection/sweed/clr_manhattan.pdf"),
   p_manhattan,
   width = 14, height = 10, units = "in"
 )
 ggsave(
-  file.path(root, "output_data/12_Sweep_Detection/sweepfinder2/clr_manhattan.png"),
+  file.path(root, "output_data/12_Sweep_Detection/sweed/clr_manhattan.png"),
   p_manhattan,
   width = 14, height = 10, units = "in", dpi = 300
 )
 
 cat("\nFigures saved:\n")
-cat("  PDF: output_data/12_Sweep_Detection/sweepfinder2/clr_manhattan.pdf\n")
-cat("  PNG: output_data/12_Sweep_Detection/sweepfinder2/clr_manhattan.png\n")
+cat("  PDF: output_data/12_Sweep_Detection/sweed/clr_manhattan.pdf\n")
+cat("  PNG: output_data/12_Sweep_Detection/sweed/clr_manhattan.png\n")
 ```
 
 ---
@@ -406,19 +413,19 @@ p_zoomed
 
 # Save high-resolution version
 ggsave(
-  file.path(root, "output_data/12_Sweep_Detection/sweepfinder2/clr_zoomed_peaks.pdf"),
+  file.path(root, "output_data/12_Sweep_Detection/sweed/clr_zoomed_peaks.pdf"),
   p_zoomed,
   width = 14, height = 10, units = "in"
 )
 ggsave(
-  file.path(root, "output_data/12_Sweep_Detection/sweepfinder2/clr_zoomed_peaks.png"),
+  file.path(root, "output_data/12_Sweep_Detection/sweed/clr_zoomed_peaks.png"),
   p_zoomed,
   width = 14, height = 10, units = "in", dpi = 300
 )
 
 cat("\nZoomed peak figures saved:\n")
-cat("  PDF: output_data/12_Sweep_Detection/sweepfinder2/clr_zoomed_peaks.pdf\n")
-cat("  PNG: output_data/12_Sweep_Detection/sweepfinder2/clr_zoomed_peaks.png\n")
+cat("  PDF: output_data/12_Sweep_Detection/sweed/clr_zoomed_peaks.pdf\n")
+cat("  PNG: output_data/12_Sweep_Detection/sweed/clr_zoomed_peaks.png\n")
 ```
 
 ---

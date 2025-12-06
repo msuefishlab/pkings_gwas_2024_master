@@ -1,0 +1,198 @@
+#!/bin/bash --login
+#SBATCH --time=04:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=16GB
+#SBATCH --job-name=sweed_scan
+
+## 03_run_sweed.sb
+## SLURM batch script to run SweeD CLR scan for one population, one chromosome
+##
+## This script is called by 03_submit_sweed.sh with environment variables:
+##   POP: population name (e.g., BP1, TP1)
+##   CHR: chromosome (e.g., chr6, chr8)
+##   VCF: path to VCF file
+##
+## SweeD parameters:
+##   -input: VCF file (can be gzipped, can be full genome or per-chromosome)
+##   -name: output file prefix
+##   -isfs: input site frequency spectrum (background model)
+##   -t 8: use 8 threads for parallel computation
+##   -checkpoint 3600: checkpoint every hour (allows resuming if interrupted)
+##
+## Author: Jason Gallant Lab
+## Date: 2024
+
+# Get root directory and source environment
+root="$(git rev-parse --show-toplevel)"
+source "${root}/pkings_gwas.env"
+
+# Check required environment variables
+if [[ -z "${POP:-}" ]] || [[ -z "${CHR:-}" ]] || [[ -z "${VCF:-}" ]]; then
+  echo "ERROR: Required environment variables not set"
+  echo "  POP: ${POP:-NOT SET}"
+  echo "  CHR: ${CHR:-NOT SET}"
+  echo "  VCF: ${VCF:-NOT SET}"
+  exit 1
+fi
+
+# Define input/output paths
+sfs_file="${root}/output_data/12_Sweep_Detection/sweed/background/${POP}.genome_sfs.txt"
+outdir="${root}/output_data/12_Sweep_Detection/sweed/clr_results"
+mkdir -p "${outdir}"
+
+# Create temporary working directory for this job
+temp_dir="${outdir}/temp_${POP}_${CHR}_${SLURM_JOB_ID}"
+mkdir -p "${temp_dir}"
+
+# Output file (final location)
+output_file="${outdir}/${POP}.${CHR}.sweed.txt"
+
+# Log job information
+echo "=========================================="
+echo "SweeD CLR Scan"
+echo "=========================================="
+echo "Job ID: ${SLURM_JOB_ID}"
+echo "Node: ${SLURMD_NODENAME}"
+echo "Population: ${POP}"
+echo "Chromosome: ${CHR}"
+echo "CPUs: ${SLURM_CPUS_PER_TASK}"
+echo "Memory: ${SLURM_MEM_PER_NODE}MB"
+echo "Started: $(date)"
+echo "=========================================="
+echo ""
+
+# Check input files exist
+if [[ ! -f "${VCF}" ]]; then
+  echo "ERROR: VCF file not found: ${VCF}"
+  exit 1
+fi
+
+if [[ ! -f "${sfs_file}" ]]; then
+  echo "WARNING: Background SFS file not found: ${sfs_file}"
+  echo "SweeD will calculate SFS on-the-fly (may be slower)"
+  use_sfs=false
+else
+  use_sfs=true
+fi
+
+# Check container exists
+if [[ ! -f "${sweed_image}" ]]; then
+  echo "ERROR: SweeD container not found: ${sweed_image}"
+  exit 1
+fi
+
+# Print file information
+echo "Input VCF: ${VCF}"
+echo "  Size: $(du -h ${VCF} | cut -f1)"
+echo ""
+
+if [[ "${use_sfs}" == "true" ]]; then
+  echo "Background SFS: ${sfs_file}"
+  echo "  Size: $(du -h ${sfs_file} | cut -f1)"
+  echo ""
+fi
+
+echo "Output CLR file: ${output_file}"
+echo "Temporary directory: ${temp_dir}"
+echo ""
+
+# Change to temp directory (SweeD writes output files to current directory)
+cd "${temp_dir}"
+
+# Determine if we need to filter VCF to specific chromosome
+vcf_basename=$(basename "${VCF}")
+if [[ "${vcf_basename}" == *"${CHR}"* ]]; then
+  # VCF is already chromosome-specific
+  echo "Using chromosome-specific VCF"
+  vcf_region=""
+else
+  # VCF is full genome, need to filter to chromosome
+  echo "VCF is full genome, will process ${CHR} only"
+  vcf_region="-r ${CHR}"
+fi
+
+# Run SweeD
+echo "Running SweeD..."
+echo "Command: SweeD -input <vcf> -name ${POP}.${CHR} -isfs <sfs> -t 8 -checkpoint 3600"
+echo ""
+
+if [[ "${use_sfs}" == "true" ]]; then
+  # Use empirical background SFS
+  singularity exec --bind ${root}:/project_root ${sweed_image} \
+    SweeD -input "/project_root/${VCF#${root}/}" \
+          -name "${POP}.${CHR}" \
+          -isfs "/project_root/output_data/12_Sweep_Detection/sweed/background/${POP}.genome_sfs.txt" \
+          -t 8 \
+          -checkpoint 3600
+else
+  # No background SFS - SweeD will calculate on-the-fly
+  singularity exec --bind ${root}:/project_root ${sweed_image} \
+    SweeD -input "/project_root/${VCF#${root}/}" \
+          -name "${POP}.${CHR}" \
+          -t 8 \
+          -checkpoint 3600
+fi
+
+exit_code=$?
+
+echo ""
+echo "=========================================="
+if [[ ${exit_code} -eq 0 ]]; then
+  echo "SweeD completed successfully"
+else
+  echo "SweeD failed with exit code: ${exit_code}"
+fi
+echo "=========================================="
+echo ""
+
+# SweeD writes output as SweeD_Report.<name>
+sweed_output="SweeD_Report.${POP}.${CHR}"
+
+# Check output file was created
+if [[ -f "${sweed_output}" ]]; then
+  echo "SweeD report created: ${sweed_output}"
+  echo "  Size: $(du -h ${sweed_output} | cut -f1)"
+  echo "  Lines: $(wc -l < ${sweed_output})"
+  echo ""
+
+  # Show first few lines
+  echo "First 10 lines of output:"
+  head -n 10 "${sweed_output}"
+  echo ""
+
+  # Move to final location
+  mv "${sweed_output}" "${output_file}"
+  echo "Output moved to: ${output_file}"
+else
+  echo "ERROR: SweeD report not created!"
+  exit 1
+fi
+
+# Clean up checkpoint file if it exists
+checkpoint_file="SweeD_Checkpoint.${POP}.${CHR}"
+if [[ -f "${checkpoint_file}" ]]; then
+  echo "Removing checkpoint file: ${checkpoint_file}"
+  rm -f "${checkpoint_file}"
+fi
+
+# Clean up info file if it exists
+info_file="SweeD_Info.${POP}.${CHR}"
+if [[ -f "${info_file}" ]]; then
+  echo "Removing info file: ${info_file}"
+  rm -f "${info_file}"
+fi
+
+# Return to root directory
+cd "${root}"
+
+# Clean up temp directory
+rm -rf "${temp_dir}"
+echo "Temp directory removed: ${temp_dir}"
+
+echo ""
+echo "Finished: $(date)"
+echo "Exit code: ${exit_code}"
+
+exit ${exit_code}

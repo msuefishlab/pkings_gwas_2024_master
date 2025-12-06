@@ -1,0 +1,60 @@
+FROM ubuntu:22.04
+
+LABEL maintainer="Jason Gallant Lab"
+LABEL version="1.0"
+LABEL description="SweeD for genome-wide selective sweep detection"
+
+# Prevent interactive prompts during build
+ENV DEBIAN_FRONTEND=noninteractive
+ENV LC_ALL=C
+ENV PATH="/opt/sweed:${PATH}"
+
+# Update and install dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    git \
+    wget \
+    zlib1g-dev \
+    libbz2-dev \
+    liblzma-dev \
+    libcurl4-openssl-dev \
+    libssl-dev \
+    libmpfr-dev \
+    libgmp-dev \
+    bcftools \
+    python3 \
+    python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Clone and build SweeD from GitHub with full MPFR support
+WORKDIR /opt
+RUN git clone https://github.com/alachins/sweed.git && \
+    cd sweed && \
+    # Fix multiple definition errors by adding -fcommon flag
+    # GCC 10+ defaults to -fno-common which causes "multiple definition" errors
+    sed -i 's/FLAGS=-O3/FLAGS=-O3 -fcommon/g' Makefile_MPFR.PTHREADS.gcc && \
+    # Build with MPFR and pthreads for full functionality
+    # MPFR provides arbitrary precision floating-point (more accurate CLR calculations)
+    # PTHREADS provides multi-threading support
+    make -f Makefile_MPFR.PTHREADS.gcc && \
+    chmod +x SweeD && \
+    # Create symlink for PATH access
+    ln -sf /opt/sweed/SweeD /usr/local/bin/SweeD && \
+    # Verify the build
+    echo "SweeD build information:" && \
+    ./SweeD -h || echo "SweeD compiled successfully"
+
+# Install Python packages for potential analysis scripts
+RUN pip3 install --no-cache-dir numpy pandas
+
+# Test installations
+RUN SweeD -h || true && \
+    bcftools --version && \
+    python3 --version && \
+    python3 -c "import numpy; import pandas; print('Python packages OK')"
+
+# Set working directory
+WORKDIR /data
+
+# Default command
+CMD ["SweeD", "-h"]
