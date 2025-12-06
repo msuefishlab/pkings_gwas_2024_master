@@ -98,6 +98,7 @@ for pop in "${POPS[@]}"; do
     singularity exec --bind ${temp_dir}:/temp,${sfs_dir}:/output ${sweed_image} \
       SweeD -input "/temp/${pop}.polarized.vcf" \
             -name "${pop}_genome_sfs" \
+            -threads 4 \
             -osfs "/output/${pop}.genome_sfs.txt" \
             2>&1 | tee -a "${log_file}"
 
