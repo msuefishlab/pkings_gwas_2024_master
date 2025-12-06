@@ -82,7 +82,7 @@ for pop in "${POPS[@]}"; do
   for chr in "${CHROMOSOMES[@]}"; do
     # Check if VCF exists (per-chromosome or full)
     vcf_by_chr="${root}/output_data/12_Sweep_Detection/vcfs/by_chrom/${pop}.polarized.${chr}.vcf.gz"
-    vcf_full="${root}/output_data/12_Sweep_Detection/vcfs/${pop}.polarized.vcf.gz"
+    vcf_full="${root}/output_data/12_Sweep_Detection/vcfs/by_group/${pop}.polarized.vcf.gz"
 
     if [[ ! -f "${vcf_by_chr}" ]] && [[ ! -f "${vcf_full}" ]]; then
       echo "  [SKIP] ${chr}: No VCF found"

@@ -53,7 +53,7 @@ for pop in "${POPS[@]}"; do
   echo "========================================" | tee -a "${log_file}"
 
   # Input VCF (full genome, polarized)
-  vcf="${root}/output_data/12_Sweep_Detection/vcfs/${pop}.polarized.vcf.gz"
+  vcf="${root}/output_data/12_Sweep_Detection/vcfs/by_group/${pop}.polarized.vcf.gz"
 
   # Check if VCF exists
   if [[ ! -f "${vcf}" ]]; then
@@ -82,7 +82,7 @@ for pop in "${POPS[@]}"; do
   cd "${temp_dir}"
 
   singularity exec --bind ${root}:/project_root ${sweed_image} \
-    SweeD -input "/project_root/output_data/12_Sweep_Detection/vcfs/${pop}.polarized.vcf.gz" \
+    SweeD -input "/project_root/output_data/12_Sweep_Detection/vcfs/by_group/${pop}.polarized.vcf.gz" \
           -name "${pop}_genome_sfs" \
           -osfs "/project_root/output_data/12_Sweep_Detection/sweed/background/${pop}.genome_sfs.txt" \
           2>&1 | tee -a "${log_file}"
