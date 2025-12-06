@@ -30,19 +30,22 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /opt
 RUN git clone https://github.com/alachins/sweed.git && \
     cd sweed && \
-    # Fix multiple definition errors by adding -fcommon flag
+    # Fix multiple definition errors by adding -fcommon to CFLAGS in Makefile
     # GCC 10+ defaults to -fno-common which causes "multiple definition" errors
-    sed -i 's/FLAGS=-O3/FLAGS=-O3 -fcommon/g' Makefile_MPFR.PTHREADS.gcc && \
+    # The CFLAGS line in the Makefile is: CFLAGS =  -O3 -Wall -D_USE_PTHREADS -D_GNU_SOURCE -D_ANALYTICAL_SFS
+    sed -i 's/CFLAGS =  -O3 -Wall/CFLAGS =  -O3 -Wall -fcommon/g' Makefile_MPFR.PTHREADS.gcc && \
+    # Verify the change worked
+    grep "CFLAGS" Makefile_MPFR.PTHREADS.gcc && \
     # Build with MPFR and pthreads for full functionality
     # MPFR provides arbitrary precision floating-point (more accurate CLR calculations)
     # PTHREADS provides multi-threading support
     make -f Makefile_MPFR.PTHREADS.gcc && \
-    chmod +x SweeD && \
-    # Create symlink for PATH access
-    ln -sf /opt/sweed/SweeD /usr/local/bin/SweeD && \
+    chmod +x SweeD-P && \
+    # SweeD-P is the parallel version, symlink it as SweeD
+    ln -sf /opt/sweed/SweeD-P /usr/local/bin/SweeD && \
     # Verify the build
     echo "SweeD build information:" && \
-    ./SweeD -h || echo "SweeD compiled successfully"
+    ./SweeD-P -h || echo "SweeD compiled successfully"
 
 # Install Python packages for potential analysis scripts
 RUN pip3 install --no-cache-dir numpy pandas

@@ -48,7 +48,7 @@ df.groups <- read.table(groups_path, header = T)
 ```{r}
 ld_peaks <- ld_data %>%
   inner_join(df.bed, by = c("SNP_A" = "snp_id")) %>%
-  filter(R2 > 0.9) %>%
+  #filter(R2 > 0.9) %>%
   dplyr::select(Peak = peak, CHROM = CHR_B, POS = BP_B, snp_id = SNP_B, R2)
 ```
 
@@ -263,6 +263,8 @@ ggplot(r2_df, aes(x = factor(Peak), y = R2, fill = Group)) +
 ```{r}
 data_name <- file.path(root, "output_data/08_Peak_Analysis/", params$data_path, "mcfaddenrsquared.dataset.Rdata")
 save(r2_df, file = data_name)
+
+load( file.path(root, "output_data/08_Peak_Analysis/", params$data_path, "mcfaddenrsquared.dataset.Rdata"))
 ```
 
 
@@ -279,14 +281,149 @@ p <- ggplot(r2_df, aes(x = factor(Peak), y = R2, color = Group)) +
   labs(x = "Peak", y = "McFadden's pseudo-R²") +
   theme_minimal(base_size = 20) +
   theme(
-    panel.grid.major.x = element_blank(),
     panel.grid.minor.y = element_blank(),
     plot.title = element_blank(),
     axis.ticks.y = element_line(color = "black")
   )
 
-# Save explicitly to an absolute path
-ggplot2::ggsave(plot_name_abs, plot = p, width = 12, height = 7, device = "svg")
 
-p
+g<-p + coord_radial(inner.radius = 0.3, r.axis.inside = TRUE)
+
+ggsave("~/Desktop/mcfadden_test.svg",plot=g,width = 12)
+```
+
+
+```{r}
+# Ensure Peak is a factor with natural ordering
+r2_df <- r2_df %>%
+  mutate(Group = factor(Group, levels = c("BP1","BP2","BP3","BP4")),
+         Peak = factor(Peak))
+
+# Compute angles for each BP group (0, 90, 180, 270 degrees)
+angle_df <- data.frame(
+  Group = factor(c("BP1","BP2","BP3","BP4"),
+                 levels = c("BP1","BP2","BP3","BP4")),
+  angle = seq(0, 2*pi, length.out = 5)[1:4]   # 4 evenly spaced angles
+)
+
+# Join angles into R2 data and convert to x/y coordinates
+plot_df <- r2_df %>%
+  left_join(angle_df, by = "Group") %>%
+  mutate(
+    x = R2 * sin(angle),
+    y = R2 * cos(angle)
+  )
+
+# For label placement at radius 1.1
+label_df <- angle_df %>%
+  mutate(
+    x = 1.1 * sin(angle),
+    y = 1.1 * cos(angle),
+    label = Group
+  )
+
+# Plot: one quadrilateral per peak
+ggplot(plot_df, aes(x = x, y = y, group = Peak)) +
+  geom_polygon(fill = "skyblue2", alpha = 0.25, color = "black", linewidth = 0.5) +
+  geom_point(size = 2) +
+  geom_segment(data = angle_df,
+               aes(x = 0, y = 0,
+                   xend = sin(angle), yend = cos(angle)),
+               inherit.aes = FALSE,
+               linetype = 2, linewidth = 0.3) +
+  geom_text(data = label_df,
+            aes(x = x, y = y, label = label),
+            inherit.aes = FALSE,
+            size = 4, fontface = "bold") +
+  coord_equal() +
+  theme_void() +
+  facet_wrap(~ Peak, nrow = 2) +
+  theme(strip.text = element_text(size = 12, face = "bold"))
+
+
+```
+```{r}
+r2_wide <- r2_df %>%
+  select(Group, Peak, SNP, R2) %>%
+  filter(Group %in% c("BP1", "BP2", "BP3")) %>%  # ignore BP4 for ternary
+  mutate(Group = as.character(Group)) %>%
+  pivot_wider(
+    names_from = Group,
+    values_from = R2,
+    values_fill = 0
+  ) 
+
+```
+
+```{r}
+library(ggtern)
+
+ggtern(data = r2_wide,
+       aes(y = BP1, x = BP2, z = BP3,
+           color = Peak)) +
+  geom_point(size = 3, alpha = 0.8) +
+  theme_bw() +
+  theme_showarrows() +
+  labs(
+    title = "Ternary Plot of R² Across BP1, BP2, BP3",
+    T = "BP1",
+    L = "BP2",
+    R = "BP3"
+  )
+```
+```{r}
+ggplot(r2_df, aes(x = paste0("Peak ",Peak), y = R2, group = Group,color=Group)) +
+  geom_point(size = 3) 
+  
+```
+
+
+
+```{r}
+r2_plot <- r2_df %>%
+  tidyr::separate(SNP, into = c("chr", "pos"), sep = "_", remove = FALSE) %>%
+  mutate(
+    pos = as.numeric(pos),
+    Peak = factor(Peak)
+  ) %>%
+  group_by(Peak) %>%
+  mutate(
+    pos_rel = (pos - min(pos)) / 1000  # kb from left edge of the peak
+  ) %>%
+  ungroup()
+
+lead_snps <- r2_plot %>%
+  group_by(Peak, Group) %>%
+  slice_max(R2, n = 1, with_ties = FALSE) %>%
+  ungroup()
+
+
+ggplot(r2_plot, aes(x = pos_rel, y = R2, colour = Group)) +
+  # light horizontal guides
+  geom_hline(yintercept = seq(0, 1, 0.25),
+             linewidth = 0.2, colour = "grey88") +
+  geom_point(size = 1.6, alpha = 0.8) +
+  # highlight the top SNP per Group within each peak
+  geom_point(data = lead_snps,
+             size = 2.5, shape = 21,
+             fill = "white", stroke = 0.7) +
+  facet_wrap(~ Peak, scales = "free_x", nrow = 1) +
+  scale_y_continuous(
+    limits = c(0, 1),
+    expand = expansion(mult = c(0, 0.05))
+  ) +
+  labs(
+    x = "Position within peak (kb)",
+    y = "McFadden’s pseudo-R²",
+    colour = "BP origin"
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_blank(),
+    strip.text = element_text(face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "top",
+    plot.margin = margin(5, 5, 5, 5)
+  )
 ```

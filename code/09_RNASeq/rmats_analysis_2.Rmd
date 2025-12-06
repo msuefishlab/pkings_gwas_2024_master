@@ -28,7 +28,7 @@ gene_name_map <- setNames(genes$manual_name, genes$gene)
 ```
 
 
-```{r, fig.width=8}
+```{r, fidg.width=8}
 # build peak gene sets once
 # genes already assigned above with new column names
 ```

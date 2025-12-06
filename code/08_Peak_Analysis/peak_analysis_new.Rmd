@@ -330,7 +330,7 @@ print(geno_plot)
 ```
 
 ```{r,fig.height=12}
-keep_pops <- c("APA", "BAM", "BEN", "BAVA")
+keep_pops <- c("APA", "BAM", "BEN", "BAVA","BIK","MOV","DOV","DOG")
 pheno_levels <- c("TP", "BP", "Wobble") # desired order TOP→BOTTOM
 
 # 1) Normalize phenotype labels and population order
@@ -370,9 +370,20 @@ plots_by_peak <- lapply(peaks, function(pk) {
     arrange(Phenotype, desc(row_sum), name) %>%
     transmute(y_level = paste(Phenotype, name, sep = "|")) %>%
     pull(y_level)
+  
+  
+  keep_names <- c(
+  "BEN_699", "BEN_705", "BEN_706", "BEN_707", "BEN_708",
+  "BIK_6898", "BIK_6900", "BIK_6901",
+  "DOG_649",
+  "DOV_664", "DOV_665", "DOV_666", "DOV_667",
+  "MOV_6716", "MOV_6718"
+)
 
+  
   df_pk <- df_norm %>%
     filter(peak == pk) %>%
+    filter(name %in% keep_names) %>%
     mutate(
       y_panel = paste(Phenotype, name, sep = "|"),
       y_panel = factor(y_panel, levels = levs_pk)
@@ -423,20 +434,24 @@ for (p in plots_by_peak) print(p)
 #          plot = plots_by_peak[[pk]], width = 10, height = 7, dpi = 300)
 # }))
 ```
-```{r, fig.width=18}
+```{r, fig.width=12}
 colnames(overlapping_annotations_df)[colnames(overlapping_annotations_df) == "peak"] <- "PEAK"
 
+pretty_names<-read.table(file.path(root, "input_data", "08_Peak_Analysis","pretty_gene_names.csv"),header=T,sep=",")
+
+overlapping_annotations_df_pretty <- overlapping_annotations_df %>% left_join(pretty_names,by="Name")
 
 maxp <- max(-log10(pk.lmm.filt_new$p_lrt))
 
 # Replace NA values in `external_gene_name` with `gene_id`
-overlapping_annotations_df <- overlapping_annotations_df %>%
+overlapping_annotations_df_pretty <- overlapping_annotations_df_pretty %>%
   mutate(label_direction = ifelse(row_number() %% 2 == 0, "up", "down")) # Alternate "up" and "down"
 
 peaks_per_plot <- 6
 
 # Extract unique peaks and split into groups
-ordered_levels <- index_snps_simp$PEAK[order(index_snps_simp$p_lrt)]
+index_snps_simp$PEAK<-as.numeric(index_snps_simp$PEAK)
+ordered_levels <- index_snps_simp$PEAK[order(index_snps_simp$PEAK)]
 index_snps_simp$PEAK <- factor(index_snps_simp$PEAK, levels = unique(ordered_levels))
 peak_levels <- levels(index_snps_simp$PEAK)
 peak_levels <- paste0("peak", peak_levels)
@@ -445,9 +460,10 @@ peak_groups <- split(peak_levels, ceiling(seq_along(peak_levels) / peaks_per_plo
 snp_plot_list <- list() # Initialize an empty list to store plots
 
 for (group in peak_groups) {
+  
   peak.pk.lmm_group <- pk.lmm.filt_new %>% filter(paste0("peak", PEAK) %in% group)
   peak.gwas_ld_data_group <- gwas_and_ld_data_only_new %>% filter(paste0("peak", PEAK) %in% group)
-  overlapping_annotations_df_group <- overlapping_annotations_df %>% filter(paste0("peak", PEAK) %in% group)
+  overlapping_annotations_df_group <- overlapping_annotations_df_pretty %>% filter(paste0("peak", PEAK) %in% group)
 
   overlapping_annotations_df_group <- overlapping_annotations_df_group %>%
     mutate(
@@ -464,6 +480,19 @@ for (group in peak_groups) {
         TRUE ~ (maxp + 3) # in case of '*'
       )
     )
+  
+  # Derive the numeric order for this group, e.g. c(1,2,3,4,5,6)
+group_ids <- as.integer(sub("^peak", "", group))
+
+# Relevel PEAK in every data frame used for faceting
+peak.pk.lmm_group <- peak.pk.lmm_group %>%
+  mutate(PEAK = factor(PEAK, levels = group_ids, ordered = TRUE))
+
+peak.gwas_ld_data_group <- peak.gwas_ld_data_group %>%
+  mutate(PEAK = factor(PEAK, levels = group_ids, ordered = TRUE))
+
+overlapping_annotations_df_group <- overlapping_annotations_df_group %>%
+  mutate(PEAK = factor(PEAK, levels = group_ids, ordered = TRUE))
 
   snp_plot <- ggplot() +
     geom_point(data = peak.pk.lmm_group, mapping = aes(x = ps / 1e6, y = -log10(p_lrt)), color = "grey") +
@@ -486,7 +515,7 @@ for (group in peak_groups) {
     # Upward-moving labels
     geom_text_repel(
       data = overlapping_annotations_df_group %>% filter(label_direction == "up"),
-      aes(x = (start / 1e6 + end / 1e6) / 2, y = ypos, label = Name),
+      aes(x = (start / 1e6 + end / 1e6) / 2, y = ypos, label = display_name),
       nudge_y = 1, # Move upward
       inherit.aes = FALSE,
       arrow = arrow(length = unit(0.1, "cm")),
@@ -500,7 +529,7 @@ for (group in peak_groups) {
     # Downward-moving labels
     geom_text_repel(
       data = overlapping_annotations_df_group %>% filter(label_direction == "down"),
-      aes(x = (start / 1e6 + end / 1e6) / 2, y = ypos - 1, label = Name),
+      aes(x = (start / 1e6 + end / 1e6) / 2, y = ypos - 1, label = display_name),
       nudge_y = -1, # Move downward
       inherit.aes = FALSE,
       arrow = arrow(length = unit(0.1, "cm")),
@@ -555,6 +584,14 @@ for (i in seq_along(snp_plot_list)) {
 
 # Save or print the plots
 print(thebigplot_list)
+```
+
+```{r, fig.width=24}
+
+for (i in seq_along(snp_plot_list)) {
+  ggsave(file.path(root, "output_data/08_Peak_Analysis", params$data_path, paste0(params$data_path, ".peak_analysis_snps_only", i, ".svg")), plot = snp_plot_list[[i]], limitsize = FALSE, width = 14, height = 8)
+}
+
 ```
 
 ```{r, echo = FALSE, results='asis'}

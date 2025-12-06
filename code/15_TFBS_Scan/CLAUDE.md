@@ -24,7 +24,7 @@ The pipeline requires:
 - Conda environment named `meme` (activated automatically by the script)
 - Bioinformatics tools: `bcftools`, `samtools`, `bedtools`, `fimo` (from MEME suite)
 - Python 3 with `pandas`
-- Configuration file `tfbs.env` with paths to reference genome and GFF annotation
+- Environment configuration in `pkings_gwas.env` (sourced automatically by the script)
 
 ## Architecture
 
@@ -51,7 +51,7 @@ The pipeline requires:
 - FASTA headers labeled as `>BP|chr:start-end` and `>TP|chr:start-end`
 
 **Output Structure:**
-Each run creates a directory `output_data/<FRIENDLY_NAME>/` containing:
+Each run creates a directory `output_data/15_TFBS_Scan/<FRIENDLY_NAME>/` containing:
 - `*_region.bed`: Genomic region analyzed
 - `*_BP.fa` / `*_TP.fa`: Extracted sequences
 - `*_fimo_compare/`: FIMO results (TSV, HTML, etc.)
@@ -62,21 +62,75 @@ Each run creates a directory `output_data/<FRIENDLY_NAME>/` containing:
 
 ### Python Analysis Script
 
-The `analyze_motif_snp_overlap.py` script:
-- Takes bedtools intersect output (motifs × SNPs)
-- Aggregates best FIMO score per SNP-motif-haplotype combination
-- Pivots to compare BP vs TP scores
-- Outputs summary statistics and categorized subsets
+The `analyze_motif_snp_overlap.py` script is the final step of the pipeline, processing the intersection of motifs and SNPs to categorize haplotype-specific binding site differences.
+
+**Location:** `code/15_TFBS_Scan/analyze_motif_snp_overlap.py`
+
+**Command Line:**
+```bash
+python code/15_TFBS_Scan/analyze_motif_snp_overlap.py \
+  --input <bedtools_intersect_output.bed> \
+  --output_prefix <output_directory/prefix>
+```
+
+**Required Arguments:**
+- `--input` / `-i`: Path to 12-column BED file from `bedtools intersect -wa -wb`
+- `--output_prefix` / `-o`: Output path prefix (e.g., `output_data/sptbn4b/sptbn4b`)
+
+**Input Format (12 columns from bedtools intersect):**
+- Columns 0-6 (from motifs_BP_TP.bed): chr, start, end, motif_id, fimo_score, haplotype, fimo_pval
+- Columns 7-11 (from snps.bed): chr, start, end, snp_id, snp_log10p
+
+**Processing Logic:**
+1. **Aggregation**: Groups by (snp_id, motif_id, haplotype) and takes max FIMO score
+   - Handles cases where a motif may overlap a SNP multiple times
+2. **Pivoting**: Reshapes data to compare BP vs TP side-by-side
+   - Creates separate columns: BP_score, TP_score, BP_present, TP_present
+3. **Score Delta**: Calculates `score_delta_TP_minus_BP` for motifs present in both
+   - Positive delta = stronger binding in TP
+   - Negative delta = stronger binding in BP
+4. **Sorting**: Orders by SNP significance (snp_log10p descending), then by snp_id and motif_id
+
+**Output Files:**
+- `<prefix>_motif_snp_summary.tsv`: All SNP-motif pairs with comparative scores
+- `<prefix>_motif_snp_TP_only.tsv`: Motifs gained in TP (TP_present=True, BP_present=False)
+- `<prefix>_motif_snp_TP_only.bed`: BED file of TP-specific motif locations
+- `<prefix>_motif_snp_BP_only.tsv`: Motifs lost in TP (BP_present=True, TP_present=False)
+- `<prefix>_motif_snp_BP_only.bed`: BED file of BP-specific motif locations
+- `<prefix>_motif_snp_both.tsv`: Motifs in both (BP_present=True, TP_present=True)
+- `<prefix>_motif_snp_both.bed`: BED file of shared motif locations (scored by SNP significance)
+
+**BED File Details:**
+- Standard 6-column BED format (chr, start, end, name, score, strand)
+- Coordinates are motif locations (0-based BED format)
+- Name field: `{motif_id}_{snp_id}_{haplotype}`
+- Score field: FIMO score × 100 (for BP/TP-only files) or SNP log10p × 100 (for both file)
+- Strand: always "." (FIMO scans both strands)
+- Useful for IGV visualization, bedtools operations, or genomic overlap analyses
+
+**Dependencies:**
+- Python 3 with pandas
+- No other special requirements
+
+**Common Issues:**
+- If input file is empty, script exits with error code 1
+- Missing haplotype labels (BP/TP) in input will cause KeyError - check FASTA headers
+- Non-numeric log10p values are coerced to NaN (won't cause failure)
 
 ## Environment Configuration
 
-Edit `tfbs.env` to set:
-- `SOURCE_GFF`: Path to genome annotation (GFF format)
-- `REF`: Path to reference genome FASTA file
+The pipeline uses variables defined in `pkings_gwas.env`:
+- `TFBS_GFF`: Genome annotation (GFF format)
+- `TFBS_REF`: Reference genome FASTA
+- `TFBS_VCF`: VCF file with SNPs in peaks
+- `TFBS_SNP_METADATA`: SNP metadata with p-values
+- `JASPAR_MOTIFS`: JASPAR motif database (MEME format)
+
+These are automatically sourced by `get_tfbs.sh` - no manual configuration needed.
 
 ## Input Data Requirements
 
-Required files in `input_data/`:
+Required files in `input_data/15_TFBS_Scan/`:
 - `PKINGS_ALL_WOB_EXCLUDED_SNPS_IN_PEAKS_TOP250.vcf.gz`: Population VCF with SNPs
 - `PKINGS_ALL_WOB_EXCLUDED_SNPS_IN_PEAKS.txt`: SNP metadata with p-values (tab-delimited, header row)
 - `JASPAR2024_CORE_vertebrates_non-redundant_pfms_meme.txt`: MEME-formatted motif database

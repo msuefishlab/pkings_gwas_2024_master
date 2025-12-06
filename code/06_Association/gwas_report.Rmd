@@ -175,7 +175,72 @@ man_final<-
 
 man_final
 ```
+```{r, fig.width=24}
+p.circos <- circos.manhattan(
+    df.in = pk.lmm.filt,           # All filtered data
+    input.var = "log_p",
+    peaks_df = pk.lmm.peaks.out,   # Peak SNPs only
+    sig_threshold = significant,    # Red dashed line
+    sug_threshold = suggestive,     # Blue dashed line
+    grid_lines = TRUE,
+   gap_size = 1,
+   dynamic_max = dynamic_max,
+   highlight_peaks = TRUE,
+   # Color controls
+   chr_colors = c("grey30", "maroon"),
+   peak_color = "pink",
+   peak_alpha = 0.3,
+   peak_point_color = "red",
+   sig_line_color = "red",
+   sug_line_color = "blue",
+   grid_color = "grey40",
+   # Point size controls
+   point_size_range = c(0.8, .8),
+   point_alpha = 0.25,
+   peak_point_alpha = 0.4,
+   # Font size controls
+   peak_label_size = 2,
+   axis_label_size = 1,
+   # Performance controls
+   downsample_low_p = FALSE,
+   plot_radius = 1,          # Large plot ✓
+    data_track_height = 0.3,
+    show_ideogram = FALSE,  # Hide ideogram, show labels on data track
+    chr_label_size = 2,    # You can increase this for better visibility
+  )
 
+  # Display or save
+  print(p.circos)
+```
+```{r, fig.width=48}
+pk.lmm.filt<-droplevels(pk.lmm.filt)
+
+#svg("~/Desktop/circos_test.svg", width = 48, height = 48)
+
+circos.manhattan.zoom(
+    df.in = pk.lmm.filt,
+    input.var = log_p,
+    zoom_peaks = pk.lmm.bed.f,
+    sig_threshold = significant,
+    sug_threshold = suggestive,
+    parent_point_size = 1.5,  # Smaller parent points
+    zoom_point_size = 2,    # Larger zoom points
+    parent_label_size = 2,  # Larger parent labels
+    zoom_label_size = 3,     # Smaller zoom labels
+      connection_height = .05,  # Less space on inner side
+    zoom_xaxis_label_size = 2,    # X-axis bp positions
+    parent_yaxis_label_size = 2,  # Parent y-axis
+    zoom_yaxis_label_size = 2,     # Zoom y-axis
+   zoom_gap_degree = 15,
+   parent_ylim = c(0, 15),
+    zoom_ylim = c(0, 15),
+   chr_colors = c("grey30", "#800020"),
+   parent_gap_degree = 0
+  )
+
+#dev.off()
+```
+  
 ```{r}
 ggsave(file.path(root,"output_data/06_Association",params$data_path,paste0(params$data_path,".gwas.svg")), plot = man_final, width = 12, height = 4, units = "in")
 ```

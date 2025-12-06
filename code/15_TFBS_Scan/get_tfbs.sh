@@ -1,19 +1,40 @@
+#!/bin/bash
 ## get tfbs.sh
 ## 11-14-2025
 ## JRG
 ## Gets TFBS from BP and TP Individuals
 
-#!/bin/bash
-root="$(git rev-parse --show-toplevel)"
-source $root/"tfbs.env"
+set -eo pipefail  # Exit on error and pipe failures (but allow unset variables for now)
 
-conda activate meme
+root="$(git rev-parse --show-toplevel)"
+source "${root}/pkings_gwas.env"
+
+set -u  # Now enable strict variable checking
+
+# Activate meme conda environment (try conda first, then mamba)
+if command -v conda &> /dev/null; then
+    eval "$(conda shell.bash hook)"
+    conda activate meme
+elif command -v mamba &> /dev/null; then
+    eval "$(mamba shell.bash hook)"
+    mamba activate meme
+else
+    echo "Error: Neither conda nor mamba found. Please install conda/mamba." >&2
+    exit 1
+fi
 
 GENE=$1
 FRIENDLY_NAME=$2
 SAMPLE=$3
 
-mkdir -p output_data/${FRIENDLY_NAME}
+# Validate inputs
+if [[ -z "$GENE" || -z "$FRIENDLY_NAME" || -z "$SAMPLE" ]]; then
+    echo "Error: Missing required arguments" >&2
+    echo "Usage: $0 <GENE_OR_REGION> <FRIENDLY_NAME> <SAMPLE_ID>" >&2
+    exit 1
+fi
+
+mkdir -p output_data/15_TFBS_Scan/${FRIENDLY_NAME}
 
 # Check if GENE is a genomic region (chr:start-end) or a gene name
 if [[ $GENE =~ ^([^:]+):([0-9]+)-([0-9]+)$ ]]; then
@@ -22,60 +43,67 @@ if [[ $GENE =~ ^([^:]+):([0-9]+)-([0-9]+)$ ]]; then
     REGION_START=${BASH_REMATCH[2]}  # 1-based
     REGION_END=${BASH_REMATCH[3]}    # 1-based
 
+    # Validate coordinates
+    if (( REGION_START >= REGION_END )); then
+        echo "Error: Invalid coordinates. Start ($REGION_START) must be less than end ($REGION_END)" >&2
+        echo "Note: Coordinates should be in format chr:start-end (e.g., chr8:1000000-2000000)" >&2
+        exit 1
+    fi
+
     # Create BED file (0-based start, 1-based end)
     printf "%s\t%d\t%d\t%s\n" "${CHR}" "$((REGION_START-1))" "${REGION_END}" "${FRIENDLY_NAME}" \
-        > output_data/${FRIENDLY_NAME}/${FRIENDLY_NAME}_region.bed
+        > output_data/15_TFBS_Scan/${FRIENDLY_NAME}/${FRIENDLY_NAME}_region.bed
 
     # Set variables for downstream use
     START=$((REGION_START-1))  # 0-based for BED
     END=${REGION_END}
 else
     # Input is a gene name - extract from GFF
-    grep -w ${GENE} ${SOURCE_GFF} > output_data/${FRIENDLY_NAME}/${FRIENDLY_NAME}.gff
+    grep -w ${GENE} ${TFBS_GFF} > output_data/15_TFBS_Scan/${FRIENDLY_NAME}/${FRIENDLY_NAME}.gff
 
     # Get min start / max end
     awk -v fname="${FRIENDLY_NAME}" '
     NR==1 { chr=$1; start=$4; end=$5; next }
     { if ($4 < start) start=$4; if ($5 > end) end=$5 }
     END { printf "%s\t%d\t%d\t%s\n", chr, start-1, end, fname }
-    ' output_data/${FRIENDLY_NAME}/${FRIENDLY_NAME}.gff > output_data/${FRIENDLY_NAME}/${FRIENDLY_NAME}_region.bed
+    ' output_data/15_TFBS_Scan/${FRIENDLY_NAME}/${FRIENDLY_NAME}.gff > output_data/15_TFBS_Scan/${FRIENDLY_NAME}/${FRIENDLY_NAME}_region.bed
 
-    read CHR START END FRIENDLY_NAME < output_data/${FRIENDLY_NAME}/${FRIENDLY_NAME}_region.bed
+    read CHR START END FRIENDLY_NAME < output_data/15_TFBS_Scan/${FRIENDLY_NAME}/${FRIENDLY_NAME}_region.bed
 fi
 
 bedtools getfasta \
--fi ${REF} \
--bed output_data/${FRIENDLY_NAME}/${FRIENDLY_NAME}_region.bed \
--fo output_data/${FRIENDLY_NAME}/${FRIENDLY_NAME}_BP.fa
+-fi ${TFBS_REF} \
+-bed output_data/15_TFBS_Scan/${FRIENDLY_NAME}/${FRIENDLY_NAME}_region.bed \
+-fo output_data/15_TFBS_Scan/${FRIENDLY_NAME}/${FRIENDLY_NAME}_BP.fa
 
-bcftools view -r ${CHR}:${START}-${END} -Oz -o output_data/${FRIENDLY_NAME}/${FRIENDLY_NAME}_BP.vcf.gz input_data/PKINGS_ALL_WOB_EXCLUDED_SNPS_IN_PEAKS_TOP250.vcf.gz
-bcftools index output_data/${FRIENDLY_NAME}/${FRIENDLY_NAME}_BP.vcf.gz
+bcftools view -r ${CHR}:${START}-${END} -Oz -o output_data/15_TFBS_Scan/${FRIENDLY_NAME}/${FRIENDLY_NAME}_BP.vcf.gz ${TFBS_VCF}
+bcftools index output_data/15_TFBS_Scan/${FRIENDLY_NAME}/${FRIENDLY_NAME}_BP.vcf.gz
 
-bcftools view -r ${CHR}:${START}-${END} -s ${SAMPLE} -Oz -o output_data/${FRIENDLY_NAME}/${FRIENDLY_NAME}_TP.vcf.gz input_data/PKINGS_ALL_WOB_EXCLUDED_SNPS_IN_PEAKS_TOP250.vcf.gz
-bcftools index output_data/${FRIENDLY_NAME}/${FRIENDLY_NAME}_TP.vcf.gz
+bcftools view -r ${CHR}:${START}-${END} -s ${SAMPLE} -Oz -o output_data/15_TFBS_Scan/${FRIENDLY_NAME}/${FRIENDLY_NAME}_TP.vcf.gz ${TFBS_VCF}
+bcftools index output_data/15_TFBS_Scan/${FRIENDLY_NAME}/${FRIENDLY_NAME}_TP.vcf.gz
 
-samtools faidx ${REF} ${CHR}:${START}-${END} | bcftools consensus -s ${SAMPLE} output_data/${FRIENDLY_NAME}/${FRIENDLY_NAME}_TP.vcf.gz > output_data/${FRIENDLY_NAME}/${FRIENDLY_NAME}_TP.fa
+samtools faidx ${TFBS_REF} ${CHR}:${START}-${END} | bcftools consensus -s ${SAMPLE} output_data/15_TFBS_Scan/${FRIENDLY_NAME}/${FRIENDLY_NAME}_TP.vcf.gz > output_data/15_TFBS_Scan/${FRIENDLY_NAME}/${FRIENDLY_NAME}_TP.fa
 
 # Make a BED of SNPs with p-values
 
-bcftools query -f '%CHROM\t%POS\n' output_data/${FRIENDLY_NAME}/${FRIENDLY_NAME}_BP.vcf.gz \
+bcftools query -f '%CHROM\t%POS\n' output_data/15_TFBS_Scan/${FRIENDLY_NAME}/${FRIENDLY_NAME}_BP.vcf.gz \
 | awk 'NR==FNR {log_p[$1":"$3]=$13; rs_id[$1":"$3]=$2; next}
 {key=$1":"$2; print $1"\t"($2-1)"\t"$2"\t"(rs_id[key] ? rs_id[key] : ".")"\t"(log_p[key] ? log_p[key] : "NA")}' \
- <(tail -n +2 input_data/PKINGS_ALL_WOB_EXCLUDED_SNPS_IN_PEAKS.txt) - \
-> output_data/${FRIENDLY_NAME}/${FRIENDLY_NAME}_snps.bed
+ <(tail -n +2 ${TFBS_SNP_METADATA}) - \
+> output_data/15_TFBS_Scan/${FRIENDLY_NAME}/${FRIENDLY_NAME}_snps.bed
 
 BP_REGION=${CHR}:${START}-${END}
 TP_REGION=${CHR}:${START}-${END}
 
-sed "1s/^>.*/>BP|$BP_REGION/" output_data/${FRIENDLY_NAME}/${FRIENDLY_NAME}_BP.fa > output_data/${FRIENDLY_NAME}/${FRIENDLY_NAME}_BP.fa.tmp && mv output_data/${FRIENDLY_NAME}/${FRIENDLY_NAME}_BP.fa.tmp output_data/${FRIENDLY_NAME}/${FRIENDLY_NAME}_BP.fa
-sed "1s/^>.*/>TP|$TP_REGION/" output_data/${FRIENDLY_NAME}/${FRIENDLY_NAME}_TP.fa > output_data/${FRIENDLY_NAME}/${FRIENDLY_NAME}_TP.fa.tmp && mv output_data/${FRIENDLY_NAME}/${FRIENDLY_NAME}_TP.fa.tmp output_data/${FRIENDLY_NAME}/${FRIENDLY_NAME}_TP.fa 
+sed "1s/^>.*/>BP|$BP_REGION/" output_data/15_TFBS_Scan/${FRIENDLY_NAME}/${FRIENDLY_NAME}_BP.fa > output_data/15_TFBS_Scan/${FRIENDLY_NAME}/${FRIENDLY_NAME}_BP.fa.tmp && mv output_data/15_TFBS_Scan/${FRIENDLY_NAME}/${FRIENDLY_NAME}_BP.fa.tmp output_data/15_TFBS_Scan/${FRIENDLY_NAME}/${FRIENDLY_NAME}_BP.fa
+sed "1s/^>.*/>TP|$TP_REGION/" output_data/15_TFBS_Scan/${FRIENDLY_NAME}/${FRIENDLY_NAME}_TP.fa > output_data/15_TFBS_Scan/${FRIENDLY_NAME}/${FRIENDLY_NAME}_TP.fa.tmp && mv output_data/15_TFBS_Scan/${FRIENDLY_NAME}/${FRIENDLY_NAME}_TP.fa.tmp output_data/15_TFBS_Scan/${FRIENDLY_NAME}/${FRIENDLY_NAME}_TP.fa
 
-cat output_data/${FRIENDLY_NAME}/${FRIENDLY_NAME}_BP.fa output_data/${FRIENDLY_NAME}/${FRIENDLY_NAME}_TP.fa > output_data/${FRIENDLY_NAME}/bp_tp_${FRIENDLY_NAME}_cat.fa
+cat output_data/15_TFBS_Scan/${FRIENDLY_NAME}/${FRIENDLY_NAME}_BP.fa output_data/15_TFBS_Scan/${FRIENDLY_NAME}/${FRIENDLY_NAME}_TP.fa > output_data/15_TFBS_Scan/${FRIENDLY_NAME}/bp_tp_${FRIENDLY_NAME}_cat.fa
 
-fimo --oc output_data/${FRIENDLY_NAME}/${FRIENDLY_NAME}_fimo_compare \
+fimo --oc output_data/15_TFBS_Scan/${FRIENDLY_NAME}/${FRIENDLY_NAME}_fimo_compare \
  --thresh 1e-4 \
- input_data/JASPAR2024_CORE_vertebrates_non-redundant_pfms_meme.txt \
- output_data/${FRIENDLY_NAME}/bp_tp_${FRIENDLY_NAME}_cat.fa
+ ${JASPAR_MOTIFS} \
+ output_data/15_TFBS_Scan/${FRIENDLY_NAME}/bp_tp_${FRIENDLY_NAME}_cat.fa
 
 awk '
 BEGIN { OFS="\t"; header_seen=0 }
@@ -116,16 +144,16 @@ bed_end = g_end_1
 # chr, start, end, motif, score, hap, pval
 
 printf "%s\t%d\t%d\t%s\t%f\t%s\t%s\n", chr, bed_start, bed_end, motif, score, hap, pval
-}' output_data/${FRIENDLY_NAME}/${FRIENDLY_NAME}_fimo_compare/fimo.tsv \
-> output_data/${FRIENDLY_NAME}/${FRIENDLY_NAME}_motifs_BP_TP.bed
+}' output_data/15_TFBS_Scan/${FRIENDLY_NAME}/${FRIENDLY_NAME}_fimo_compare/fimo.tsv \
+> output_data/15_TFBS_Scan/${FRIENDLY_NAME}/${FRIENDLY_NAME}_motifs_BP_TP.bed
 
 
 
 bedtools intersect -wa -wb \
- -a output_data/${FRIENDLY_NAME}/${FRIENDLY_NAME}_motifs_BP_TP.bed \
- -b output_data/${FRIENDLY_NAME}/${FRIENDLY_NAME}_snps.bed \
-> output_data/${FRIENDLY_NAME}/${FRIENDLY_NAME}_motif_SNP_BP_TP_overlap.bed
+ -a output_data/15_TFBS_Scan/${FRIENDLY_NAME}/${FRIENDLY_NAME}_motifs_BP_TP.bed \
+ -b output_data/15_TFBS_Scan/${FRIENDLY_NAME}/${FRIENDLY_NAME}_snps.bed \
+> output_data/15_TFBS_Scan/${FRIENDLY_NAME}/${FRIENDLY_NAME}_motif_SNP_BP_TP_overlap.bed
 
-python code/analyze_motif_snp_overlap.py \
- --input output_data/${FRIENDLY_NAME}/${FRIENDLY_NAME}_motif_SNP_BP_TP_overlap.bed \
- --output_prefix output_data/${FRIENDLY_NAME}/${FRIENDLY_NAME}
+python3 code/15_TFBS_Scan/analyze_motif_snp_overlap.py \
+ --input output_data/15_TFBS_Scan/${FRIENDLY_NAME}/${FRIENDLY_NAME}_motif_SNP_BP_TP_overlap.bed \
+ --output_prefix output_data/15_TFBS_Scan/${FRIENDLY_NAME}/${FRIENDLY_NAME}

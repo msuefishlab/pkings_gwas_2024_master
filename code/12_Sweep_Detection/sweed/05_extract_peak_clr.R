@@ -66,7 +66,15 @@ for (pop in pops) {
   cat("Loading:", clr_file, "\n")
 
   # Read genome-wide CLR
-  clr_data <- read_tsv(clr_file, show_col_types = FALSE)
+  # Note: Read as all character first to filter out duplicate headers from merge,
+  # then convert to proper types
+  clr_data <- read_tsv(clr_file, show_col_types = FALSE, col_types = cols(.default = "c")) %>%
+    filter(position != "Position") %>%
+    mutate(
+      position = as.numeric(position),
+      CLR = as.numeric(CLR),
+      alpha = as.numeric(alpha)
+    )
 
   cat("  Total positions:", nrow(clr_data), "\n")
   cat("  Chromosomes:", length(unique(clr_data$chromosome)), "\n")

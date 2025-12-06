@@ -246,7 +246,7 @@ get_data4plot <- function(df.bed, df, stat) {
         if (length(stat_values) > 0) {
           random_dfs[[length(random_dfs) + 1]] <- data.frame(
             peak = as.factor(i),
-            population = rep(paste0(pop, "R"), length(stat_values)),
+            population = rep(paste0(pop, "X"), length(stat_values)),
             interval = rep(paste("random", i, j, sep = "_"), length(stat_values)),
             stringsAsFactors = FALSE
           ) %>% mutate(!!stat := stat_values)
@@ -351,7 +351,7 @@ get_fst_data4plot <- function(df.bed, df, stat = "avg_wc_fst") {
         if (length(stat_values) > 0) {
           result_list[[length(result_list) + 1]] <- data.frame(
             peak = rep(i, length(stat_values)),
-            comparison = rep(paste0(comp, "R"), length(stat_values)),
+            comparison = rep(paste0(comp, "X"), length(stat_values)),
             interval = rep(paste("random", i, j, sep = "_"), length(stat_values)),
             stringsAsFactors = FALSE
           ) %>% mutate(!!stat := stat_values)

@@ -78,16 +78,19 @@ for pop in "${POPS[@]}"; do
     # Parse SweeD output format
     # SweeD output has:
     #   - Comment lines starting with //
-    #   - Header line (after comments): "Position    Likelihood  Alpha"
-    #   - Data lines: position  likelihood  alpha
+    #   - Blank lines
+    #   - Header line: "Position    Likelihood  Alpha  StartPos  EndPos"
+    #   - Data lines: position  likelihood  alpha  startpos  endpos
     #
     # We need to:
     #   1. Skip comment lines (// ...)
-    #   2. Skip header line
-    #   3. Add chromosome column
-    #   4. Rename Likelihood -> CLR
+    #   2. Skip blank lines
+    #   3. Skip header line (contains "Position")
+    #   4. Add chromosome column
+    #   5. Extract only first 3 columns (Position, Likelihood, Alpha)
 
-    line_count=$(grep -v '^//' "${chr_file}" | tail -n +2 | \
+    line_count=$(grep -v '^//' "${chr_file}" | grep -v '^[[:space:]]*$' | \
+      grep -v '^Position' | \
       awk -v chr="${chr}" 'BEGIN{OFS="\t"}{print chr, $1, $2, $3}' | \
       tee -a "${merged_file}" | wc -l)
 

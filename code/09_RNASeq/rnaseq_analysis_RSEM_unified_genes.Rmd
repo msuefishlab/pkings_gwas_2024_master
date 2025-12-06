@@ -2,8 +2,7 @@
 title: "RNASeq Report"
 output: html_notebook
 params:
-  g1_data_path: APA_BEN_BAM_TP1_BP2_WOB9
-  g2_data_path: MOV_BIR_DOG_DOV_BAVA_BIK_APA_BEN_TP1_BP2_WOB9
+  data_path: PKINGS_ALL_WOB_EXCLUDED
 ---
 
 ```{r setup, include=FALSE}
@@ -13,30 +12,14 @@ library(tximport)
 library(tidyverse)
 library("DESeq2")
 library(stringr)
-require(rtracklayer)
-library(ggrepel)
 library(patchwork) # For combining plots
-library(biomaRt)
-library(ggpubr)
-library(openxlsx)
-library(ggh4x)
 library(legendry)
 library(data.table)   # <-- added (for fread)
-source(file.path(root, "code", "09_RNASeq", "go_analysis.R"))
-library(matrixStats)
-
+library(readr)
 ```
 
 
 ```{r}
-
-library(dplyr)
-library(readr)
-library(tibble)
-
-# ----------------------------
-# 1) Metadata + unified filters
-# ----------------------------
 sample_data <- file.path(root, "input_data/09_RNASeq/rnaseq_metadata.txt")
 coldata <- read.table(sample_data, header = TRUE, sep = "", check.names = FALSE)
 
@@ -47,12 +30,10 @@ pheno_data <- coldata %>%
 
 # Define filters in one place
 gwas_1_set <- c("APA", "BAM", "BEN", "MOV", "BIR", "DOG", "DOV", "BAVA", "BIK", "APA", "BEN")
-values_to_drop <- c("PK1", "PK2", "PK3") # <- set as needed
 
 # Apply both filters at once
 gw1_pheno_data <- pheno_data %>%
-  filter(Population %in% gwas_1_set) %>%
-  filter(!SpecNo %in% values_to_drop)
+  filter(Population %in% gwas_1_set)
 
 # Factors (optional: lock levels to what remains)
 gw1_pheno_data <- gw1_pheno_data %>%
@@ -84,87 +65,75 @@ population_groups <- c(
   "BIK"  = "BP2"
 )
 
-
-```
-
-```{r}
-# ----------------------------
-# 2) Files for tximport (names MUST be PN)
-# ----------------------------
 gw1_gene_files <- file.path(
   root, "output_data/09_RNASeq/quantification",
-  paste0(gw1_pheno_data$SpecNo, ".genes.results")  # <-- switch to genes.results
+  paste0(gw1_pheno_data$SpecNo, ".isoforms.results")
 )
-names(gw1_gene_files) <- gw1_pheno_data$PN # critical: names == PN
+names(gw1_gene_files) <- gw1_pheno_data$PN
 
-# Optional: quick file existence check
-missing <- gw1_gene_files[!file.exists(gw1_gene_files)]
-if (length(missing) > 0) {
-  warning(paste(
-    "Missing gene quant files for PN:",
-    paste(names(missing), collapse = ", ")
-  ))
-}
 ```
 
 
 ```{r}
-# ----------------------------
-# 3) tximport and DESeq2 object (GENE level)
-# ----------------------------
+tx2gene_data<-fread(file.path(root,"input_data/09_RNASeq/paramormyrops_ncbi_0.4_tx2gene.csv"),header=T,sep=",")[,c(2,3)]
+
+
 gw1_gene.rsem <- tximport(
   files = gw1_gene_files,
-  type = "none",         # keep your custom importer style
-  txIn = FALSE,          # <-- gene input
+  type = "rsem",         # keep your custom importer style
+  txIn = TRUE,          
   txOut = FALSE,         # <-- summarize at gene level
-  geneIdCol = "gene_id", # present in RSEM genes.results
+  tx2gene = tx2gene_data,
+  txIdCol = "transcript_id",
+  countsFromAbundance = "lengthScaledTPM",  # or "scaledTPM"; see note below
+  geneIdCol = "gene_id",  
   abundanceCol = "TPM",
   countsCol = "expected_count",
-  lengthCol = "effective_length",
-  importer = function(x) readr::read_tsv(x)
+  lengthCol = "effective_length"
 )
 
 # Fix zero lengths (rare RSEM artifact)
 gw1_gene.rsem$length[gw1_gene.rsem$length == 0] <- 0.01
 
-gw1_dds <- DESeqDataSetFromTximport(
+dds <- DESeqDataSetFromTximport(
   txi     = gw1_gene.rsem,
   colData = gw1_pheno_data,
-  design  = ~Population
+  design  = ~ Population
 )
 
-# Sanity check: columns (samples) must match PN
-stopifnot(identical(colnames(gw1_dds), rownames(gw1_pheno_data)))
+# Filter low-count genes
+keep <- rowSums(counts(dds)) >= 10
+dds <- dds[keep, ]
 
-# Filter low-count genes and fit model
-keep <- rowSums(counts(gw1_dds)) >= 10
-gw1_dds <- gw1_dds[keep, ]
-gw1_dds <- DESeq(gw1_dds)
+# Fit the model (optional if you only need VST for plotting; harmless to run)
+dds <- DESeq(dds)
+
+# Variance-stabilized assay
+vst_mat <- assay(vst(dds, blind = TRUE))  # genes x samples
 ```
 
-```{r}
 
+```{r}
 # Original transcript overlaps table
-overlapping_annotations <- fread(file.path(
-  root, "output_data/06_Association/PKINGS_ALL_WOB_EXCLUDED",
-  "PKINGS_ALL_WOB_EXCLUDED_TRANSCRIPTS_IN_PEAKS_manual_annos_add.txt"
-))
+overlapping_annotations <- fread(file.path(root, "output_data/06_Association/",params$data_path,paste0(params$data_path,"_GENES_IN_PEAKS.txt")))
+pretty_names<-read.table(file.path(root, "input_data", "08_Peak_Analysis","pretty_gene_names.csv"),header=T,sep=",")
+overlapping_annotations_df_pretty <- overlapping_annotations %>% left_join(pretty_names,by="Name")
 
 ## Get Peaks Data
-peaks.file <- file.path(root, "output_data/06_Association/PKINGS_ALL_WOB_EXCLUDED/PKINGS_ALL_WOB_EXCLUDED_PEAKS.bed")
+peaks.file <- file.path(root, "output_data/06_Association/",params$data_path,paste0(params$data_path,"_PEAKS.bed"))
 peaks.bed <- read.table(peaks.file)
 names(peaks.bed) <- c("chrom", "start", "end", "peak", "idx_p", "idx_bp")
 peaks.bed$chrom <- paste0("chr", peaks.bed$chrom)
 peaks.bed <- peaks.bed[order(peaks.bed$peak), ]
 
 # GRanges for transcripts & peaks (we'll then collapse to genes)
-gr_anno  <- GRanges(overlapping_annotations$seqnames,
-                    IRanges(overlapping_annotations$start, overlapping_annotations$end))
+gr_anno  <- GRanges(overlapping_annotations_df_pretty$seqnames,
+                    IRanges(overlapping_annotations_df_pretty$start, overlapping_annotations_df_pretty$end))
 gr_peaks <- GRanges(peaks.bed$chrom, IRanges(peaks.bed$start, peaks.bed$end))
 
 ## 1) exact overlaps -> peak per transcript row
 hits <- findOverlaps(gr_anno, gr_peaks, ignore.strand = TRUE)
-peak_vec <- rep(NA_integer_, nrow(overlapping_annotations))
+peak_vec <- rep(NA_integer_, nrow(overlapping_annotations_df_pretty))
 if (length(hits) > 0) {
   first_by_q <- tapply(subjectHits(hits), queryHits(hits), function(x) x[1])
   peak_vec[as.integer(names(first_by_q))] <- peaks.bed$peak[unlist(first_by_q)]
@@ -181,22 +150,22 @@ if (length(need)) {
 
 ## 3) gene display name
 assigned_name <- ifelse(
-  is.na(overlapping_annotations$manual_name) | overlapping_annotations$manual_name == "",
-  overlapping_annotations$gene,
-  overlapping_annotations$manual_name
+  is.na(overlapping_annotations_df_pretty$display_name) | overlapping_annotations_df_pretty$display_name == "",
+  overlapping_annotations_df_pretty$Name,
+  overlapping_annotations_df_pretty$display_name
 )
 
 ## 4) collapse to GENE level (map to RSEM gene_id "gene-<gene>")
 overlapping_with_peak <- cbind(
-  overlapping_annotations,
+  overlapping_annotations_df_pretty,
   peak = peak_vec,
   assigned_name = assigned_name
 )
 
 overlap_gene_tbl <- overlapping_with_peak %>%
-  dplyr::filter(!is.na(gene), !is.na(peak)) %>%
+  dplyr::filter(!is.na(Name), !is.na(peak)) %>%
   dplyr::mutate(
-    gene_key     = gene,   # matches RSEM gene_id rownames
+    gene_key     = Name,   # matches RSEM gene_id rownames
     display_name = assigned_name
   ) %>%
   dplyr::distinct(gene_key, display_name, peak)
@@ -205,46 +174,36 @@ overlap_gene_tbl <- overlapping_with_peak %>%
 
 
 ```{r, fig.height=12}
-# Gene-level abundance (TPM); align to DDS column order
-gene_abs_expr <- as.matrix(gw1_gene.rsem$abundance) # genes x samples (TPM)
-gene_abs_expr <- gene_abs_expr[, colnames(gw1_dds), drop = FALSE]
 
-# Keep only genes in both expr and overlap
-sel_gene_ids <- intersect(overlap_gene_tbl$gene_key, rownames(gene_abs_expr))
-stopifnot(length(sel_gene_ids) > 0)
+# Keep only genes present in your overlap table
+sel_gene_ids <- intersect(overlap_gene_tbl$gene_key, rownames(vst_mat))
 
-# Map helpers
-peak_by_geneid   <- setNames(overlap_gene_tbl$peak, overlap_gene_tbl$gene_key)
-label_by_geneid  <- overlap_gene_tbl %>%
-  dplyr::distinct(gene_key, display_name) %>%
-  deframe()
+# Build the rows by (gene, peak) as before
+gp_map   <- overlap_gene_tbl %>% dplyr::filter(gene_key %in% sel_gene_ids)
+row_idx  <- gp_map$gene_key
+mat_vst  <- vst_mat[row_idx, , drop = FALSE]
 
-# Some genes may map to multiple peaks; keep one row per (gene,peak) by expanding
-gp_map <- overlap_gene_tbl %>% dplyr::filter(gene_key %in% sel_gene_ids)
-
-# Build a row index that repeats a gene row once per peak assignment
-row_index <- gp_map$gene_key
-mat_abs <- log2(gene_abs_expr[row_index, , drop = FALSE] + 1)
-
-# Unique rownames for display: "Gene — p<peak>"
-rownames(mat_abs) <- paste0(label_by_geneid[row_index], " \u2014 p", gp_map$peak)
+rownames(mat_vst) <- paste0(
+  (overlap_gene_tbl %>% distinct(gene_key, display_name) %>% deframe())[row_idx],
+  " \u2014 p", gp_map$peak
+)
 
 # Column order + split
-df <- as.data.frame(colData(gw1_dds)[, c("Population")])
+df <- as.data.frame(colData(dds)[, c("Population")])
 colnames(df) <- "Population"
 pop_fac  <- factor(df$Population)
 ord_cols <- order(pop_fac)
-mat_abs  <- mat_abs[, ord_cols, drop = FALSE]
+mat_vst  <- mat_vst[, ord_cols, drop = FALSE]
 
 # Row splits by Peak
 row_split_df <- data.frame(
   Peak = factor(paste0("p", gp_map$peak), levels = paste0("p", sort(unique(gp_map$peak)))),
-  row.names = rownames(mat_abs),
+  row.names = rownames(mat_vst),
   check.names = FALSE
 )
 
 # Color function
-qs <- as.numeric(quantile(as.vector(mat_abs), probs = c(0, .20, .40, .70, .95), na.rm = TRUE))
+qs <- as.numeric(quantile(as.vector(mat_vst), probs = c(0, .20, .40, .70, .95), na.rm = TRUE))
 col_fun_abs <- circlize::colorRamp2(
   qs,
   c("#ffffff", "#fff5eb", "#fdd0a2", "#f16913", "#b30000")
@@ -252,8 +211,8 @@ col_fun_abs <- circlize::colorRamp2(
 
 # Heatmap
 ht <- ComplexHeatmap::Heatmap(
-  mat_abs,
-  name = "log2(TPM+1)",
+  mat_vst,
+  name = "VST",
   col = col_fun_abs,
   show_row_names = TRUE,
   row_names_gp = grid::gpar(fontsize = 9),
@@ -271,100 +230,126 @@ ht <- ComplexHeatmap::Heatmap(
 
 ComplexHeatmap::draw(ht, heatmap_legend_side = "right", annotation_legend_side = "right")
 ```
-```{r per_gene_boxplots, message=FALSE, warning=FALSE, fig.width=12, fig.height=6}
 
-# -----------------------------------------------------------
-# Global gene-level median TPM filter (across all samples)
-# -----------------------------------------------------------
-gene_median_tpm_min <- 1   # <-- tweak this threshold as you like (e.g., 0.5, 1, 2)
+```{r}
 
-# gene_abs_expr is genes x samples TPM matrix
-stopifnot(is.matrix(gene_abs_expr))
-gene_medians <- matrixStats::rowMedians(gene_abs_expr, na.rm = TRUE)
+gene_vst_expr <- vst_mat  # genes x samples
 
-keep_genes <- names(gene_medians)[gene_medians >= gene_median_tpm_min]
-message(sprintf("Keeping %d/%d genes with median TPM \u2265 %.3f",
-                length(keep_genes), length(gene_medians), gene_median_tpm_min))
-
-
-# Plot map for genes present (and passing median filter)
-plot_map_gene <- overlap_gene_tbl %>%
-  dplyr::filter(gene_key %in% rownames(gene_abs_expr),
-                gene_key %in% keep_genes) %>%
-  dplyr::select(gene_key, display_name, peak) %>%
-  dplyr::distinct()
-
-# Long-format gene TPM, joined to labels, Peak, and Population
-expr_long_gene <- as.data.frame(gene_abs_expr[plot_map_gene$gene_key, , drop = FALSE]) %>%
+# DO NOT join PopGroup here; derive it only from the mapping
+expr_long_gene <- as.data.frame(gene_vst_expr) %>%
   tibble::rownames_to_column("gene_key") %>%
-  tidyr::pivot_longer(-gene_key, names_to = "PN", values_to = "TPM") %>%
-  dplyr::left_join(plot_map_gene, by = "gene_key") %>%
-  dplyr::left_join(pheno_tbl %>% dplyr::select(PN, Population), by = "PN") %>%
+  tidyr::pivot_longer(-gene_key, names_to = "PN", values_to = "VST") %>%
+  dplyr::left_join(
+    overlap_gene_tbl %>% dplyr::select(gene_key, display_name, peak) %>% distinct(),
+    by = "gene_key"
+  ) %>%
+  dplyr::left_join(
+    pheno_tbl %>% dplyr::select(PN, Population),
+    by = "PN"
+  ) %>%
   dplyr::mutate(
-    Population = factor(Population, levels = levels(gw1_pheno_data$Population)),
-    log2_TPM1  = log2(TPM + 1)
+    Population = factor(Population, levels = levels(gw1_pheno_data$Population))
   ) %>%
   dplyr::filter(!is.na(Population), !is.na(peak))
 
+# ---- Canonical group order you want
+group_order <- c("BP1", "TP1", "BP2", "BP3", "TP2", "TP_OUT")
 
-# ---- Population groups + ordering ----
-group_order <- c("TP1", "TP2", "TP_OUT", "BP1", "BP2", "BP3")
-
+# Map PopGroup from Population and lock its levels
 expr_long_gene <- expr_long_gene %>%
-  mutate(
+  dplyr::mutate(
     PopGroup = population_groups[as.character(Population)],
     PopGroup = factor(PopGroup, levels = group_order)
   )
 
-# Order populations within each group
+# ---- Stable population order within each group
+# Use the global Population level order to rank populations INSIDE each group
+global_pop_levels <- levels(gw1_pheno_data$Population)
+
 pop_order <- unlist(lapply(group_order, function(g) {
-  names(population_groups)[population_groups == g]
-}))
+  pops <- names(population_groups)[population_groups == g]
+  # keep only defined populations, ordered by your global Population levels
+  pops <- pops[!is.na(match(pops, global_pop_levels))]
+  pops[order(match(pops, global_pop_levels))]
+}), use.names = FALSE)
+
+# Lock Population to that stable order (dropping any NAs)
+pop_order <- unique(pop_order[!is.na(pop_order)])
 expr_long_gene <- expr_long_gene %>%
-  mutate(Population = factor(Population, levels = pop_order))
+  dplyr::mutate(Population = factor(Population, levels = pop_order))
 
-# ----- Gene-level single-peak plot (faceted by gene) -----
-# ----- Gene-level single-peak plot (faceted by gene) -----
-make_peak_plot <- function(pk) {
-  df_p <- expr_long_gene %>%
-    dplyr::filter(.data$peak == pk, !is.na(.data$PopGroup))
 
-  # Populations present (in global order) + groups
-  pops_present   <- as.character(pop_order[pop_order %in% df_p$Population])
-  groups_present <- as.character(unname(population_groups[pops_present]))
+plot_genes_together <- function(genes,
+                                id = c("display_name", "gene_key"),
+                                scales = c("free_y", "fixed"),
+                                y_var = c("VST")) {
+  id     <- match.arg(id)
+  scales <- match.arg(scales)
+  y_var  <- match.arg(y_var)
 
-  # Display-safe group text so "TP_OUT" doesn't split across lines
-  groups_disp <- gsub("_", "\u2011", groups_present)  # non-breaking hyphen
+  id_sym <- rlang::sym(id)
 
-  # Relevel and build nested x label as "Population::Group"
-  df_p <- df_p %>%
+  df_g <- expr_long_gene %>%
+    dplyr::filter(!is.na(!!id_sym), !!id_sym %in% genes, !is.na(PopGroup))
+
+  if (nrow(df_g) == 0) stop("No rows matched the requested genes with the chosen id column.")
+
+  fac_col <- if (id == "display_name") rlang::sym("display_name") else rlang::sym("gene_key")
+  df_g <- df_g %>% dplyr::mutate(!!fac_col := factor(!!fac_col, levels = genes))
+
+  # Reuse the already-locked levels for Population/PopGroup,
+  # but drop unused levels to avoid accidental alpha sorting in guides
+  df_g <- df_g %>%
     dplyr::mutate(
-      Population    = factor(Population, levels = pops_present),
-      PopGroup      = factor(PopGroup, levels = c("TP1","TP2","TP_OUT","BP1","BP2","BP3")),
+      Population = droplevels(Population),
+      PopGroup   = factor(PopGroup, levels = levels(expr_long_gene$PopGroup))
+    )
+
+  # Populations present in the plot, respecting your global pop_order (already the factor levels)
+  pops_present <- levels(df_g$Population)
+  groups_present <- as.character(population_groups[as.character(pops_present)])
+
+  # Non-breaking hyphen for nested axis labels
+  groups_disp <- gsub("_", "\u2011", groups_present)
+
+  # Build nested x label as "Population::Group"
+  df_g <- df_g %>%
+    dplyr::mutate(
       PopGroup_disp = groups_disp[ match(as.character(Population), pops_present) ],
       x_nested      = paste(as.character(Population), PopGroup_disp, sep = "::")
     )
 
   x_levels <- paste(pops_present, groups_disp, sep = "::")
 
-  # Positions for dashed separators between group blocks
+  # Vertical lines between group blocks (computed from runs of groups_disp)
   r <- rle(groups_disp)
-  grp_ends <- cumsum(r$lengths)
-  vlines_x <- if (length(grp_ends) > 1) grp_ends[-length(grp_ends)] + 0.5 else numeric(0)
+  grp_ends  <- cumsum(r$lengths)
+  vlines_x  <- if (length(grp_ends) > 1) grp_ends[-length(grp_ends)] + 0.5 else numeric(0)
 
-  ggplot(df_p, aes(x = x_nested, y = TPM)) +
+  y_aes <- rlang::sym(y_var)
+
+  ggplot(df_g, aes(x = x_nested, y = !!y_aes, fill = PopGroup)) +
     geom_boxplot(outlier.shape = NA, na.rm = TRUE) +
-    geom_jitter(
-      width = 0.15, height = 0, alpha = 0.70, size = 1.8, shape = 16, na.rm = TRUE
+    geom_jitter(width = 0.15, height = 0, alpha = 0.70, size = 1.8, shape = 16, na.rm = TRUE) +
+    scale_fill_manual(
+      breaks = levels(expr_long_gene$PopGroup),  # ensures legend/group order
+      values = c(
+        "TP1" = "#ed2224",
+        "TP2" = "#ed2224",
+        "TP_OUT" = "#c94c4c",
+        "BP1" = "#E69F00",
+        "BP2" = "#009E73",
+        "BP3" = "#F0E442"
+      )
     ) +
-    facet_wrap(~ display_name, nrow = 1, scales = "free_y") +
+    facet_wrap(vars(!!fac_col), nrow = 2, scales = scales) +
     scale_x_discrete(limits = x_levels, drop = FALSE) +
     guides(x = legendry::guide_axis_nested(key = "::", angle = 45)) +
     { if (length(vlines_x)) geom_vline(xintercept = vlines_x, linetype = "dashed") } +
     labs(
-      title = paste0("Peak ", pk, " \u2014 gene TPM by population"),
+      title = sprintf("Gene expression (%s) across populations", y_var),
       x = "Population (top row = group)",
-      y = "TPM"
+      y = "VST"
     ) +
     coord_cartesian(clip = "off") +
     theme_bw(base_size = 11) +
@@ -379,22 +364,205 @@ make_peak_plot <- function(pk) {
     )
 }
 
+```
 
-# Build list of plots, one per peak
-peaks_for_plots <- sort(unique(plot_map_gene$peak))
-plots_by_peak <- lapply(peaks_for_plots, make_peak_plot)
-names(plots_by_peak) <- paste0("Peak_", peaks_for_plots)
+```{r selected per_gene_boxplots, message=FALSE, warning=FALSE, fig.width=12, fig.height=6}
 
-# Print all plots to the notebook (one after another)
-for (pk in peaks_for_plots) {
-  print(plots_by_peak[[paste0("Peak_", pk)]])
+# By display name, free y per gene (default)
+genes_to_plot<-c("c6orf132","itih3","cebpg","slc7a10","cntnap5","gypc","sptbn4b","naa40")
+p<-plot_genes_together(genes_to_plot, id = "display_name", scales = "free_y", y_var = "VST")
+
+
+
+  ggsave(file.path(root, "output_data/09_RNASeq","RNAseq_peak_genes.pdf"), plot = p , limitsize = FALSE, width = 12, height = 6)
+  
+  p
+```
+
+```{r}
+# ---------------------------
+# 0) Prepare DESeq2 colData
+# ---------------------------
+stopifnot(all(colnames(dds) %in% rownames(gw1_pheno_data)))
+
+colData(dds)$Population <- factor(
+  gw1_pheno_data[colnames(dds), "Population"],
+  levels = levels(gw1_pheno_data$Population)
+)
+colData(dds)$PopGroup <- factor(
+  population_groups[as.character(colData(dds)$Population)],
+  levels = c("BP1", "TP1", "BP2", "BP3", "TP2", "TP_OUT")
+)
+
+# Helper: get gene IDs in a peak that exist in dds
+genes_in_peak <- function(pk) {
+  g <- overlap_gene_tbl %>%
+    dplyr::filter(peak == pk) %>%
+    dplyr::pull(gene_key) %>%
+    unique()
+  intersect(g, rownames(dds))
 }
 
-# Optional: save a multi-page PDF (one page per peak)
-# plots_dir <- file.path(root, "output_data", "09_RNASeq", "plots")
-# dir.create(plots_dir, recursive = TRUE, showWarnings = FALSE)
-# pdf_fn <- file.path(plots_dir, "peaks_faceted_by_gene_boxplots.pdf")
-# pdf(pdf_fn, width = 12, height = 6)
-# for (pk in peaks_for_plots) {
-#   print(plots_by_peak[[paste0("Peak
+# ---------------------------
+# 1) Runner for a 2-group test
+# ---------------------------
+safe_deseq <- function(dse) {
+  # Try parametric, then mean; both avoid locfit::locfit
+  for (ft in c("parametric", "mean")) {
+    x <- tryCatch(DESeq(dse, fitType = ft, quiet = TRUE),
+                  error = function(e) e)
+    if (!inherits(x, "error")) return(x)
+  }
+  stop("DESeq failed with both fitType='parametric' and 'mean'.")
+}
+
+run_two_group_test <- function(pk, groups_keep, make_group_fn, contrast_vec) {
+  gset <- genes_in_peak(pk)
+  if (!length(gset)) return(NULL)
+
+  keep_samples <- which(colData(dds)$PopGroup %in% groups_keep)
+  if (length(keep_samples) < 2) {
+    message(sprintf("Peak %s skipped: <2 samples after filtering.", pk))
+    return(NULL)
+  }
+
+  dsub <- dds[gset, keep_samples]
+
+  # Two-level factor for this contrast
+  colData(dsub)$Group <- droplevels(make_group_fn(colData(dsub)))
+
+  # Must be exactly 2 levels, >=2 samples per level
+  if (nlevels(colData(dsub)$Group) != 2) {
+    message(sprintf("Peak %s skipped: Group has %d level(s): %s",
+                    pk, nlevels(colData(dsub)$Group),
+                    paste(levels(colData(dsub)$Group), collapse=", ")))
+    return(NULL)
+  }
+  tab <- table(colData(dsub)$Group)
+  if (any(tab < 2)) {
+    message(sprintf("Peak %s skipped: insufficient replicates (%s).",
+                    pk, paste(names(tab), tab, sep=":", collapse=", ")))
+    return(NULL)
+  }
+
+  # Use the intended simple model, avoid inherited designs
+  design(dsub) <- ~ Group
+
+  # Safety filters to prevent odd corner cases
+  dsub <- dsub[rowSums(counts(dsub)) > 0, ]
+  # optional: require at least a few counts across samples
+  # dsub <- dsub[rowSums(counts(dsub) >= 5) >= 2, ]
+
+  # Fit with robust fallback (no locfit)
+  #dsub <- safe_deseq(dsub)
+  dsub <- DESeq(dsub, fitType = "mean", quiet = TRUE)  # no locfit involved
+
+  # Get results
+  res <- results(dsub, contrast = contrast_vec, tidy = TRUE)
+
+  ann <- overlap_gene_tbl %>%
+    dplyr::filter(gene_key %in% rownames(dsub)) %>%
+    dplyr::distinct(gene = gene_key, display_name, peak)
+
+  out <- res %>%
+  dplyr::rename(gene = row) %>%
+  dplyr::left_join(ann, by = "gene") %>%
+  dplyr::mutate(
+    test_peak = pk,
+    contrast  = paste(contrast_vec[2], "vs", contrast_vec[3]),
+    num       = contrast_vec[2],     # <— add
+    den       = contrast_vec[3],     # <— add
+    n_num     = as.integer(tab[contrast_vec[2]]),
+    n_den     = as.integer(tab[contrast_vec[3]])
+  ) %>%
+  dplyr::relocate(test_peak, gene, display_name, peak, contrast, num, den,
+                  baseMean, log2FoldChange, lfcSE, stat, pvalue, padj, n_num, n_den)
+
+  out
+}
+
+# ---------------------------
+# 2) Define tests
+# ---------------------------
+
+# Peaks 1,4,5 → BP1 vs TP1
+make_group_pk145 <- function(cd) {
+  factor(ifelse(cd$PopGroup == "BP1", "BP1",
+         ifelse(cd$PopGroup == "TP1", "TP1", NA_character_)),
+         levels = c("TP1", "BP1")) # TP1 is reference
+}
+
+# Peaks 2,3,6 → BP2 vs TP2
+make_group_pk236_BP2 <- function(cd) {
+  factor(ifelse(cd$PopGroup == "BP2", "BP2",
+         ifelse(cd$PopGroup == "TP2", "TP2", NA_character_)),
+         levels = c("TP2", "BP2")) # TP2 is reference
+}
+
+# Peaks 2,3,6 → BP3 vs TP2
+make_group_pk236_BP3 <- function(cd) {
+  factor(ifelse(cd$PopGroup == "BP3", "BP3",
+         ifelse(cd$PopGroup == "TP2", "TP2", NA_character_)),
+         levels = c("TP2", "BP3")) # TP2 is reference
+}
+
+# ---------------------------
+# 3) Execute tests per peak
+# ---------------------------
+peaks_A <- c(1,4,5)
+peaks_B <- c(2,3,6)
+
+# A: BP1 vs TP1
+res_A <- lapply(peaks_A, function(pk)
+  run_two_group_test(pk,
+                     groups_keep = c("BP1","TP1"),
+                     make_group_fn = make_group_pk145,
+                     contrast_vec = c("Group","BP1","TP1"))
+)
+
+# B1: BP2 vs TP2
+res_B2 <- lapply(peaks_B, function(pk)
+  run_two_group_test(pk,
+                     groups_keep = c("BP2","TP2"),
+                     make_group_fn = make_group_pk236_BP2,
+                     contrast_vec = c("Group","BP2","TP2"))
+)
+
+# B2: BP3 vs TP2
+res_B3 <- lapply(peaks_B, function(pk)
+  run_two_group_test(pk,
+                     groups_keep = c("BP3","TP2"),
+                     make_group_fn = make_group_pk236_BP3,
+                     contrast_vec = c("Group","BP3","TP2"))
+)
+
+# Combine all results
+results_by_peak <- dplyr::bind_rows(c(res_A, res_B2, res_B3))
+
+# Annotate direction & significance
+results_by_peak <- results_by_peak %>%
+  dplyr::mutate(
+    effect = dplyr::case_when(
+      is.na(log2FoldChange) ~ NA_character_,
+      log2FoldChange > 0    ~ paste(num, ">", den),
+      log2FoldChange < 0    ~ paste(num, "<", den),
+      TRUE                  ~ "≈0"
+    ),
+    sig = dplyr::case_when(
+      is.na(padj)     ~ "",
+      padj < 0.001    ~ "***",
+      padj < 0.01     ~ "**",
+      padj < 0.05     ~ "*",
+      TRUE            ~ "ns"
+    )
+  )
+
+
+# Preview top hits
+results_by_peak %>%
+  dplyr::arrange(test_peak, padj) %>%
+  dplyr::select(test_peak, gene, display_name, contrast,
+                baseMean, log2FoldChange, padj, n_num, n_den, effect, sig) %>%
+  filter(sig!="ns")
+
 ```

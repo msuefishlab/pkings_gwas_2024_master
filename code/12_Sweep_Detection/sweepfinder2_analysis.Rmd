@@ -345,7 +345,7 @@ p_zoomed <- ggplot(peak_plot_data, aes(x = genome_pos_peak, y = CLR)) +
   geom_rect(
     data = peak_boundaries %>% filter(peak_index %% 2 == 0),
     aes(xmin = peak_start_cum, xmax = peak_end_cum, ymin = -Inf, ymax = Inf),
-    fill = "grey95", alpha = 0.5, inherit.aes = FALSE
+    fill = "grey50", alpha = 0.5, inherit.aes = FALSE
   ) +
   # Blue shading for GWAS peak boundaries (actual peak regions from BED file)
   geom_rect(

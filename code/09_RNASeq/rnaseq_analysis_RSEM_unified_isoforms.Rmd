@@ -19,6 +19,7 @@ library(ggpubr)
 library(openxlsx)
 library(ggh4x)
 library(legendry)
+library(data.table)
 source(file.path(root, "code", "09_RNASeq", "go_analysis.R"))
 ```
 
@@ -374,7 +375,7 @@ make_peak_plot <- function(pk) {
       alpha = 0.70, size = 1.8, shape = 16, na.rm = TRUE,
       position = ggplot2::position_jitterdodge(jitter.width = 0.15, jitter.height = 0, dodge.width = 0.6)
     ) +
-    facet_wrap(~ gene_symbol, nrow = 1, scales = "fixed") +
+    facet_wrap(~ gene_symbol, nrow = 1, scales = "free") +
     # Merge by the *later* part of "Population::Group" (i.e., Group)
     scale_x_discrete(limits = x_levels, drop = FALSE) +
     guides(
