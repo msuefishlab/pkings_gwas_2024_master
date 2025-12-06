@@ -128,7 +128,7 @@ fi
 
 # Run SweeD
 echo "Running SweeD..."
-echo "Command: SweeD -input ${temp_vcf} -name ${POP}.${CHR} -isfs <sfs> -t 8 -checkpoint 3600"
+echo "Command: SweeD -input ${temp_vcf} -name ${POP}.${CHR} -isfs <sfs> -threads 8 -checkpoint 3600"
 echo ""
 
 if [[ "${use_sfs}" == "true" ]]; then
@@ -137,14 +137,14 @@ if [[ "${use_sfs}" == "true" ]]; then
     SweeD -input "/data/$(basename ${temp_vcf})" \
           -name "${POP}.${CHR}" \
           -isfs "/sweed/background/${POP}.genome_sfs.txt" \
-          -t 8 \
+          -threads 8 \
           -checkpoint 3600
 else
   # No background SFS - SweeD will calculate on-the-fly
   singularity exec --bind ${temp_dir}:/data ${sweed_image} \
     SweeD -input "/data/$(basename ${temp_vcf})" \
           -name "${POP}.${CHR}" \
-          -t 8 \
+          -threads 8 \
           -checkpoint 3600
 fi
 
