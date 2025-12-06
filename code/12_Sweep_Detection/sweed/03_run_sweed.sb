@@ -121,7 +121,7 @@ echo ""
 if [[ "${use_sfs}" == "true" ]]; then
   # Use empirical background SFS
   singularity exec --bind ${root}:/project_root ${sweed_image} \
-    SweeD -input "/project_root/output_data/12_Sweep_Detection/${POP}.polarized.vcf.gz" \
+    SweeD -input "/project_root/${VCF#${root}/}" \
           -name "${POP}.${CHR}" \
           -isfs "/project_root/output_data/12_Sweep_Detection/sweed/background/${POP}.genome_sfs.txt" \
           -t 8 \
@@ -129,7 +129,7 @@ if [[ "${use_sfs}" == "true" ]]; then
 else
   # No background SFS - SweeD will calculate on-the-fly
   singularity exec --bind ${root}:/project_root ${sweed_image} \
-    SweeD -input "/project_root/output_data/12_Sweep_Detection/${POP}.polarized.vcf.gz" \
+    SweeD -input "/project_root/${VCF#${root}/}" \
           -name "${POP}.${CHR}" \
           -t 8 \
           -checkpoint 3600

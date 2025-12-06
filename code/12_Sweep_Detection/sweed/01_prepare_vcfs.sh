@@ -70,12 +70,12 @@ for pop in "${POPS[@]}"; do
     total_vcfs=$((total_vcfs + 1))
 
     # Try per-chromosome VCF first
-    vcf_by_chr="${root}/output_data/12_Sweep_Detection/by_chrom/${pop}.polarized.${chr}.vcf.gz"
+    vcf_by_chr="${root}/output_data/12_Sweep_Detection/vcfs/by_chrom/${pop}.polarized.${chr}.vcf.gz"
 
     # If per-chromosome doesn't exist, note that we'll use full VCF with filtering
     if [[ ! -f "${vcf_by_chr}" ]]; then
       # Check if full VCF exists
-      vcf_full="${root}/output_data/12_Sweep_Detection/${pop}.polarized.vcf.gz"
+      vcf_full="${root}/output_data/12_Sweep_Detection/vcfs/${pop}.polarized.vcf.gz"
 
       if [[ ! -f "${vcf_full}" ]]; then
         echo "  [MISSING] ${chr}: No VCF found" | tee -a "${log_file}"
