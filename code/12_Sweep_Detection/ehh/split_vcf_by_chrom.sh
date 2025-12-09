@@ -1,21 +1,42 @@
 #!/bin/bash
 set -euo pipefail
 
-## split_each_pop_by_chrom.sh (simple)
-## JRG — August 2025
+## split_vcf_by_chrom.sh
+## Split polarized VCFs by chromosome for EHH analysis
+##
+## Usage:
+##   bash code/12_Sweep_Detection/ehh/split_vcf_by_chrom.sh [--all-chromosomes]
+##
+## Options:
+##   --all-chromosomes    Process all 25 chromosomes instead of just GWAS peak chromosomes
+##
+## Author: Jason Gallant Lab
+## Date: 2024
+
+# Parse command line arguments
+ALL_CHROM=false
+if [[ "${1:-}" == "--all-chromosomes" ]]; then
+  ALL_CHROM=true
+fi
 
 module load BCFtools
 
 root="$(git rev-parse --show-toplevel)"
 outdir="${root}/output_data/12_Sweep_Detection"
-vcfdir="${outdir}/vcfs"
-outsub="${vcfdir}/by_chrom"
+vcfdir="${outdir}"
+outsub="${outdir}/by_chrom"
 
 mkdir -p "${outsub}"
 cd "${vcfdir}"
 
-# target chromosomes (with 'chr' prefix already)
-targets=(chr24 chr17 chr6 chr16 chr13 chr8)
+# Target chromosomes (with 'chr' prefix already)
+if [[ "${ALL_CHROM}" == "true" ]]; then
+  echo "Processing all 25 chromosomes"
+  targets=(chr{1..25})
+else
+  echo "Processing GWAS peak chromosomes only (chr6, chr8, chr13, chr16, chr17, chr24)"
+  targets=(chr6 chr8 chr13 chr16 chr17 chr24)
+fi
 
 shopt -s nullglob
 vcfs=( *.polarized.vcf.gz )
