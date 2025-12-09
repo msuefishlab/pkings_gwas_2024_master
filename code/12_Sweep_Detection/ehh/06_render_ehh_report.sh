@@ -15,6 +15,7 @@ set -euo pipefail
 ## Date: 2024
 
 root="$(git rev-parse --show-toplevel)"
+source "${root}/pkings_gwas.env"
 
 echo "=========================================="
 echo "Rendering EHH Analysis Report"
@@ -40,9 +41,10 @@ echo ""
 
 # Render with R
 echo "Rendering R Markdown..."
-Rscript -e "rmarkdown::render(
-  '${rmd_file}',
-  output_dir = '${output_dir}',
+singularity exec --bind ${root}:/project_root ${rehh_image} \
+  Rscript -e "rmarkdown::render(
+  '/project_root/code/12_Sweep_Detection/ehh/ehh_analysis.Rmd',
+  output_dir = '/project_root/output_data/12_Sweep_Detection/ehh',
   output_file = 'ehh_analysis.html'
 )"
 

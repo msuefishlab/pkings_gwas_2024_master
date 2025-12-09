@@ -108,7 +108,8 @@ echo "Running integrated EHH scan..."
 echo "  This computes inES (both pops) + Rsb in a single pass"
 echo ""
 
-Rscript "${root}/code/12_Sweep_Detection/ehh/scan_ehh_integrated.R" \
+singularity exec --bind ${root}:/project_root ${rehh_image} \
+  Rscript /project_root/code/12_Sweep_Detection/ehh/scan_ehh_integrated.R \
   --pair "${PAIR}" \
   --chromosome "${CHR}" \
   --vcf_file "${VCF}" \

@@ -297,7 +297,7 @@ if [[ ${total_created} -eq ${total_expected} ]]; then
   echo "Merged files:" | tee -a "${log_file}"
   ls -lh ${outdir}/*.genome_wide_*.txt.gz | tee -a "${log_file}"
   echo "" | tee -a "${log_file}"
-  echo "Next step: Rscript code/12_Sweep_Detection/ehh/04_extract_peak_ehh.R" | tee -a "${log_file}"
+  echo "Next step: singularity exec --bind \${root}:/project_root \${rehh_image} Rscript /project_root/code/12_Sweep_Detection/ehh/04_extract_peak_ehh.R" | tee -a "${log_file}"
 else
   echo "WARNING: Not all merged files were created (${total_created} / ${total_expected})" | tee -a "${log_file}"
   echo "Check that all scan jobs completed successfully" | tee -a "${log_file}"

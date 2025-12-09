@@ -172,7 +172,12 @@ output_data/12_Sweep_Detection/ehh/merged/
 ### Step 4: Extract peak statistics
 
 ```bash
-Rscript code/12_Sweep_Detection/ehh/04_extract_peak_ehh.R
+# Source environment to get access to rehh_image variable
+source pkings_gwas.env
+
+# Run with singularity
+singularity exec --bind ${root}:/project_root ${rehh_image} \
+  Rscript /project_root/code/12_Sweep_Detection/ehh/04_extract_peak_ehh.R
 ```
 
 **What it does:**

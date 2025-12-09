@@ -17,13 +17,19 @@ RUN apt-get update && apt-get install -y \
 
 # Install R packages needed for EHH pipeline
 # Note: tidyverse and knitr are already installed in rocker/tidyverse base image
-RUN R -e "install.packages(c( \
-    'rehh', \
-    'patchwork', \
-    'rprojroot', \
-    'optparse', \
-    'scales' \
-    ), repos='https://cloud.r-project.org/')"
+# Install packages with error checking and verbose output
+RUN R -e "options(warn=2); \
+    pkgs <- c('rehh', 'patchwork', 'rprojroot', 'optparse', 'scales'); \
+    cat('Installing packages:', paste(pkgs, collapse=', '), '\\n'); \
+    for (pkg in pkgs) { \
+        cat('\\nInstalling', pkg, '...\\n'); \
+        install.packages(pkg, repos='https://cloud.r-project.org/', dependencies=TRUE); \
+        if (pkg %in% installed.packages()[,'Package']) { \
+            cat('  SUCCESS:', pkg, 'installed\\n'); \
+        } else { \
+            stop(paste('FAILED to install:', pkg)); \
+        } \
+    }"
 
 # Test installations
 RUN R -e "cat('\\n=== R Package Installation Test ===\\n'); \
