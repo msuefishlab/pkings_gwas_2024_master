@@ -79,3 +79,12 @@
 
     cd images
     singularity build sweepfinder2.sif docker://jasongallant/sweepfinder2:latest
+
+## rehh
+
+    docker build --platform linux/amd64 -f Dockerfile.rehh -t rehh .
+    docker tag rehh jasongallant/rehh
+    docker push jasongallant/rehh
+
+    cd images
+    singularity build rehh.sif docker://jasongallant/rehh:latest

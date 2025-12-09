@@ -1,0 +1,45 @@
+FROM rocker/tidyverse:4.3.2
+
+LABEL maintainer="Jason Gallant Lab"
+LABEL version="1.0"
+LABEL description="rehh and dependencies for extended haplotype homozygosity analysis"
+
+# Prevent interactive prompts during build
+ENV DEBIAN_FRONTEND=noninteractive
+ENV LC_ALL=C
+
+# Update and install any additional system dependencies if needed
+# Note: rocker/tidyverse already includes most dependencies for tidyverse packages
+RUN apt-get update && apt-get install -y \
+    git \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install R packages needed for EHH pipeline
+# Note: tidyverse and knitr are already installed in rocker/tidyverse base image
+RUN R -e "install.packages(c( \
+    'rehh', \
+    'patchwork', \
+    'rprojroot', \
+    'optparse', \
+    'scales' \
+    ), repos='https://cloud.r-project.org/')"
+
+# Test installations
+RUN R -e "cat('\\n=== R Package Installation Test ===\\n'); \
+    cat('R version:', as.character(getRversion()), '\\n'); \
+    cat('Testing package loading...\\n'); \
+    library(tidyverse); cat('  ✓ tidyverse loaded\\n'); \
+    library(rehh); cat('  ✓ rehh loaded\\n'); \
+    library(patchwork); cat('  ✓ patchwork loaded\\n'); \
+    library(rprojroot); cat('  ✓ rprojroot loaded\\n'); \
+    library(optparse); cat('  ✓ optparse loaded\\n'); \
+    library(scales); cat('  ✓ scales loaded\\n'); \
+    cat('\\n=== Session Info ===\\n'); \
+    sessionInfo()"
+
+# Set working directory
+WORKDIR /data
+
+# Default command - show help for rehh package
+CMD ["R", "-e", "library(rehh); help(package='rehh')"]
