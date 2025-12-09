@@ -23,7 +23,7 @@ RUN R -e "options(warn=2); \
     cat('Installing packages:', paste(pkgs, collapse=', '), '\\n'); \
     for (pkg in pkgs) { \
         cat('\\nInstalling', pkg, '...\\n'); \
-        install.packages(pkg, repos='https://cloud.r-project.org/', dependencies=TRUE); \
+        install.packages(pkg, repos='https://cloud.r-project.org/'); \
         if (pkg %in% installed.packages()[,'Package']) { \
             cat('  SUCCESS:', pkg, 'installed\\n'); \
         } else { \
