@@ -1,0 +1,766 @@
+---
+title: "EHH Genome-Wide Selection Analysis"
+author: "Jason Gallant Lab"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    code_folding: hide
+    theme: flatly
+    fig_width: 14
+    fig_height: 10
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE,
+                      fig.width = 14, fig.height = 10)
+library(tidyverse)
+library(scales)
+library(knitr)
+library(patchwork)
+
+root <- rprojroot::find_root(".git/index")
+knitr::opts_knit$set(root.dir = root)
+
+# ggplot2 theme
+theme_set(theme_bw(base_size = 10))
+```
+
+# Overview
+
+This notebook analyzes genome-wide selective sweep patterns using **Extended Haplotype Homozygosity (EHH)** statistics. We compare EHH signals in GWAS peaks versus genome-wide background to determine how exceptional our GWAS loci are relative to the rest of the genome.
+
+**Statistics analyzed:**
+
+- **inES** (Integrated Extended Haplotype Statistic) - Raw EHH extension measure per population
+- **iHS** (Integrated Haplotype Score) - Standardized inES within population (mean=0, SD=1)
+- **Rsb** (Relative Selection Between populations) - Cross-population comparison
+
+**Populations analyzed:**
+
+- **BP1**: Bambomo BP phenotypes
+- **TP1**: Ipassa/Bengue TP phenotypes
+- **BP2**: Bikagala/Bavavela BP phenotypes
+- **TP2**: Douvalou/Douengi TP phenotypes
+- **BP3**: Biroundou BP phenotypes
+
+**Comparisons analyzed (Rsb):**
+
+- **BP1 vs TP1**: Bambomo BP vs Ipassa/Bengue TP
+- **BP2 vs TP2**: Bikagala/Bavavela BP vs Douvalou/Douengi TP
+- **BP3 vs TP2**: Biroundou BP vs Douvalou/Douengi TP
+
+**GWAS Peaks:** 6 major peaks on chr6, chr8, chr13, chr16, chr17, chr24
+
+---
+
+# 1. Load Data
+
+## 1.1 Genome-Wide Summary Statistics
+
+```{r load_genome_wide_summary}
+cat("Loading genome-wide summary statistics...\n")
+
+# inES/iHS summary
+ines_summary <- read_tsv(
+  file.path(root, "output_data/12_Sweep_Detection/ehh/genome_wide_ines_summary.txt"),
+  show_col_types = FALSE
+)
+
+cat("  inES/iHS populations:", paste(unique(ines_summary$population), collapse = ", "), "\n")
+
+# Rsb summary
+rsb_summary <- read_tsv(
+  file.path(root, "output_data/12_Sweep_Detection/ehh/genome_wide_rsb_summary.txt"),
+  show_col_types = FALSE
+)
+
+cat("  Rsb comparisons:", paste(unique(rsb_summary$comparison), collapse = ", "), "\n")
+```
+
+```{r display_genome_wide_summary}
+cat("\n### Genome-Wide inES/iHS Statistics\n")
+kable(ines_summary, digits = 4, caption = "Genome-Wide inES/iHS Summary Statistics")
+
+cat("\n### Genome-Wide Rsb Statistics\n")
+kable(rsb_summary, digits = 4, caption = "Genome-Wide Rsb Summary Statistics")
+```
+
+**Key observations:**
+
+- iHS mean should be ~0 and SD ~1 (standardized distribution)
+- Rsb mean should be ~0 (symmetric comparison)
+- These distributions provide the genome-wide background for percentile calculations
+
+## 1.2 Peak-Specific Values
+
+```{r load_peak_data}
+cat("\nLoading peak-specific EHH values...\n")
+
+# Load peak inES/iHS values
+peak_ines <- read_tsv(
+  file.path(root, "output_data/12_Sweep_Detection/ehh/peak_ines_values.txt"),
+  show_col_types = FALSE
+)
+
+cat("  Peak inES/iHS positions:", nrow(peak_ines), "\n")
+cat("  Peaks:", paste(unique(peak_ines$peak), collapse = ", "), "\n")
+
+# Load peak Rsb values
+peak_rsb <- read_tsv(
+  file.path(root, "output_data/12_Sweep_Detection/ehh/peak_rsb_values.txt"),
+  show_col_types = FALSE
+)
+
+cat("  Peak Rsb positions:", nrow(peak_rsb), "\n")
+
+# Load peak summaries
+peak_ines_summary <- read_tsv(
+  file.path(root, "output_data/12_Sweep_Detection/ehh/peak_ines_summary.txt"),
+  show_col_types = FALSE
+)
+
+peak_rsb_summary <- read_tsv(
+  file.path(root, "output_data/12_Sweep_Detection/ehh/peak_rsb_summary.txt"),
+  show_col_types = FALSE
+)
+```
+
+## 1.3 Percentile Rankings
+
+```{r load_percentiles}
+cat("\nLoading percentile rankings...\n")
+
+# Load percentiles
+ines_percentiles <- read_tsv(
+  file.path(root, "output_data/12_Sweep_Detection/ehh/peak_ines_percentiles.txt"),
+  show_col_types = FALSE
+)
+
+rsb_percentiles <- read_tsv(
+  file.path(root, "output_data/12_Sweep_Detection/ehh/peak_rsb_percentiles.txt"),
+  show_col_types = FALSE
+)
+
+cat("  inES/iHS percentile entries:", nrow(ines_percentiles), "\n")
+cat("  Rsb percentile entries:", nrow(rsb_percentiles), "\n")
+```
+
+## 1.4 Empirical P-Values
+
+```{r load_pvalues}
+cat("\nLoading empirical p-values...\n")
+
+# Load p-values
+ines_pvalues <- read_tsv(
+  file.path(root, "output_data/12_Sweep_Detection/ehh/peak_ines_empirical_pvalues.txt"),
+  show_col_types = FALSE
+)
+
+rsb_pvalues <- read_tsv(
+  file.path(root, "output_data/12_Sweep_Detection/ehh/peak_rsb_empirical_pvalues.txt"),
+  show_col_types = FALSE
+)
+```
+
+## 1.5 GWAS Peak Definitions
+
+```{r load_peak_defs}
+peaks_bed <- read.table(
+  file.path(root, "output_data/06_Association/PKINGS_ALL_WOB_EXCLUDED/PKINGS_ALL_WOB_EXCLUDED_PEAKS.bed"),
+  col.names = c("chromosome", "start", "end", "peak", "max_log_p", "idx_bp")
+)
+
+# Add chr prefix if needed
+if (!grepl("^chr", peaks_bed$chromosome[1])) {
+  peaks_bed$chromosome <- paste0("chr", peaks_bed$chromosome)
+}
+
+kable(peaks_bed, caption = "GWAS Peak Definitions")
+```
+
+---
+
+# 2. Percentile Rankings
+
+## 2.1 iHS Percentile Heatmap
+
+```{r ihs_percentile_heatmap, fig.width=10, fig.height=6}
+# Prepare data for heatmap
+ihs_percentile_matrix <- ines_percentiles %>%
+  filter(metric == "iHS") %>%
+  select(population, peak, percentile) %>%
+  pivot_wider(names_from = population, values_from = percentile)
+
+# Convert to long format for ggplot
+ihs_percentile_long <- ines_percentiles %>%
+  filter(metric == "iHS") %>%
+  mutate(
+    peak_label = paste0("Peak ", peak, "\n(", chromosome, ")"),
+    percentile_label = sprintf("%.1f%%", percentile)
+  )
+
+# Create heatmap
+p_ihs_heatmap <- ggplot(ihs_percentile_long,
+                        aes(x = population, y = factor(peak), fill = percentile)) +
+  geom_tile(color = "white", linewidth = 1) +
+  geom_text(aes(label = percentile_label), size = 3.5, fontface = "bold") +
+  scale_fill_gradient2(
+    low = "white", mid = "yellow", high = "red",
+    midpoint = 90,
+    limits = c(0, 100),
+    name = "Percentile\nRank"
+  ) +
+  labs(
+    title = "iHS Percentile Rankings for GWAS Peaks",
+    subtitle = "Higher percentile = stronger selection signal relative to genome-wide background",
+    x = "Population",
+    y = "GWAS Peak"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 0, hjust = 0.5, face = "bold"),
+    axis.text.y = element_text(face = "bold"),
+    panel.grid = element_blank()
+  )
+
+p_ihs_heatmap
+
+# Save
+ggsave(
+  file.path(root, "output_data/12_Sweep_Detection/ehh/ihs_percentile_heatmap.pdf"),
+  p_ihs_heatmap,
+  width = 10, height = 6, units = "in"
+)
+```
+
+**Interpretation:** Values >95% indicate signals in the top 5% genome-wide. Values >99% are exceptional (top 1%).
+
+## 2.2 Rsb Percentile Heatmap
+
+```{r rsb_percentile_heatmap, fig.width=10, fig.height=6}
+# Prepare data for heatmap
+rsb_percentile_long <- rsb_percentiles %>%
+  mutate(
+    peak_label = paste0("Peak ", peak, "\n(", chromosome, ")"),
+    percentile_label = sprintf("%.1f%%", percentile)
+  )
+
+# Create heatmap
+p_rsb_heatmap <- ggplot(rsb_percentile_long,
+                        aes(x = comparison, y = factor(peak), fill = percentile)) +
+  geom_tile(color = "white", linewidth = 1) +
+  geom_text(aes(label = percentile_label), size = 3.5, fontface = "bold") +
+  scale_fill_gradient2(
+    low = "white", mid = "yellow", high = "red",
+    midpoint = 90,
+    limits = c(0, 100),
+    name = "Percentile\nRank"
+  ) +
+  labs(
+    title = "Rsb Percentile Rankings for GWAS Peaks",
+    subtitle = "Higher percentile = stronger differential selection between populations",
+    x = "Population Comparison",
+    y = "GWAS Peak"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, face = "bold"),
+    axis.text.y = element_text(face = "bold"),
+    panel.grid = element_blank()
+  )
+
+p_rsb_heatmap
+
+# Save
+ggsave(
+  file.path(root, "output_data/12_Sweep_Detection/ehh/rsb_percentile_heatmap.pdf"),
+  p_rsb_heatmap,
+  width = 10, height = 6, units = "in"
+)
+```
+
+## 2.3 Percentile Summary Table
+
+```{r percentile_summary}
+# Top iHS percentiles
+cat("\n### Top 10 iHS Percentile Rankings\n")
+top_ihs <- ines_percentiles %>%
+  filter(metric == "iHS") %>%
+  arrange(desc(percentile)) %>%
+  head(10) %>%
+  select(population, peak, chromosome, percentile, rank, total_snps)
+
+kable(top_ihs, digits = 2, caption = "Top 10 iHS Percentile Rankings")
+
+# Top Rsb percentiles
+cat("\n### Top 10 Rsb Percentile Rankings\n")
+top_rsb <- rsb_percentiles %>%
+  arrange(desc(percentile)) %>%
+  head(10) %>%
+  select(comparison, peak, chromosome, percentile, rank, total_snps)
+
+kable(top_rsb, digits = 2, caption = "Top 10 Rsb Percentile Rankings")
+```
+
+---
+
+# 3. Empirical P-Values
+
+## 3.1 Significant Peaks (p < 0.01)
+
+```{r significant_peaks}
+# iHS significant peaks
+sig_ihs <- ines_pvalues %>%
+  filter(p_value_upper < 0.01) %>%
+  arrange(p_value_upper) %>%
+  select(population, peak, chromosome, metric, peak_max_value, p_value_upper, p_value_two_tailed)
+
+cat("\n### Significant iHS Peaks (p < 0.01)\n")
+if (nrow(sig_ihs) > 0) {
+  kable(sig_ihs, digits = 4, caption = "Significant iHS Peaks")
+} else {
+  cat("No iHS peaks with p < 0.01\n")
+}
+
+# Rsb significant peaks
+sig_rsb <- rsb_pvalues %>%
+  filter(p_value_upper < 0.01) %>%
+  arrange(p_value_upper) %>%
+  select(comparison, peak, chromosome, metric, peak_max_value, p_value_upper)
+
+cat("\n### Significant Rsb Peaks (p < 0.01)\n")
+if (nrow(sig_rsb) > 0) {
+  kable(sig_rsb, digits = 4, caption = "Significant Rsb Peaks")
+} else {
+  cat("No Rsb peaks with p < 0.01\n")
+}
+```
+
+## 3.2 All P-Values Summary
+
+```{r all_pvalues}
+cat("\n### All iHS P-Values\n")
+kable(ines_pvalues %>%
+        arrange(p_value_upper) %>%
+        select(population, peak, chromosome, metric, peak_max_value, p_value_upper),
+      digits = 4, caption = "All iHS Empirical P-Values")
+
+cat("\n### All Rsb P-Values\n")
+kable(rsb_pvalues %>%
+        arrange(p_value_upper) %>%
+        select(comparison, peak, chromosome, metric, peak_max_value, p_value_upper),
+      digits = 4, caption = "All Rsb Empirical P-Values")
+```
+
+---
+
+# 4. Distribution Comparisons
+
+## 4.1 Load Genome-Wide Data for Plotting
+
+```{r load_genome_wide_data, cache=TRUE}
+cat("Loading genome-wide data for distribution plots...\n")
+cat("  WARNING: This may take several minutes for large datasets\n")
+
+pops <- c("BP1", "TP1", "BP2", "TP2", "BP3")
+comps <- c("BP1_TP1", "BP2_TP2", "BP3_TP2")
+
+# Load inES/iHS data (sample if too large)
+ines_data_list <- list()
+for (pop in pops) {
+  file <- file.path(root, "output_data/12_Sweep_Detection/ehh/merged",
+                    paste0(pop, ".genome_wide_ines.txt.gz"))
+
+  if (file.exists(file)) {
+    cat("  Loading:", pop, "\n")
+    # Sample for plotting (1 in 10 positions to reduce memory)
+    ines_data_list[[pop]] <- read_tsv(file, show_col_types = FALSE) %>%
+      slice(seq(1, n(), by = 10)) %>%  # Sample every 10th position
+      mutate(population = pop)
+  }
+}
+
+ines_data <- bind_rows(ines_data_list)
+
+# Load Rsb data (sample if too large)
+rsb_data_list <- list()
+for (comp in comps) {
+  file <- file.path(root, "output_data/12_Sweep_Detection/ehh/merged",
+                    paste0(comp, ".genome_wide_rsb.txt.gz"))
+
+  if (file.exists(file)) {
+    cat("  Loading:", comp, "\n")
+    rsb_data <- read_tsv(file, show_col_types = FALSE) %>%
+      slice(seq(1, n(), by = 10))  # Sample every 10th position
+
+    # Find Rsb column
+    rsb_col <- grep("^RSB", names(rsb_data), value = TRUE)[1]
+
+    rsb_data_list[[comp]] <- rsb_data %>%
+      mutate(comparison = comp,
+             Rsb = .data[[rsb_col]])
+  }
+}
+
+rsb_data <- bind_rows(rsb_data_list)
+
+cat("\nGenome-wide data loaded (sampled):\n")
+cat("  inES/iHS positions:", nrow(ines_data), "\n")
+cat("  Rsb positions:", nrow(rsb_data), "\n")
+```
+
+## 4.2 iHS Distribution Comparison
+
+```{r ihs_distribution, fig.width=14, fig.height=8}
+# Genome-wide iHS distribution
+p_ihs_dist <- ggplot(ines_data, aes(x = iHS)) +
+  # Genome-wide density (gray background)
+  geom_density(fill = "gray80", alpha = 0.5) +
+  # Vertical lines for percentiles
+  geom_vline(data = ines_summary %>% filter(metric == "iHS"),
+             aes(xintercept = p90), linetype = "dashed", color = "blue", alpha = 0.5) +
+  geom_vline(data = ines_summary %>% filter(metric == "iHS"),
+             aes(xintercept = p95), linetype = "dashed", color = "orange", alpha = 0.5) +
+  geom_vline(data = ines_summary %>% filter(metric == "iHS"),
+             aes(xintercept = p99), linetype = "dashed", color = "red", alpha = 0.5) +
+  # Peak values as rug plot
+  geom_rug(data = peak_ines, aes(x = iHS), color = "red", alpha = 0.3, sides = "b") +
+  # Facet by population
+  facet_wrap(~population, ncol = 2, scales = "free_y") +
+  labs(
+    title = "iHS Distribution: Genome-Wide vs GWAS Peaks",
+    subtitle = "Gray density = genome-wide background | Red rug = GWAS peak values | Dashed lines = 90th, 95th, 99th percentiles",
+    x = "iHS",
+    y = "Density"
+  ) +
+  theme_bw(base_size = 10) +
+  theme(
+    strip.background = element_rect(fill = "grey90"),
+    strip.text = element_text(face = "bold")
+  )
+
+p_ihs_dist
+
+# Save
+ggsave(
+  file.path(root, "output_data/12_Sweep_Detection/ehh/ihs_distribution_comparison.pdf"),
+  p_ihs_dist,
+  width = 14, height = 8, units = "in"
+)
+```
+
+## 4.3 Rsb Distribution Comparison
+
+```{r rsb_distribution, fig.width=14, fig.height=6}
+# Genome-wide Rsb distribution
+p_rsb_dist <- ggplot(rsb_data, aes(x = Rsb)) +
+  # Genome-wide density (gray background)
+  geom_density(fill = "gray80", alpha = 0.5) +
+  # Vertical lines for percentiles
+  geom_vline(data = rsb_summary,
+             aes(xintercept = p90), linetype = "dashed", color = "blue", alpha = 0.5) +
+  geom_vline(data = rsb_summary,
+             aes(xintercept = p95), linetype = "dashed", color = "orange", alpha = 0.5) +
+  geom_vline(data = rsb_summary,
+             aes(xintercept = p99), linetype = "dashed", color = "red", alpha = 0.5) +
+  # Peak values as rug plot
+  geom_rug(data = peak_rsb, aes(x = Rsb), color = "red", alpha = 0.3, sides = "b") +
+  # Facet by comparison
+  facet_wrap(~comparison, ncol = 1, scales = "free_y") +
+  labs(
+    title = "Rsb Distribution: Genome-Wide vs GWAS Peaks",
+    subtitle = "Gray density = genome-wide background | Red rug = GWAS peak values | Dashed lines = 90th, 95th, 99th percentiles",
+    x = "Rsb",
+    y = "Density"
+  ) +
+  theme_bw(base_size = 10) +
+  theme(
+    strip.background = element_rect(fill = "grey90"),
+    strip.text = element_text(face = "bold")
+  )
+
+p_rsb_dist
+
+# Save
+ggsave(
+  file.path(root, "output_data/12_Sweep_Detection/ehh/rsb_distribution_comparison.pdf"),
+  p_rsb_dist,
+  width = 14, height = 6, units = "in"
+)
+```
+
+---
+
+# 5. Manhattan Plots
+
+## 5.1 Prepare Manhattan Data
+
+```{r prepare_manhattan}
+cat("Preparing data for Manhattan plots...\n")
+
+# inES/iHS Manhattan data
+ines_manhattan <- ines_data %>%
+  mutate(
+    numeric_chr = as.numeric(str_replace_all(CHR, "chr", ""))
+  ) %>%
+  arrange(numeric_chr, POSITION)
+
+# Calculate chromosome lengths and cumulative positions
+chr_info_ines <- ines_manhattan %>%
+  group_by(CHR, numeric_chr) %>%
+  summarize(chr_length = max(POSITION), .groups = "drop") %>%
+  arrange(numeric_chr) %>%
+  mutate(
+    chr_start = cumsum(lag(chr_length, default = 0)),
+    chr_mid = chr_start + (chr_length / 2)
+  )
+
+# Add genome positions
+ines_manhattan <- ines_manhattan %>%
+  left_join(chr_info_ines %>% select(CHR, chr_start), by = "CHR") %>%
+  mutate(genome_pos = chr_start + POSITION)
+
+# Add GWAS peak regions
+peaks_genome <- peaks_bed %>%
+  mutate(numeric_chr = as.numeric(str_replace_all(chromosome, "chr", ""))) %>%
+  left_join(chr_info_ines %>% select(numeric_chr, chr_start), by = "numeric_chr") %>%
+  mutate(
+    peak_start_genome = chr_start + start,
+    peak_end_genome = chr_start + end
+  )
+
+cat("  Chromosomes:", paste(chr_info_ines$numeric_chr, collapse = ", "), "\n")
+```
+
+## 5.2 iHS Manhattan Plot
+
+```{r ihs_manhattan, fig.width=14, fig.height=10}
+p_ihs_manhattan <- ggplot(ines_manhattan, aes(x = genome_pos, y = abs(iHS))) +
+  # Alternating chromosome shading
+  geom_rect(
+    data = chr_info_ines %>%
+      mutate(chr_index = row_number()) %>%
+      filter(chr_index %% 2 == 0),
+    aes(xmin = chr_start, xmax = chr_start + chr_length, ymin = -Inf, ymax = Inf),
+    fill = "grey95", alpha = 0.5, inherit.aes = FALSE
+  ) +
+  # GWAS peak highlighting
+  geom_rect(
+    data = peaks_genome,
+    aes(xmin = peak_start_genome, xmax = peak_end_genome, ymin = -Inf, ymax = Inf),
+    fill = "blue", alpha = 0.2, inherit.aes = FALSE
+  ) +
+  # iHS points
+  geom_point(size = 0.3, alpha = 0.5, color = "black") +
+  # Threshold lines
+  geom_hline(data = ines_summary %>% filter(metric == "iHS"),
+             aes(yintercept = p95), linetype = "dashed", color = "orange", linewidth = 0.5) +
+  geom_hline(data = ines_summary %>% filter(metric == "iHS"),
+             aes(yintercept = p99), linetype = "dashed", color = "red", linewidth = 0.5) +
+  # Axes
+  scale_x_continuous(
+    breaks = chr_info_ines$chr_mid,
+    labels = chr_info_ines$numeric_chr,
+    expand = c(0.01, 0)
+  ) +
+  scale_y_continuous(expand = expansion(mult = c(0.02, 0.05))) +
+  # Facet by population
+  facet_wrap(~population, ncol = 1, scales = "free_y") +
+  labs(
+    title = "iHS Genome-Wide Manhattan Plot",
+    subtitle = "Blue shading = GWAS peaks | Dashed lines = 95th (orange), 99th (red) percentiles",
+    x = "Chromosome",
+    y = "|iHS|"
+  ) +
+  theme_bw(base_size = 10) +
+  theme(
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_blank(),
+    strip.background = element_rect(fill = "grey90"),
+    strip.text = element_text(face = "bold", size = 10)
+  )
+
+p_ihs_manhattan
+
+# Save
+ggsave(
+  file.path(root, "output_data/12_Sweep_Detection/ehh/ihs_manhattan.pdf"),
+  p_ihs_manhattan,
+  width = 14, height = 10, units = "in"
+)
+```
+
+## 5.3 Rsb Manhattan Plot
+
+```{r rsb_manhattan, fig.width=14, fig.height=8}
+# Prepare Rsb Manhattan data
+rsb_manhattan <- rsb_data %>%
+  mutate(
+    numeric_chr = as.numeric(str_replace_all(CHR, "chr", ""))
+  ) %>%
+  arrange(numeric_chr, POSITION)
+
+# Calculate chromosome info for Rsb
+chr_info_rsb <- rsb_manhattan %>%
+  group_by(CHR, numeric_chr) %>%
+  summarize(chr_length = max(POSITION), .groups = "drop") %>%
+  arrange(numeric_chr) %>%
+  mutate(
+    chr_start = cumsum(lag(chr_length, default = 0)),
+    chr_mid = chr_start + (chr_length / 2)
+  )
+
+# Add genome positions
+rsb_manhattan <- rsb_manhattan %>%
+  left_join(chr_info_rsb %>% select(CHR, chr_start), by = "CHR") %>%
+  mutate(genome_pos = chr_start + POSITION)
+
+# Add GWAS peak regions
+peaks_genome_rsb <- peaks_bed %>%
+  mutate(numeric_chr = as.numeric(str_replace_all(chromosome, "chr", ""))) %>%
+  left_join(chr_info_rsb %>% select(numeric_chr, chr_start), by = "numeric_chr") %>%
+  mutate(
+    peak_start_genome = chr_start + start,
+    peak_end_genome = chr_start + end
+  )
+
+# Plot
+p_rsb_manhattan <- ggplot(rsb_manhattan, aes(x = genome_pos, y = abs(Rsb))) +
+  # Alternating chromosome shading
+  geom_rect(
+    data = chr_info_rsb %>%
+      mutate(chr_index = row_number()) %>%
+      filter(chr_index %% 2 == 0),
+    aes(xmin = chr_start, xmax = chr_start + chr_length, ymin = -Inf, ymax = Inf),
+    fill = "grey95", alpha = 0.5, inherit.aes = FALSE
+  ) +
+  # GWAS peak highlighting
+  geom_rect(
+    data = peaks_genome_rsb,
+    aes(xmin = peak_start_genome, xmax = peak_end_genome, ymin = -Inf, ymax = Inf),
+    fill = "blue", alpha = 0.2, inherit.aes = FALSE
+  ) +
+  # Rsb points
+  geom_point(size = 0.3, alpha = 0.5, color = "black") +
+  # Threshold lines
+  geom_hline(data = rsb_summary,
+             aes(yintercept = p95), linetype = "dashed", color = "orange", linewidth = 0.5) +
+  geom_hline(data = rsb_summary,
+             aes(yintercept = p99), linetype = "dashed", color = "red", linewidth = 0.5) +
+  # Axes
+  scale_x_continuous(
+    breaks = chr_info_rsb$chr_mid,
+    labels = chr_info_rsb$numeric_chr,
+    expand = c(0.01, 0)
+  ) +
+  scale_y_continuous(expand = expansion(mult = c(0.02, 0.05))) +
+  # Facet by comparison
+  facet_wrap(~comparison, ncol = 1, scales = "free_y") +
+  labs(
+    title = "Rsb Genome-Wide Manhattan Plot",
+    subtitle = "Blue shading = GWAS peaks | Dashed lines = 95th (orange), 99th (red) percentiles",
+    x = "Chromosome",
+    y = "|Rsb|"
+  ) +
+  theme_bw(base_size = 10) +
+  theme(
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_blank(),
+    strip.background = element_rect(fill = "grey90"),
+    strip.text = element_text(face = "bold", size = 10)
+  )
+
+p_rsb_manhattan
+
+# Save
+ggsave(
+  file.path(root, "output_data/12_Sweep_Detection/ehh/rsb_manhattan.pdf"),
+  p_rsb_manhattan,
+  width = 14, height = 8, units = "in"
+)
+```
+
+---
+
+# 6. Peak Summary Table
+
+```{r peak_summary_table}
+# Combine iHS percentiles with summaries
+ihs_combined <- peak_ines_summary %>%
+  left_join(
+    ines_percentiles %>%
+      filter(metric == "iHS") %>%
+      select(population, peak, iHS_percentile = percentile),
+    by = c("population", "peak")
+  ) %>%
+  left_join(
+    ines_pvalues %>%
+      filter(metric == "iHS") %>%
+      select(population, peak, iHS_pvalue = p_value_upper),
+    by = c("population", "peak")
+  ) %>%
+  arrange(desc(iHS_percentile))
+
+# Combine Rsb percentiles with summaries
+rsb_combined <- peak_rsb_summary %>%
+  left_join(
+    rsb_percentiles %>%
+      select(comparison, peak, Rsb_percentile = percentile),
+    by = c("comparison", "peak")
+  ) %>%
+  left_join(
+    rsb_pvalues %>%
+      select(comparison, peak, Rsb_pvalue = p_value_upper),
+    by = c("comparison", "peak")
+  ) %>%
+  arrange(desc(Rsb_percentile))
+
+cat("\n### Top iHS Signals by Percentile\n")
+kable(ihs_combined %>%
+        select(population, peak, CHR, max_abs_iHS, iHS_percentile, iHS_pvalue) %>%
+        head(15),
+      digits = 3, caption = "Top 15 iHS Signals")
+
+cat("\n### Top Rsb Signals by Percentile\n")
+kable(rsb_combined %>%
+        select(comparison, peak, CHR, max_abs_Rsb, Rsb_percentile, Rsb_pvalue) %>%
+        head(15),
+      digits = 3, caption = "Top 15 Rsb Signals")
+```
+
+---
+
+# 7. Summary and Interpretation
+
+## Key Findings
+
+1. **Percentile Rankings:**
+   - Peaks with >95% percentile show signals in top 5% genome-wide
+   - Peaks with >99% percentile are exceptional (top 1%)
+
+2. **Statistical Significance:**
+   - Empirical p-values < 0.01 indicate genome-wide significance
+   - Based on comparison with complete genome-wide distribution
+
+3. **Biological Interpretation:**
+   - High iHS = recent positive selection within a population
+   - High Rsb = differential selection between populations
+   - GWAS peaks with high EHH signals suggest adaptive sweeps at EOD loci
+
+## Next Steps
+
+- Compare with SweepFinder2/SweeD results for concordance
+- Examine haplotype structure at top-ranked peaks
+- Investigate candidate genes within exceptional peaks
+- Consider timing of selective sweeps (EHH decay rate)
+
+---
+
+# Session Info
+
+```{r session_info}
+sessionInfo()
+```

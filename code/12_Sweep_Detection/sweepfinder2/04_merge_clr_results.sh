@@ -8,7 +8,7 @@ set -euo pipefail
 ## for each population into single genome-wide CLR files.
 ##
 ## Usage:
-##   bash code/12_Sweep_Detection/04_merge_clr_results.sh
+##   bash code/12_Sweep_Detection/sweepfinder2/04_merge_clr_results.sh
 ##
 ## Prerequisites:
 ##   - 03_submit_sweepfinder2.sh jobs completed
@@ -139,4 +139,4 @@ for pop in "${POPS[@]}"; do
 done
 
 echo "" | tee -a "${log_file}"
-echo "Next step: Run 05_extract_peak_clr.R to extract GWAS peak CLR values" | tee -a "${log_file}"
+echo "Next step: Rscript code/12_Sweep_Detection/sweepfinder2/05_extract_peak_clr.R" | tee -a "${log_file}"

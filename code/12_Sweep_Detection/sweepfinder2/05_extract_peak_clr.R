@@ -6,7 +6,7 @@
 ## CLR values within the 6 major GWAS peaks for all populations.
 ##
 ## Usage:
-##   Rscript code/12_Sweep_Detection/05_extract_peak_clr.R
+##   Rscript code/12_Sweep_Detection/sweepfinder2/05_extract_peak_clr.R
 ##
 ## Prerequisites:
 ##   - 04_merge_clr_results.sh completed

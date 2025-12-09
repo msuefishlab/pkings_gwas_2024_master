@@ -6,7 +6,7 @@ set -euo pipefail
 ## Per population, per chromosome
 ##
 ## Usage:
-##   bash code/12_Sweep_Detection/01_convert_vcf_to_sf2.sh [--all-chromosomes]
+##   bash code/12_Sweep_Detection/sweepfinder2/01_convert_vcf_to_sf2.sh [--all-chromosomes]
 ##
 ## Options:
 ##   --all-chromosomes    Process all 25 chromosomes instead of just GWAS peak chromosomes
@@ -92,7 +92,7 @@ for pop in "${POPS[@]}"; do
     echo "  Input:  ${vcf}" | tee -a "${log_file}"
     echo "  Output: ${output}" | tee -a "${log_file}"
 
-    python3 "${root}/code/12_Sweep_Detection/vcf_to_sweepfinder2.py" \
+    python3 "${root}/code/12_Sweep_Detection/sweepfinder2/vcf_to_sweepfinder2.py" \
       "${vcf}" "${output}" ${chr_arg} 2>&1 | tee -a "${log_file}"
 
     # Check if output was created and has content

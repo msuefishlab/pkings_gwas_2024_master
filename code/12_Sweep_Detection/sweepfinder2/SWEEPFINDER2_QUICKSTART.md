@@ -35,10 +35,10 @@ singularity build sweepfinder2.sif docker://jasongallant/sweepfinder2:latest
 
 ```bash
 source pkings_gwas.env
-bash code/12_Sweep_Detection/01_convert_vcf_to_sf2.sh
+bash code/12_Sweep_Detection/sweepfinder2/01_convert_vcf_to_sf2.sh
 
 # For full genome (optional):
-# bash code/12_Sweep_Detection/01_convert_vcf_to_sf2.sh --all-chromosomes
+# bash code/12_Sweep_Detection/sweepfinder2/01_convert_vcf_to_sf2.sh --all-chromosomes
 ```
 
 **Output:** `output_data/12_Sweep_Detection/sweepfinder2/sfs_input/`
@@ -46,7 +46,7 @@ bash code/12_Sweep_Detection/01_convert_vcf_to_sf2.sh
 ### 2. Calculate Background SFS (~30 minutes)
 
 ```bash
-bash code/12_Sweep_Detection/02_calculate_background_sfs.sh
+bash code/12_Sweep_Detection/sweepfinder2/02_calculate_background_sfs.sh
 ```
 
 **Output:** `output_data/12_Sweep_Detection/sweepfinder2/background/`
@@ -54,10 +54,10 @@ bash code/12_Sweep_Detection/02_calculate_background_sfs.sh
 ### 3. Submit CLR Scan Jobs (~2-3 hours wall time)
 
 ```bash
-bash code/12_Sweep_Detection/03_submit_sweepfinder2.sh
+bash code/12_Sweep_Detection/sweepfinder2/03_submit_sweepfinder2.sh
 
 # For full genome (optional):
-# bash code/12_Sweep_Detection/03_submit_sweepfinder2.sh --all-chromosomes
+# bash code/12_Sweep_Detection/sweepfinder2/03_submit_sweepfinder2.sh --all-chromosomes
 
 # Monitor jobs:
 squeue -u $USER
@@ -73,7 +73,7 @@ squeue -u $USER
 
 ```bash
 # After all jobs complete:
-bash code/12_Sweep_Detection/04_merge_clr_results.sh
+bash code/12_Sweep_Detection/sweepfinder2/04_merge_clr_results.sh
 ```
 
 **Output:** `output_data/12_Sweep_Detection/sweepfinder2/merged/`
@@ -81,7 +81,7 @@ bash code/12_Sweep_Detection/04_merge_clr_results.sh
 ### 5. Extract Peak CLR Values (~5 minutes)
 
 ```bash
-Rscript code/12_Sweep_Detection/05_extract_peak_clr.R
+Rscript code/12_Sweep_Detection/sweepfinder2/05_extract_peak_clr.R
 ```
 
 **Output:**
@@ -91,7 +91,7 @@ Rscript code/12_Sweep_Detection/05_extract_peak_clr.R
 ### 6. Generate HTML Report (~20 minutes)
 
 ```bash
-bash code/12_Sweep_Detection/06_render_sweepfinder2_report.sh
+bash code/12_Sweep_Detection/sweepfinder2/06_render_sweepfinder2_report.sh
 ```
 
 **Output:** `output_data/12_Sweep_Detection/sweepfinder2/sweepfinder2_analysis.html`

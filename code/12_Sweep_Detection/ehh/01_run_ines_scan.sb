@@ -1,0 +1,111 @@
+#!/bin/bash --login
+#SBATCH --time=02:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=12GB
+#SBATCH --job-name=ines_scan
+
+## 01_run_ines_scan.sb
+## SLURM batch script to run genome-wide inES/iHS scan for one population, one chromosome
+##
+## This script is called by 01_submit_ines_scans.sh with environment variables:
+##   POP: population name (e.g., BP1, TP1)
+##   CHR: chromosome (e.g., chr6, chr8)
+##   VCF: path to polarized VCF file
+##
+## Output:
+##   {POP}.{CHR}.ines.txt.gz - Compressed TSV with columns: CHR, POSITION, inES, iHS
+##
+## Author: Jason Gallant Lab
+## Date: 2024
+
+# Get root directory and source environment
+root="$(git rev-parse --show-toplevel)"
+source "${root}/pkings_gwas.env"
+
+# Check required environment variables
+if [[ -z "${POP:-}" ]] || [[ -z "${CHR:-}" ]] || [[ -z "${VCF:-}" ]]; then
+  echo "ERROR: Required environment variables not set"
+  echo "  POP: ${POP:-NOT SET}"
+  echo "  CHR: ${CHR:-NOT SET}"
+  echo "  VCF: ${VCF:-NOT SET}"
+  exit 1
+fi
+
+# Define output paths
+outdir="${root}/output_data/12_Sweep_Detection/ehh/ines_scans"
+mkdir -p "${outdir}"
+
+# Output file
+output_file="${outdir}/${POP}.${CHR}.ines.txt.gz"
+
+# Log job information
+echo "=========================================="
+echo "inES/iHS Genome-Wide Scan"
+echo "=========================================="
+echo "Job ID: ${SLURM_JOB_ID}"
+echo "Node: ${SLURMD_NODENAME}"
+echo "Population: ${POP}"
+echo "Chromosome: ${CHR}"
+echo "CPUs: ${SLURM_CPUS_PER_TASK}"
+echo "Memory: ${SLURM_MEM_PER_NODE}MB"
+echo "Started: $(date)"
+echo "=========================================="
+echo ""
+
+# Check input files exist
+if [[ ! -f "${VCF}" ]]; then
+  echo "ERROR: VCF file not found: ${VCF}"
+  exit 1
+fi
+
+# Print file information
+echo "Input VCF: ${VCF}"
+echo "  Size: $(du -h ${VCF} | cut -f1)"
+echo ""
+echo "Output file: ${output_file}"
+echo ""
+
+# Run R script
+echo "Running rehh scan_hh() for chromosome ${CHR}..."
+echo ""
+
+Rscript "${root}/code/12_Sweep_Detection/ehh/scan_ines_genome_wide.R" \
+  --population "${POP}" \
+  --chromosome "${CHR}" \
+  --vcf_file "${VCF}" \
+  --output_file "${output_file}" \
+  --min_maf 0.05
+
+exit_code=$?
+
+echo ""
+echo "=========================================="
+if [[ ${exit_code} -eq 0 ]]; then
+  echo "inES/iHS scan completed successfully"
+
+  if [[ -f "${output_file}" ]]; then
+    echo "Output file created: ${output_file}"
+    echo "  Size: $(du -h ${output_file} | cut -f1)"
+    echo "  Lines: $(zcat ${output_file} | wc -l)"
+    echo ""
+
+    # Show first few lines
+    echo "First 10 lines of output:"
+    zcat "${output_file}" | head -n 10
+    echo ""
+  else
+    echo "WARNING: Output file not found!"
+    exit_code=1
+  fi
+else
+  echo "inES/iHS scan failed with exit code: ${exit_code}"
+fi
+echo "=========================================="
+echo ""
+
+echo "Finished: $(date)"
+echo "Exit code: ${exit_code}"
+
+exit ${exit_code}

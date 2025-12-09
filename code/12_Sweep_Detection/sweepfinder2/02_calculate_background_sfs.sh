@@ -9,7 +9,7 @@ set -euo pipefail
 ## The background SFS is calculated from all chromosome SFS files per population.
 ##
 ## Usage:
-##   bash code/12_Sweep_Detection/02_calculate_background_sfs.sh
+##   bash code/12_Sweep_Detection/sweepfinder2/02_calculate_background_sfs.sh
 ##
 ## Prerequisites:
 ##   - 01_convert_vcf_to_sf2.sh must be run first

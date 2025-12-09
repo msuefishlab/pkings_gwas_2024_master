@@ -79,50 +79,33 @@ scan_wrap <- function(hh) {
               value = .data[[metric_col]])
 }
 
-source(file.path(root,"code/12_Sweep_Detection/analyze_peak_pair_integrated.R"))
+source(file.path(root,"code/12_Sweep_Detection/ehh/analyze_peak_pair.R"))
 ```
 
 ```{r}
+# peak1.TP1<-load_hh_vcf("TP1","chr6",0.05)
+# peak4.TP1<-load_hh_vcf("TP1","chr16",0.05)
+# peak5.TP1<-load_hh_vcf("TP1","chr17",0.05)
+# 
+# peak2.TP2<-load_hh_vcf("TP2","chr8",0.05)
+# peak3.TP2<-load_hh_vcf("TP2","chr13",0.05)
+# peak6.TP2<-load_hh_vcf("TP2","chr24",0.05)
+# 
+# peak1.BP1<-load_hh_vcf("BP1","chr6",0.05)
+# peak4.BP1<-load_hh_vcf("BP1","chr16",0.05)
+# peak5.BP1<-load_hh_vcf("BP1","chr17",0.05)
+# 
+# peak2.BP2<-load_hh_vcf("BP2","chr8",0.05)
+# peak3.BP2<-load_hh_vcf("BP2","chr13",0.05)
+# peak6.BP2<-load_hh_vcf("BP2","chr24",0.05)
+# 
+# peak2.BP3<-load_hh_vcf("BP3","chr8",0.05)
+# peak3.BP3<-load_hh_vcf("BP3","chr13",0.05)
+# peak6.BP3<-load_hh_vcf("BP3","chr24",0.05)
 
-# peak1.BP1<-load_hh_vcf("BP1_TP1","chr6",0.05)
-# peak4.BP1<-load_hh_vcf("BP1_TP1","chr16",0.05)
-# peak5.BP1<-load_hh_vcf("BP1_TP1","chr17",0.05)
-# 
-# peak2.BP2<-load_hh_vcf("BP2_TP2","chr8",0.05)
-# peak3.BP2<-load_hh_vcf("BP2_TP2","chr13",0.05)
-# peak6.BP2<-load_hh_vcf("BP2_TP2","chr24",0.05)
-# 
-# peak2.BP3<-load_hh_vcf("BP3_TP2","chr8",0.05)
-# peak3.BP3<-load_hh_vcf("BP3_TP2","chr13",0.05)
-# peak6.BP3<-load_hh_vcf("BP3_TP2","chr24",0.05)
-# 
-# # Example for BP1_TP1 peaks
-# bp1_ids <- read.table(file.path(root, "input_data/12_Sweep_Detection/split_up","bp1.txt"),header=F)$V1
-# bp2_ids <- read.table(file.path(root, "input_data/12_Sweep_Detection/split_up","bp2.txt"),header=F)$V1
-# bp3_ids <- read.table(file.path(root, "input_data/12_Sweep_Detection/split_up","bp3.txt"),header=F)$V1
-# 
-# tp1_ids <- read.table(file.path(root, "input_data/12_Sweep_Detection/split_up","tp1.txt"),header=F)$V1
-# tp2_ids <- read.table(file.path(root, "input_data/12_Sweep_Detection/split_up","tp2.txt"),header=F)$V1
-# 
-# peak1.BP1.splt <- split_hh_by_groups(peak1.BP1, bp1_ids, tp1_ids)
-# peak4.BP1.splt <- split_hh_by_groups(peak4.BP1, bp1_ids, tp1_ids)
-# peak5.BP1.splt <- split_hh_by_groups(peak5.BP1, bp1_ids, tp1_ids)
-# 
-# 
-# peak2.BP2.splt<-split_hh_by_groups(peak2.BP2, bp2_ids, tp2_ids)
-# peak3.BP2.splt<-split_hh_by_groups(peak3.BP2, bp2_ids, tp2_ids)
-# peak6.BP2.splt<-split_hh_by_groups(peak6.BP2, bp2_ids, tp2_ids)
-# 
-# peak2.BP3.splt<-split_hh_by_groups(peak2.BP3, bp3_ids, tp2_ids)
-# peak3.BP3.splt<-split_hh_by_groups(peak3.BP3, bp3_ids, tp2_ids)
-# peak6.BP3.splt<-split_hh_by_groups(peak6.BP3, bp3_ids, tp2_ids)
-# 
-# save(peak1.BP1.splt, peak4.BP1.splt, peak5.BP1.splt,peak2.BP2.splt,peak3.BP2.splt,peak6.BP2.splt,peak2.BP3.splt,peak3.BP3.splt,peak6.BP3.splt, file = file.path(root, "output_data/12_Sweep_Detection/","processed_rehh_data.Rdata"))
+load("~/Desktop/hh_by_peak_by_chr.RData")
 
-
-load(file.path(root, "output_data/12_Sweep_Detection/","processed_rehh_data.Rdata"))
 ```
-
 
 ```{r}
 peaks.file<-file.path(root,"output_data/06_Association/PKINGS_ALL_WOB_EXCLUDED/PKINGS_ALL_WOB_EXCLUDED_PEAKS.bed")
@@ -134,7 +117,7 @@ peaks.bed<-peaks.bed[order(peaks.bed$peak),]
 
 ```{r, fig.width=12}
 peak_info<-peaks.bed[peaks.bed$peak==1,]
-peak1_bp1_tp1_res<-analyze_peak_tang(peak1.BP1.splt$hh$BP, peak1.BP1.splt$hh$TP, peak_info, labels = c("BP1", "TP1"), win = 2.5e5)
+peak1_bp1_tp1_res<-analyze_peak_tang(peak1.BP1, peak1.TP1, peak_info, labels = c("BP1", "TP1"), win = 2.5e5)
 ```
 
 ```{r, fig.width=12}
@@ -143,74 +126,55 @@ plot_peak_tang(peak1_bp1_tp1_res)
 
 ```{r}
 peak_info<-peaks.bed[peaks.bed$peak==2,]
-peak2_bp2_tp2_res<-analyze_peak_tang(peak2.BP2.splt$hh$BP, peak2.BP2.splt$hh$TP, peak_info, labels = c("BP2", "TP2"), win = 2.5e5)
-peak2_bp3_tp2_res<-analyze_peak_tang(peak2.BP3.splt$hh$BP, peak2.BP3.splt$hh$TP, peak_info, labels = c("BP3", "TP2"), win = 2.5e5)
+peak2_bp2_tp2_res<-analyze_peak_pair(peak2.BP2, peak2.TP2, peak_info, labels = c("BP2", "TP2"), win = 5e5)
+peak2_bp3_tp2_res<-analyze_peak_pair(peak2.BP3, peak2.TP2, peak_info, labels = c("BP3", "TP2"), win = 5e5)
 
 ```
 
 ```{r, fig.height=12}
-plot_peak_tang(peak2_bp2_tp2_res)
-plot_peak_tang(peak2_bp3_tp2_res)
+plot_peak_summary(peak2_bp2_tp2_res)
+plot_peak_summary(peak2_bp3_tp2_res)
 ```
 
 ```{r}
 peak_info<-peaks.bed[peaks.bed$peak==3,]
-peak3_bp2_tp2_res<-analyze_peak_tang(peak3.BP2.splt$hh$BP, peak3.BP2.splt$hh$TP, peak_info, labels = c("BP2", "TP2"), win = 2.5e5)
-peak3_bp3_tp2_res<-analyze_peak_tang(peak3.BP3.splt$hh$BP, peak3.BP3.splt$hh$TP, peak_info, labels = c("BP3", "TP2"), win = 2.5e5)
+peak3_bp2_tp2_res<-analyze_peak_pair(peak3.BP2, peak3.TP2, peak_info, labels = c("BP2", "TP2"), win = 5e5)
+peak3_bp3_tp2_res<-analyze_peak_pair(peak3.BP3, peak3.TP2, peak_info, labels = c("BP3", "TP2"), win = 5e5)
 ```
 
 ```{r, fig.height=12}
-plot_peak_tang(peak3_bp2_tp2_res)
-plot_peak_tang(peak3_bp3_tp2_res)
+plot_peak_summary(peak3_bp2_tp2_res)
+plot_peak_summary(peak3_bp3_tp2_res)
 ```
 
 ```{r}
 peak_info<-peaks.bed[peaks.bed$peak==4,]
-peak4_bp1_tp1_res<-analyze_peak_tang(peak4.BP1.splt$hh$BP, peak4.BP1.splt$hh$TP, peak_info, labels = c("BP1", "TP1"), win = 2.5e5)
+peak4_bp1_tp1_res<-analyze_peak_pair(peak4.BP1, peak4.TP1, peak_info, labels = c("BP1", "TP1"), win = 5e5)
 ```
 
 
 ```{r, fig.height=12}
-plot_peak_tang(peak4_bp1_tp1_res)
+plot_peak_summary(peak4_bp1_tp1_res)
 ```
-
 ```{r}
 peak_info<-peaks.bed[peaks.bed$peak==5,]
-peak5_bp1_tp1_res<-analyze_peak_tang(peak5.BP1.splt$hh$BP, peak5.BP1.splt$hh$TP, peak_info, labels = c("BP1", "TP1"), win = 2.5e5)
+peak5_bp1_tp1_res<-analyze_peak_pair(peak5.BP1, peak5.TP1, peak_info, labels = c("BP1", "TP1"), win = 5e5)
 ```
 
 ```{r, fig.height=12}
-plot_peak_tang(peak5_bp1_tp1_res)
+plot_peak_summary(peak5_bp1_tp1_res)
 ```
 
 ```{r}
 peak_info<-peaks.bed[peaks.bed$peak==6,]
-peak6_bp2_tp2_res<-analyze_peak_tang(peak6.BP2.splt$hh$BP, peak6.BP2.splt$hh$TP, peak_info, labels = c("BP2", "TP2"), win = 2.5e5)
-peak6_bp3_tp2_res<-analyze_peak_tang(peak6.BP3.splt$hh$BP, peak6.BP3.splt$hh$TP, peak_info, labels = c("BP3", "TP2"), win = 2.5e5)
+peak6_bp2_tp2_res<-analyze_peak_pair(peak6.BP2, peak6.TP2, peak_info, labels = c("BP2", "TP2"), win = 5e5)
+peak6_bp3_tp2_res<-analyze_peak_pair(peak6.BP3, peak6.TP2, peak_info, labels = c("BP3", "TP2"), win = 5e5)
 ```
 
 
 ```{r, fig.width=12}
-plot_peak_tang(peak6_bp2_tp2_res)
-plot_peak_tang(peak6_bp3_tp2_res)
+plot_peak_summary(peak6_bp2_tp2_res)
+plot_peak_summary(peak6_bp3_tp2_res)
 ```
 
-```{r, fig.width=24}
-p1.1<-plot_peak_tang(peak1_bp1_tp1_res)
 
-p2.1<-plot_peak_tang(peak2_bp2_tp2_res)
-p2.2<-plot_peak_tang(peak2_bp3_tp2_res)
-
-p3.1<-plot_peak_tang(peak3_bp2_tp2_res)
-p3.2<-plot_peak_tang(peak3_bp3_tp2_res)
-
-p4.1<-plot_peak_tang(peak4_bp1_tp1_res)
-
-p5.1<-plot_peak_tang(peak5_bp1_tp1_res)
-
-p6.1<-plot_peak_tang(peak6_bp2_tp2_res)
-p6.2<-plot_peak_tang(peak6_bp3_tp2_res)
-
-(p1.1 | p2.2 | p3.1 | p4.1 | p5.1 | p6.2)
-
-```

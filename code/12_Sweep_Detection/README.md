@@ -21,11 +21,12 @@ The result is a consistent, end-to-end path from the raw (but phased) variant da
 ```
 code/
   12_Sweep_Detection/
-    polarize_vcf.sh
-    split_vcfs.sh
-    split_vcf_by_chrom.sh
-    analyze_peak_pair_integrated.R
-    ehh_merge_pheno.Rmd
+    ehh/
+      polarize_vcf.sh
+      split_vcfs.sh
+      split_vcf_by_chrom.sh
+      analyze_peak_pair_integrated.R
+      ehh_merge_pheno.Rmd
 
 input_data/
   12_Sweep_Detection/
@@ -58,16 +59,16 @@ output_data/
 
 ```bash
 # 1) Polarize the full VCF using the outgroup
-bash code/12_Sweep_Detection/polarize_vcf.sh
+bash code/12_Sweep_Detection/ehh/polarize_vcf.sh
 
 # 2) Split the polarized VCF into per-set VCFs
-bash code/12_Sweep_Detection/split_vcfs.sh
+bash code/12_Sweep_Detection/ehh/split_vcfs.sh
 
 # 3) (Optional) split by chromosome
-bash code/12_Sweep_Detection/split_vcf_by_chrom.sh
+bash code/12_Sweep_Detection/ehh/split_vcf_by_chrom.sh
 
 # 4) Run the R notebook
-R -e 'rmarkdown::render("code/12_Sweep_Detection/ehh_merge_pheno.Rmd")'
+R -e 'rmarkdown::render("code/12_Sweep_Detection/ehh/ehh_merge_pheno.Rmd")'
 ```
 
 ---
@@ -84,7 +85,7 @@ Creates VCFs per sample list (e.g., BP1_TP1).
 Optionally subset per-chromosome for efficiency.
 
 ### 4. Analyze and plot in R
-`ehh_merge_pheno.Rmd` loads per-chromosome polarized VCFs, runs `rehh`, and produces figures.
+`ehh/ehh_merge_pheno.Rmd` loads per-chromosome polarized VCFs, runs `rehh`, and produces figures.
 
 ---
 
@@ -151,7 +152,7 @@ bash code/12_Sweep_Detection/sweed/06_render_sweed_report.sh
 ### Prerequisites
 
 - **SweeD container:** `images/sweed.sif` (build from `Dockerfile.sweed`)
-- **Polarized VCFs:** Already created by `polarize_vcf.sh`
+- **Polarized VCFs:** Already created by `ehh/polarize_vcf.sh`
 - **R** with tidyverse, knitr, rmarkdown packages
 
 ### Output Files
@@ -196,10 +197,14 @@ This module also includes a **SweepFinder2** workflow for backward compatibility
 
 **Populations:** BP1, TP1, BP2, TP2, BP3 (5 populations)
 
+### Quick Start
+
+See `code/12_Sweep_Detection/sweepfinder2/SWEEPFINDER2_QUICKSTART.md` for the complete guide.
+
 ### Prerequisites
 
 - **SweepFinder2 container:** `images/sweepfinder2.sif` (build with `singularity build`)
-- **Polarized VCFs:** Already created by `polarize_vcf.sh`
+- **Polarized VCFs:** Already created by `ehh/polarize_vcf.sh`
 - **Python 3** with bcftools
 - **R** with tidyverse, patchwork packages
 
@@ -220,25 +225,25 @@ cd images/
 singularity build sweepfinder2.sif docker://jasongallant/sweepfinder2:latest
 
 # 1. Convert polarized VCFs to SweepFinder2 format
-bash code/12_Sweep_Detection/01_convert_vcf_to_sf2.sh
+bash code/12_Sweep_Detection/sweepfinder2/01_convert_vcf_to_sf2.sh
 # Optional: --all-chromosomes flag to process all 25 chromosomes (default: GWAS peak chromosomes only)
 
 # 2. Calculate genome-wide background SFS per population
-bash code/12_Sweep_Detection/02_calculate_background_sfs.sh
+bash code/12_Sweep_Detection/sweepfinder2/02_calculate_background_sfs.sh
 
 # 3. Submit genome-wide CLR scan jobs (SLURM)
-bash code/12_Sweep_Detection/03_submit_sweepfinder2.sh
+bash code/12_Sweep_Detection/sweepfinder2/03_submit_sweepfinder2.sh
 # Optional: --all-chromosomes flag for full genome (default: GWAS peaks only)
 # Monitor: squeue -u $USER
 
 # 4. Merge per-chromosome CLR results (after jobs complete)
-bash code/12_Sweep_Detection/04_merge_clr_results.sh
+bash code/12_Sweep_Detection/sweepfinder2/04_merge_clr_results.sh
 
 # 5. Extract GWAS peak CLR values
-Rscript code/12_Sweep_Detection/05_extract_peak_clr.R
+Rscript code/12_Sweep_Detection/sweepfinder2/05_extract_peak_clr.R
 
 # 6. Generate analysis report
-bash code/12_Sweep_Detection/06_render_sweepfinder2_report.sh
+bash code/12_Sweep_Detection/sweepfinder2/06_render_sweepfinder2_report.sh
 # Output: output_data/12_Sweep_Detection/sweepfinder2/sweepfinder2_analysis.html
 ```
 

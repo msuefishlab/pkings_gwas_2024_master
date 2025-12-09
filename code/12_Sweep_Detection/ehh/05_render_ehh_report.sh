@@ -1,14 +1,14 @@
 #!/bin/bash
 set -euo pipefail
 
-## 06_render_sweepfinder2_report.sh
-## Render SweepFinder2 analysis R Markdown notebook to HTML
+## 05_render_ehh_report.sh
+## Render EHH analysis R Markdown notebook to HTML
 ##
 ## Usage:
-##   bash code/12_Sweep_Detection/sweepfinder2/06_render_sweepfinder2_report.sh
+##   bash code/12_Sweep_Detection/ehh/05_render_ehh_report.sh
 ##
 ## Prerequisites:
-##   - All previous steps completed (01-05)
+##   - All previous steps completed (01-04)
 ##   - R with rmarkdown, tidyverse, patchwork packages installed
 ##
 ## Author: Jason Gallant Lab
@@ -17,15 +17,15 @@ set -euo pipefail
 root="$(git rev-parse --show-toplevel)"
 
 echo "=========================================="
-echo "Rendering SweepFinder2 Analysis Report"
+echo "Rendering EHH Analysis Report"
 echo "=========================================="
 echo ""
 
 # Input Rmd file
-rmd_file="${root}/code/12_Sweep_Detection/sweepfinder2/sweepfinder2_analysis.Rmd"
+rmd_file="${root}/code/12_Sweep_Detection/ehh/ehh_analysis.Rmd"
 
 # Output directory
-output_dir="${root}/output_data/12_Sweep_Detection/sweepfinder2"
+output_dir="${root}/output_data/12_Sweep_Detection/ehh"
 mkdir -p "${output_dir}"
 
 # Check if Rmd file exists
@@ -43,7 +43,7 @@ echo "Rendering R Markdown..."
 Rscript -e "rmarkdown::render(
   '${rmd_file}',
   output_dir = '${output_dir}',
-  output_file = 'sweepfinder2_analysis.html'
+  output_file = 'ehh_analysis.html'
 )"
 
 exit_code=$?
@@ -54,10 +54,10 @@ if [[ ${exit_code} -eq 0 ]]; then
   echo "Report rendered successfully"
   echo "=========================================="
   echo ""
-  echo "Output: ${output_dir}/sweepfinder2_analysis.html"
+  echo "Output: ${output_dir}/ehh_analysis.html"
   echo ""
   echo "To view the report, open in a web browser:"
-  echo "  open ${output_data}/sweepfinder2_analysis.html"
+  echo "  open ${output_dir}/ehh_analysis.html"
 else
   echo "=========================================="
   echo "ERROR: Report rendering failed"

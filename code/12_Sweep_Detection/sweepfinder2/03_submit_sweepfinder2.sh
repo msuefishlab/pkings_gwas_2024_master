@@ -8,7 +8,7 @@ set -euo pipefail
 ## Each job runs SweepFinder2 for one population, one chromosome.
 ##
 ## Usage:
-##   bash code/12_Sweep_Detection/03_submit_sweepfinder2.sh [--all-chromosomes]
+##   bash code/12_Sweep_Detection/sweepfinder2/03_submit_sweepfinder2.sh [--all-chromosomes]
 ##
 ## Options:
 ##   --all-chromosomes    Submit jobs for all 25 chromosomes instead of just GWAS peaks
@@ -112,7 +112,7 @@ for pop in "${POPS[@]}"; do
     job_id=$(sbatch --job-name="${job_name}" \
            --output="${log_file}" \
            --export=ALL,root=${root},POP=${pop},CHR=${chr} \
-           "${root}/code/12_Sweep_Detection/03_run_sweepfinder2.sb" \
+           "${root}/code/12_Sweep_Detection/sweepfinder2/03_run_sweepfinder2.sb" \
            | awk '{print $NF}')
 
     echo "  Job ID: ${job_id}"
@@ -141,7 +141,7 @@ if [[ ${submitted} -gt 0 ]]; then
   echo "  ${root}/output_data/slurm_logs/12_Sweep_Detection/"
   echo ""
   echo "After jobs complete, run:"
-  echo "  bash code/12_Sweep_Detection/04_merge_clr_results.sh"
+  echo "  bash code/12_Sweep_Detection/sweepfinder2/04_merge_clr_results.sh"
 fi
 
 # Save job IDs to file for later reference
