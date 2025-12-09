@@ -1,0 +1,188 @@
+#!/bin/bash --login
+#SBATCH --time=03:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=16GB
+#SBATCH --job-name=ehh_scan
+
+## 04_run_ehh_scan.sb
+## SLURM batch script for integrated genome-wide EHH scan (paired populations)
+##
+## This script is called by 04_submit_ehh_scans.sh with environment variables:
+##   PAIR:       pair name (e.g., BP1_TP1)
+##   CHR:        chromosome (e.g., chr6, chr8)
+##   VCF:        path to paired polarized VCF file (per-chromosome)
+##   BP_LIST:    path to BP population ID list
+##   TP_LIST:    path to TP population ID list
+##   OUTPUT_DIR: output directory for results
+##
+## Output (3 files per job):
+##   {PAIR}.BP.{CHR}.ines.txt.gz - BP population inES/iHS
+##   {PAIR}.TP.{CHR}.ines.txt.gz - TP population inES/iHS
+##   {PAIR}.{CHR}.rsb.txt.gz     - Rsb between populations
+##
+## This script replaces:
+##   - DEPRECATED_run_ines_scan.sb (deprecated)
+##   - DEPRECATED_run_rsb_scan.sb (deprecated)
+##
+## Author: Jason Gallant Lab
+## Date: 2024
+
+# Get root directory and source environment
+root="$(git rev-parse --show-toplevel)"
+source "${root}/pkings_gwas.env"
+
+# ========================================
+# Validate environment variables
+# ========================================
+
+if [[ -z "${PAIR:-}" ]] || [[ -z "${CHR:-}" ]] || [[ -z "${VCF:-}" ]] || \
+   [[ -z "${BP_LIST:-}" ]] || [[ -z "${TP_LIST:-}" ]] || [[ -z "${OUTPUT_DIR:-}" ]]; then
+  echo "ERROR: Required environment variables not set"
+  echo "  PAIR:       ${PAIR:-NOT SET}"
+  echo "  CHR:        ${CHR:-NOT SET}"
+  echo "  VCF:        ${VCF:-NOT SET}"
+  echo "  BP_LIST:    ${BP_LIST:-NOT SET}"
+  echo "  TP_LIST:    ${TP_LIST:-NOT SET}"
+  echo "  OUTPUT_DIR: ${OUTPUT_DIR:-NOT SET}"
+  exit 1
+fi
+
+# ========================================
+# Log job information
+# ========================================
+
+echo "=========================================="
+echo "Integrated EHH Scan (Paired Populations)"
+echo "=========================================="
+echo "Job ID:      ${SLURM_JOB_ID}"
+echo "Node:        ${SLURMD_NODENAME}"
+echo "Pair:        ${PAIR}"
+echo "Chromosome:  ${CHR}"
+echo "CPUs:        ${SLURM_CPUS_PER_TASK}"
+echo "Memory:      ${SLURM_MEM_PER_NODE}MB"
+echo "Started:     $(date)"
+echo "=========================================="
+echo ""
+
+# ========================================
+# Validate input files
+# ========================================
+
+echo "Validating input files..."
+echo ""
+
+if [[ ! -f "${VCF}" ]]; then
+  echo "ERROR: VCF file not found: ${VCF}"
+  exit 1
+fi
+
+if [[ ! -f "${BP_LIST}" ]]; then
+  echo "ERROR: BP list file not found: ${BP_LIST}"
+  exit 1
+fi
+
+if [[ ! -f "${TP_LIST}" ]]; then
+  echo "ERROR: TP list file not found: ${TP_LIST}"
+  exit 1
+fi
+
+echo "Input VCF:    ${VCF}"
+echo "  Size: $(du -h ${VCF} | cut -f1)"
+echo ""
+echo "BP list:      ${BP_LIST}"
+echo "  Individuals: $(wc -l < ${BP_LIST})"
+echo ""
+echo "TP list:      ${TP_LIST}"
+echo "  Individuals: $(wc -l < ${TP_LIST})"
+echo ""
+echo "Output dir:   ${OUTPUT_DIR}"
+echo ""
+
+# ========================================
+# Run integrated R script
+# ========================================
+
+echo "Running integrated EHH scan..."
+echo "  This computes inES (both pops) + Rsb in a single pass"
+echo ""
+
+Rscript "${root}/code/12_Sweep_Detection/ehh/scan_ehh_integrated.R" \
+  --pair "${PAIR}" \
+  --chromosome "${CHR}" \
+  --vcf_file "${VCF}" \
+  --bp_list "${BP_LIST}" \
+  --tp_list "${TP_LIST}" \
+  --output_dir "${OUTPUT_DIR}" \
+  --min_maf 0.05
+
+exit_code=$?
+
+echo ""
+echo "=========================================="
+
+# ========================================
+# Validate outputs
+# ========================================
+
+if [[ ${exit_code} -eq 0 ]]; then
+  echo "Integrated EHH scan completed successfully"
+  echo ""
+
+  # Expected output files
+  file_BP="${OUTPUT_DIR}/${PAIR}.BP.${CHR}.ines.txt.gz"
+  file_TP="${OUTPUT_DIR}/${PAIR}.TP.${CHR}.ines.txt.gz"
+  file_RSB="${OUTPUT_DIR}/${PAIR}.${CHR}.rsb.txt.gz"
+
+  all_files_exist=true
+
+  if [[ -f "${file_BP}" ]]; then
+    echo "  [OK] BP inES:  ${file_BP}"
+    echo "       Size: $(du -h ${file_BP} | cut -f1), Lines: $(zcat ${file_BP} | wc -l)"
+  else
+    echo "  [ERROR] BP inES file not found!"
+    all_files_exist=false
+  fi
+
+  if [[ -f "${file_TP}" ]]; then
+    echo "  [OK] TP inES:  ${file_TP}"
+    echo "       Size: $(du -h ${file_TP} | cut -f1), Lines: $(zcat ${file_TP} | wc -l)"
+  else
+    echo "  [ERROR] TP inES file not found!"
+    all_files_exist=false
+  fi
+
+  if [[ -f "${file_RSB}" ]]; then
+    echo "  [OK] Rsb:      ${file_RSB}"
+    echo "       Size: $(du -h ${file_RSB} | cut -f1), Lines: $(zcat ${file_RSB} | wc -l)"
+  else
+    echo "  [ERROR] Rsb file not found!"
+    all_files_exist=false
+  fi
+
+  echo ""
+
+  if [[ "${all_files_exist}" == "false" ]]; then
+    echo "WARNING: Not all output files were created"
+    exit_code=1
+  else
+    echo "All output files created successfully"
+
+    # Show sample of BP output
+    echo ""
+    echo "Sample output (BP inES, first 5 lines):"
+    zcat "${file_BP}" | head -n 6
+  fi
+
+else
+  echo "Integrated EHH scan failed with exit code: ${exit_code}"
+fi
+
+echo "=========================================="
+echo ""
+
+echo "Finished: $(date)"
+echo "Exit code: ${exit_code}"
+
+exit ${exit_code}
