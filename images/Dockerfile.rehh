@@ -19,7 +19,7 @@ RUN apt-get update && apt-get install -y \
 # Note: tidyverse and knitr are already installed in rocker/tidyverse base image
 # Install packages with error checking and verbose output
 RUN R -e "options(warn=2); \
-    pkgs <- c('rehh', 'patchwork', 'rprojroot', 'optparse', 'scales'); \
+    pkgs <- c('rehh', 'patchwork', 'rprojroot', 'optparse', 'scales', 'R.utils'); \
     cat('Installing packages:', paste(pkgs, collapse=', '), '\\n'); \
     for (pkg in pkgs) { \
         cat('\\nInstalling', pkg, '...\\n'); \
