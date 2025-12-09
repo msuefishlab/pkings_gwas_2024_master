@@ -19,7 +19,6 @@
 ##   -name: output file prefix
 ##   -isfs: input site frequency spectrum (background model)
 ##   -t 8: use 8 threads for parallel computation
-##   -checkpoint 3600: checkpoint every hour (allows resuming if interrupted)
 ##
 ## Author: Jason Gallant Lab
 ## Date: 2024
@@ -128,7 +127,7 @@ fi
 
 # Run SweeD
 echo "Running SweeD..."
-echo "Command: SweeD -input ${temp_vcf} -name ${POP}.${CHR} -isfs <sfs> -threads 8 -checkpoint 3600"
+echo "Command: SweeD -input ${temp_vcf} -name ${POP}.${CHR} -isfs <sfs> -threads 8"
 echo ""
 
 if [[ "${use_sfs}" == "true" ]]; then
@@ -138,15 +137,15 @@ if [[ "${use_sfs}" == "true" ]]; then
           -name "${POP}.${CHR}" \
           -isfs "/sweed/background/${POP}.genome_sfs.txt" \
           -threads 8 \
-          -checkpoint 3600
+          -grid 1000
 else
   # No background SFS - SweeD will calculate on-the-fly
   singularity exec --bind ${temp_dir}:/data ${sweed_image} \
     SweeD -input "/data/$(basename ${temp_vcf})" \
           -name "${POP}.${CHR}" \
           -threads 8 \
-          -checkpoint 3600
-fi
+          -grid 1000
+  fi
 
 exit_code=$?
 
@@ -186,12 +185,6 @@ else
   exit 1
 fi
 
-# Clean up checkpoint file if it exists
-checkpoint_file="SweeD_Checkpoint.${POP}.${CHR}"
-if [[ -f "${checkpoint_file}" ]]; then
-  echo "Removing checkpoint file: ${checkpoint_file}"
-  rm -f "${checkpoint_file}"
-fi
 
 # Clean up info file if it exists
 info_file="SweeD_Info.${POP}.${CHR}"
