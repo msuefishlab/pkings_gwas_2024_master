@@ -1,5 +1,5 @@
 #!/usr/bin/env Rscript
-## 04_extract_peak_ehh.R
+## 06_extract_peak_ehh.R
 ## Extract EHH statistics within GWAS peaks and calculate percentile rankings
 ##
 ## This script performs three main tasks:
@@ -8,10 +8,10 @@
 ## 3. Calculate percentile rankings and empirical p-values for peak maxima
 ##
 ## Usage:
-##   Rscript code/12_Sweep_Detection/ehh/04_extract_peak_ehh.R
+##   Rscript code/12_Sweep_Detection/ehh/06_extract_peak_ehh.R
 ##
 ## Prerequisites:
-##   - 03_merge_ehh_results.sh completed (genome-wide merged files must exist)
+##   - 05_merge_ehh_results.sh completed (genome-wide merged files must exist)
 ##
 ## Author: Jason Gallant Lab
 ## Date: 2024

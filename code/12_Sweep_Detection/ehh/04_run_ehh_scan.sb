@@ -1,9 +1,9 @@
 #!/bin/bash --login
-#SBATCH --time=03:00:00
+#SBATCH --time=04:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=1
-#SBATCH --mem=16GB
+#SBATCH --cpus-per-task=2
+#SBATCH --mem=100G
 #SBATCH --job-name=ehh_scan
 
 ## 04_run_ehh_scan.sb

@@ -55,29 +55,28 @@ for pair in "${PAIRS[@]}"; do
   merged_file="${outdir}/${bp_label}.genome_wide_ines.txt.gz"
 
   # Find all chromosome files for this pair's BP population
-  chr_files=$(ls ${scan_dir}/${pair}.BP.chr*.ines.txt.gz 2>/dev/null || true)
+  mapfile -t chr_files < <(ls "${scan_dir}/${pair}.BP.chr"*.ines.txt.gz 2>/dev/null || true)
 
-  if [[ -z "${chr_files}" ]]; then
+  if [[ ${#chr_files[@]} -eq 0 ]]; then
     echo "  WARNING: No BP inES files found for ${pair}" | tee -a "${log_file}"
     echo "" | tee -a "${log_file}"
     continue
   fi
 
   # Count files
-  file_count=$(echo "${chr_files}" | wc -w)
+  file_count=${#chr_files[@]}
   echo "  Found ${file_count} chromosome files" | tee -a "${log_file}"
 
   # Create temporary file for merging
   temp_file="${outdir}/.temp_${bp_label}_ines.txt"
 
-  # Process first file to get header
-  first_file=$(echo "${chr_files}" | awk '{print $1}')
-  zcat "${first_file}" | head -n 1 > "${temp_file}"
+  # Process first file to get header (ignore SIGPIPE from head closing early)
+  (zcat "${chr_files[0]}" || true) | head -n 1 > "${temp_file}"
 
   # Merge all chromosomes (skip headers for all files)
   total_lines=0
 
-  for chr_file in ${chr_files}; do
+  for chr_file in "${chr_files[@]}"; do
     chr=$(basename "${chr_file}" .ines.txt.gz | sed "s/${pair}\.BP\.//")
     echo "    Processing ${chr}..." | tee -a "${log_file}"
 
@@ -96,12 +95,12 @@ for pair in "${PAIRS[@]}"; do
   echo "" | tee -a "${log_file}"
   echo "  Created: ${merged_file}" | tee -a "${log_file}"
   echo "  Total data lines: ${total_lines}" | tee -a "${log_file}"
-  echo "  File size: $(du -h ${merged_file} | cut -f1)" | tee -a "${log_file}"
+  echo "  File size: $(du -h "${merged_file}" | cut -f1)" | tee -a "${log_file}"
 
   # Show first few lines
   echo "" | tee -a "${log_file}"
   echo "  First 5 data lines:" | tee -a "${log_file}"
-  zcat "${merged_file}" | head -n 6 | tail -n 5 | tee -a "${log_file}"
+  (zcat "${merged_file}" || true) | head -n 6 | tail -n 5 | tee -a "${log_file}"
 
   echo "" | tee -a "${log_file}"
 done
@@ -126,16 +125,16 @@ for pair in "${PAIRS[@]}"; do
   merged_file="${outdir}/${tp_label}.genome_wide_ines.txt.gz"
 
   # Find all chromosome files for this pair's TP population
-  chr_files=$(ls ${scan_dir}/${pair}.TP.chr*.ines.txt.gz 2>/dev/null || true)
+  mapfile -t chr_files < <(ls "${scan_dir}/${pair}.TP.chr"*.ines.txt.gz 2>/dev/null || true)
 
-  if [[ -z "${chr_files}" ]]; then
+  if [[ ${#chr_files[@]} -eq 0 ]]; then
     echo "  WARNING: No TP inES files found for ${pair}" | tee -a "${log_file}"
     echo "" | tee -a "${log_file}"
     continue
   fi
 
   # Count files
-  file_count=$(echo "${chr_files}" | wc -w)
+  file_count=${#chr_files[@]}
   echo "  Found ${file_count} chromosome files" | tee -a "${log_file}"
 
   # Create temporary file for merging
@@ -152,15 +151,14 @@ for pair in "${PAIRS[@]}"; do
     zcat "${merged_file}" > "${temp_file}"
   else
     existing_merged=false
-    # Process first file to get header
-    first_file=$(echo "${chr_files}" | awk '{print $1}')
-    zcat "${first_file}" | head -n 1 > "${temp_file}"
+    # Process first file to get header (ignore SIGPIPE from head closing early)
+    (zcat "${chr_files[0]}" || true) | head -n 1 > "${temp_file}"
   fi
 
   # Merge all chromosomes (skip headers for all files)
   total_lines=0
 
-  for chr_file in ${chr_files}; do
+  for chr_file in "${chr_files[@]}"; do
     chr=$(basename "${chr_file}" .ines.txt.gz | sed "s/${pair}\.TP\.//")
     echo "    Processing ${chr}..." | tee -a "${log_file}"
 
@@ -190,13 +188,13 @@ for pair in "${PAIRS[@]}"; do
   # Summary for this population
   echo "" | tee -a "${log_file}"
   echo "  Created: ${merged_file}" | tee -a "${log_file}"
-  echo "  Total data lines: $(zcat ${merged_file} | tail -n +2 | wc -l)" | tee -a "${log_file}"
-  echo "  File size: $(du -h ${merged_file} | cut -f1)" | tee -a "${log_file}"
+  echo "  Total data lines: $(zcat "${merged_file}" | tail -n +2 | wc -l)" | tee -a "${log_file}"
+  echo "  File size: $(du -h "${merged_file}" | cut -f1)" | tee -a "${log_file}"
 
   # Show first few lines
   echo "" | tee -a "${log_file}"
   echo "  First 5 data lines:" | tee -a "${log_file}"
-  zcat "${merged_file}" | head -n 6 | tail -n 5 | tee -a "${log_file}"
+  (zcat "${merged_file}" || true) | head -n 6 | tail -n 5 | tee -a "${log_file}"
 
   echo "" | tee -a "${log_file}"
 done
@@ -218,29 +216,28 @@ for pair in "${PAIRS[@]}"; do
   merged_file="${outdir}/${pair}.genome_wide_rsb.txt.gz"
 
   # Find all chromosome files for this pair's Rsb
-  chr_files=$(ls ${scan_dir}/${pair}.chr*.rsb.txt.gz 2>/dev/null || true)
+  mapfile -t chr_files < <(ls "${scan_dir}/${pair}.chr"*.rsb.txt.gz 2>/dev/null || true)
 
-  if [[ -z "${chr_files}" ]]; then
+  if [[ ${#chr_files[@]} -eq 0 ]]; then
     echo "  WARNING: No Rsb files found for ${pair}" | tee -a "${log_file}"
     echo "" | tee -a "${log_file}"
     continue
   fi
 
   # Count files
-  file_count=$(echo "${chr_files}" | wc -w)
+  file_count=${#chr_files[@]}
   echo "  Found ${file_count} chromosome files" | tee -a "${log_file}"
 
   # Create temporary file for merging
   temp_file="${outdir}/.temp_${pair}_rsb.txt"
 
-  # Process first file to get header
-  first_file=$(echo "${chr_files}" | awk '{print $1}')
-  zcat "${first_file}" | head -n 1 > "${temp_file}"
+  # Process first file to get header (ignore SIGPIPE from head closing early)
+  (zcat "${chr_files[0]}" || true) | head -n 1 > "${temp_file}"
 
   # Merge all chromosomes (skip headers for all files)
   total_lines=0
 
-  for chr_file in ${chr_files}; do
+  for chr_file in "${chr_files[@]}"; do
     chr=$(basename "${chr_file}" .rsb.txt.gz | sed "s/${pair}\.//")
     echo "    Processing ${chr}..." | tee -a "${log_file}"
 
@@ -259,12 +256,12 @@ for pair in "${PAIRS[@]}"; do
   echo "" | tee -a "${log_file}"
   echo "  Created: ${merged_file}" | tee -a "${log_file}"
   echo "  Total data lines: ${total_lines}" | tee -a "${log_file}"
-  echo "  File size: $(du -h ${merged_file} | cut -f1)" | tee -a "${log_file}"
+  echo "  File size: $(du -h "${merged_file}" | cut -f1)" | tee -a "${log_file}"
 
   # Show first few lines
   echo "" | tee -a "${log_file}"
   echo "  First 5 data lines:" | tee -a "${log_file}"
-  zcat "${merged_file}" | head -n 6 | tail -n 5 | tee -a "${log_file}"
+  (zcat "${merged_file}" || true) | head -n 6 | tail -n 5 | tee -a "${log_file}"
 
   echo "" | tee -a "${log_file}"
 done
@@ -277,8 +274,8 @@ echo "========================================" | tee -a "${log_file}"
 echo "SUMMARY" | tee -a "${log_file}"
 echo "========================================" | tee -a "${log_file}"
 
-ines_count=$(ls -1 ${outdir}/*.genome_wide_ines.txt.gz 2>/dev/null | wc -l)
-rsb_count=$(ls -1 ${outdir}/*.genome_wide_rsb.txt.gz 2>/dev/null | wc -l)
+ines_count=$(ls -1 "${outdir}"/*.genome_wide_ines.txt.gz 2>/dev/null | wc -l)
+rsb_count=$(ls -1 "${outdir}"/*.genome_wide_rsb.txt.gz 2>/dev/null | wc -l)
 
 # Expected: 5 inES files (BP1, BP2, BP3, TP1, TP2) + 3 Rsb files (BP1_TP1, BP2_TP2, BP3_TP2)
 expected_ines=5
@@ -295,9 +292,14 @@ if [[ ${total_created} -eq ${total_expected} ]]; then
   echo "SUCCESS: All genome-wide files created!" | tee -a "${log_file}"
   echo "" | tee -a "${log_file}"
   echo "Merged files:" | tee -a "${log_file}"
-  ls -lh ${outdir}/*.genome_wide_*.txt.gz | tee -a "${log_file}"
+  ls -lh "${outdir}"/*.genome_wide_*.txt.gz | tee -a "${log_file}"
   echo "" | tee -a "${log_file}"
-  echo "Next step: singularity exec --bind \${root}:/project_root \${rehh_image} Rscript /project_root/code/12_Sweep_Detection/ehh/04_extract_peak_ehh.R" | tee -a "${log_file}"
+  echo "Next steps:" | tee -a "${log_file}"
+  echo "  1. Extract peak statistics:" | tee -a "${log_file}"
+  echo "     singularity exec --bind \${root}:/project_root \${rehh_image} Rscript /project_root/code/12_Sweep_Detection/ehh/06_extract_peak_ehh.R" | tee -a "${log_file}"
+  echo "" | tee -a "${log_file}"
+  echo "  2. Render HTML report:" | tee -a "${log_file}"
+  echo "     bash code/12_Sweep_Detection/ehh/07_render_ehh_report.sh" | tee -a "${log_file}"
 else
   echo "WARNING: Not all merged files were created (${total_created} / ${total_expected})" | tee -a "${log_file}"
   echo "Check that all scan jobs completed successfully" | tee -a "${log_file}"

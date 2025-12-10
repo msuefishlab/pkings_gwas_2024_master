@@ -177,7 +177,7 @@ source pkings_gwas.env
 
 # Run with singularity
 singularity exec --bind ${root}:/project_root ${rehh_image} \
-  Rscript /project_root/code/12_Sweep_Detection/ehh/04_extract_peak_ehh.R
+  Rscript /project_root/code/12_Sweep_Detection/ehh/06_extract_peak_ehh.R
 ```
 
 **What it does:**
@@ -207,7 +207,7 @@ singularity exec --bind ${root}:/project_root ${rehh_image} \
 ### Step 5: Generate report
 
 ```bash
-bash code/12_Sweep_Detection/ehh/06_render_ehh_report.sh
+bash code/12_Sweep_Detection/ehh/07_render_ehh_report.sh
 ```
 
 **What it does:**
@@ -253,9 +253,9 @@ code/12_Sweep_Detection/ehh/
 ├── 04_submit_ehh_scans.sh          # Submit EHH scan jobs
 ├── 04_run_ehh_scan.sb              # SLURM batch script
 ├── 05_merge_ehh_results.sh         # Merge per-chr results
-├── 06_render_ehh_report.sh         # Generate HTML report
+├── 06_extract_peak_ehh.R           # Extract peak stats
+├── 07_render_ehh_report.sh         # Generate HTML report
 ├── scan_ehh_integrated.R           # Core R scanner (called by 04_run_ehh_scan.sb)
-├── 04_extract_peak_ehh.R           # Extract peak stats
 └── analyze_peak_pair_integrated.R  # Helper functions
 ```
 
@@ -427,8 +427,8 @@ ls output_data/12_Sweep_Detection/by_chrom/*.polarized.chr*.vcf.gz
 **Analysis (GWAS peaks):**
 - 04_submit_ehh_scans.sh: ~3 hours wall time (parallelized)
 - 05_merge_ehh_results.sh: ~10-30 minutes
-- 04_extract_peak_ehh.R: ~15 minutes
-- 06_render_ehh_report.sh: ~20 minutes
+- 06_extract_peak_ehh.R: ~15 minutes
+- 07_render_ehh_report.sh: ~20 minutes
 
 **Total:** ~4-6 hours for GWAS peak chromosomes
 

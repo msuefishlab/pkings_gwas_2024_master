@@ -1,14 +1,14 @@
 #!/bin/bash
 set -euo pipefail
 
-## 06_render_ehh_report.sh
+## 07_render_ehh_report.sh
 ## Render EHH analysis R Markdown notebook to HTML
 ##
 ## Usage:
-##   bash code/12_Sweep_Detection/ehh/06_render_ehh_report.sh
+##   bash code/12_Sweep_Detection/ehh/07_render_ehh_report.sh
 ##
 ## Prerequisites:
-##   - All previous steps completed (01-05)
+##   - All previous steps completed (01-06)
 ##   - R with rmarkdown, tidyverse, patchwork packages installed
 ##
 ## Author: Jason Gallant Lab
