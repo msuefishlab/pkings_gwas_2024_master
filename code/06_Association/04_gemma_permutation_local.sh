@@ -57,5 +57,5 @@ cd ${outdir}/$OUTNAME/${OUTNAME}_permution/
 -- \
 -g ${outdir}/$OUTNAME/$OUTNAME.geno \
 -a ${outdir}/$OUTNAME/${OUTNAME}_merge_map.txt \
--lmm 2 \
--debug > ${OUTNAME}_GWA_100_lmm2.txt
+-lmm \
+-debug > ${OUTNAME}_GWA_100_lmm1.txt

@@ -6,7 +6,7 @@ def convert_lmm_to_gwas(lmm_file, gwas_file):
     lmm_data = pd.read_csv(lmm_file, sep='\t')
 
     # Rename columns
-    lmm_data.rename(columns={'rs': 'SNP', 'ps': 'BP', 'p_lrt': 'P'}, inplace=True)
+    lmm_data.rename(columns={'rs': 'SNP', 'ps': 'BP', 'p_lrt': 'P', 'p_wald': 'P'}, inplace=True)
 
     # Filter out rows where 'P' is NaN or blank
     lmm_data = lmm_data[pd.notna(lmm_data['P'])]

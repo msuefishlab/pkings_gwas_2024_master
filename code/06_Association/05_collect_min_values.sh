@@ -24,6 +24,6 @@ for f in ${outdir}/*.assoc.txt;
 	do  
 		if grep -e "phenotypes-" ${f%%.assoc.txt}.log.txt; 
 			then echo "Processing $f file..."; 
-				awk 'NR==1 || $10 < min { line = $0; min = $10}; END {print line}' $f >> ${outdir}/min.txt; 
+				awk 'NR==1 || $12 < min { line = $0; min = $12}; END {print line}' $f >> ${outdir}/min.txt; 
 		fi; 
 	done
