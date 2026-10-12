@@ -2,5 +2,6 @@
 .Rhistory
 input_data/00_Reference_Genome/*
 *.html
+!code/00_common/gwas_browser/index.html
 images/*.sif
 private_data/*

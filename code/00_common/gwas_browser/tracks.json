@@ -1,0 +1,279 @@
+{
+ "genome": {
+  "fai": "input_data/00_Reference_Genome/jordan-mic4273-mb-hirise-20xx3__06-13-2024__final_assembly.fasta.renamed.fa.fai",
+  "gff": "input_data/00_Reference_Genome/paramormyrops_ncbi_0.4.renamed.sorted.gff"
+ },
+ "tracks": [
+  {
+   "id": "ALL_PKINGS_BP0_WOBBLE1_lmm2",
+   "label": "ALL_PKINGS_BP0_WOBBLE1 (lmm2)",
+   "type": "gwas",
+   "path": "output_data/06_Association/ALL_PKINGS_BP0_WOBBLE1/ALL_PKINGS_BP0_WOBBLE1.lmm2.assoc.txt",
+   "p_col": "auto",
+   "min_txt": "auto",
+   "peaks": "auto",
+   "peaks_unfiltered": "auto",
+   "min_af": 0,
+   "sig": null,
+   "sug": null
+  },
+  {
+   "id": "APA_BAM_ONLY_BP_CASES_TP_AND_WOBBLES_CONTROLS_lmm1",
+   "label": "APA_BAM_ONLY_BP_CASES_TP_AND_WOBBLES_CONTROLS (lmm1)",
+   "type": "gwas",
+   "path": "output_data/06_Association/APA_BAM_ONLY_BP_CASES_TP_AND_WOBBLES_CONTROLS/APA_BAM_ONLY_BP_CASES_TP_AND_WOBBLES_CONTROLS.lmm1.assoc.txt",
+   "p_col": "auto",
+   "min_txt": "auto",
+   "peaks": "auto",
+   "peaks_unfiltered": "auto",
+   "min_af": 0,
+   "sig": null,
+   "sug": null
+  },
+  {
+   "id": "PKINGS_ALL_WOB_EXCLUDED_lmm2",
+   "label": "PKINGS_ALL_WOB_EXCLUDED (lmm2)",
+   "type": "gwas",
+   "path": "output_data/06_Association/PKINGS_ALL_WOB_EXCLUDED/PKINGS_ALL_WOB_EXCLUDED.lmm2.assoc.txt",
+   "p_col": "auto",
+   "min_txt": "auto",
+   "peaks": "auto",
+   "peaks_unfiltered": "auto",
+   "min_af": 0,
+   "sig": null,
+   "sug": null
+  },
+  {
+   "id": "PKINGS_ALL_WOB_EXCLUDED_conditional_lmm2",
+   "label": "PKINGS_ALL_WOB_EXCLUDED conditional (lmm2)",
+   "type": "gwas",
+   "path": "output_data/14_Wobble_Analysis/PKINGS_ALL_WOB_EXCLUDED/PKINGS_ALL_WOB_EXCLUDED.conditional.lmm2.assoc.txt",
+   "p_col": "auto",
+   "min_txt": "auto",
+   "peaks": "auto",
+   "peaks_unfiltered": "auto",
+   "min_af": 0,
+   "sig": null,
+   "sug": null
+  },
+  {
+   "id": "PKINGS_ALL_WOB_INCLUDED_conditional_lmm2",
+   "label": "PKINGS_ALL_WOB_INCLUDED conditional (lmm2)",
+   "type": "gwas",
+   "path": "output_data/14_Wobble_Analysis/PKINGS_ALL_WOB_INCLUDED/PKINGS_ALL_WOB_INCLUDED.conditional.lmm2.assoc.txt",
+   "p_col": "auto",
+   "min_txt": "auto",
+   "peaks": "auto",
+   "peaks_unfiltered": "auto",
+   "min_af": 0,
+   "sig": null,
+   "sug": null
+  },
+  {
+   "id": "ALL_PKINGS_TP0_WOBBLE_1_lmm2",
+   "label": "ALL_PKINGS_TP0_WOBBLE_1 (lmm2) [set aside]",
+   "type": "gwas",
+   "path": "output_data/06_Association/set_aside/ALL_PKINGS_TP0_WOBBLE_1/ALL_PKINGS_TP0_WOBBLE_1.lmm2.assoc.txt",
+   "p_col": "auto",
+   "min_txt": "auto",
+   "peaks": "auto",
+   "peaks_unfiltered": "auto",
+   "min_af": 0,
+   "sig": null,
+   "sug": null
+  },
+  {
+   "id": "APA_BAM_BEN_BP0_TPWOB1_lmm2",
+   "label": "APA_BAM_BEN_BP0_TPWOB1 (lmm2) [set aside]",
+   "type": "gwas",
+   "path": "output_data/06_Association/set_aside/APA_BAM_BEN_BP0_TPWOB1/APA_BAM_BEN_BP0_TPWOB1.lmm2.assoc.txt",
+   "p_col": "auto",
+   "min_txt": "auto",
+   "peaks": "auto",
+   "peaks_unfiltered": "auto",
+   "min_af": 0,
+   "sig": null,
+   "sug": null
+  },
+  {
+   "id": "APA_BAM_BEN_TPBP0_WOB1_lmm2",
+   "label": "APA_BAM_BEN_TPBP0_WOB1 (lmm2) [set aside]",
+   "type": "gwas",
+   "path": "output_data/06_Association/set_aside/APA_BAM_BEN_TPBP0_WOB1/APA_BAM_BEN_TPBP0_WOB1.lmm2.assoc.txt",
+   "p_col": "auto",
+   "min_txt": "auto",
+   "peaks": "auto",
+   "peaks_unfiltered": "auto",
+   "min_af": 0,
+   "sig": null,
+   "sug": null
+  },
+  {
+   "id": "APA_BEN_BAM_TP1_BP2_APAWOB2_BAMWOB1_lmm2",
+   "label": "APA_BEN_BAM_TP1_BP2_APAWOB2_BAMWOB1 (lmm2) [set aside]",
+   "type": "gwas",
+   "path": "output_data/06_Association/set_aside/APA_BEN_BAM_TP1_BP2_APAWOB2_BAMWOB1/APA_BEN_BAM_TP1_BP2_APAWOB2_BAMWOB1.lmm2.assoc.txt",
+   "p_col": "auto",
+   "min_txt": "auto",
+   "peaks": "auto",
+   "peaks_unfiltered": "auto",
+   "min_af": 0,
+   "sig": null,
+   "sug": null
+  },
+  {
+   "id": "APA_BEN_BAM_TP1_BP2_WOB9_lmm2",
+   "label": "APA_BEN_BAM_TP1_BP2_WOB9 (lmm2) [set aside]",
+   "type": "gwas",
+   "path": "output_data/06_Association/set_aside/APA_BEN_BAM_TP1_BP2_WOB9/APA_BEN_BAM_TP1_BP2_WOB9.lmm2.assoc.txt",
+   "p_col": "auto",
+   "min_txt": "auto",
+   "peaks": "auto",
+   "peaks_unfiltered": "auto",
+   "min_af": 0,
+   "sig": null,
+   "sug": null
+  },
+  {
+   "id": "APA_BEN_BAM_TP2_BP0_WOB1_lmm2",
+   "label": "APA_BEN_BAM_TP2_BP0_WOB1 (lmm2) [set aside]",
+   "type": "gwas",
+   "path": "output_data/06_Association/set_aside/APA_BEN_BAM_TP2_BP0_WOB1/APA_BEN_BAM_TP2_BP0_WOB1.lmm2.assoc.txt",
+   "p_col": "auto",
+   "min_txt": "auto",
+   "peaks": "auto",
+   "peaks_unfiltered": "auto",
+   "min_af": 0,
+   "sig": null,
+   "sug": null
+  },
+  {
+   "id": "APA_BEN_TP0_WOB1_lmm2",
+   "label": "APA_BEN_TP0_WOB1 (lmm2) [set aside]",
+   "type": "gwas",
+   "path": "output_data/06_Association/set_aside/APA_BEN_TP0_WOB1/APA_BEN_TP0_WOB1.lmm2.assoc.txt",
+   "p_col": "auto",
+   "min_txt": "auto",
+   "peaks": "auto",
+   "peaks_unfiltered": "auto",
+   "min_af": 0,
+   "sig": null,
+   "sug": null
+  },
+  {
+   "id": "BAM_ONLY_BP0_TPWOB1_lmm2",
+   "label": "BAM_ONLY_BP0_TPWOB1 (lmm2) [set aside]",
+   "type": "gwas",
+   "path": "output_data/06_Association/set_aside/BAM_ONLY_BP0_TPWOB1/BAM_ONLY_BP0_TPWOB1.lmm2.assoc.txt",
+   "p_col": "auto",
+   "min_txt": "auto",
+   "peaks": "auto",
+   "peaks_unfiltered": "auto",
+   "min_af": 0,
+   "sig": null,
+   "sug": null
+  },
+  {
+   "id": "DOV_DOG_BEN_APA_BIK_BAVA_TP1_BP2_WOB9_lmm2",
+   "label": "DOV_DOG_BEN_APA_BIK_BAVA_TP1_BP2_WOB9 (lmm2) [set aside]",
+   "type": "gwas",
+   "path": "output_data/06_Association/set_aside/DOV_DOG_BEN_APA_BIK_BAVA_TP1_BP2_WOB9/DOV_DOG_BEN_APA_BIK_BAVA_TP1_BP2_WOB9.lmm2.assoc.txt",
+   "p_col": "auto",
+   "min_txt": "auto",
+   "peaks": "auto",
+   "peaks_unfiltered": "auto",
+   "min_af": 0,
+   "sig": null,
+   "sug": null
+  },
+  {
+   "id": "MOV_BIR_DOG_DOV_BAVA_BIK_APA_BEN_TP1_BP2_WOB9_lmm2",
+   "label": "MOV_BIR_DOG_DOV_BAVA_BIK_APA_BEN_TP1_BP2_WOB9 (lmm2) [set aside]",
+   "type": "gwas",
+   "path": "output_data/06_Association/set_aside/MOV_BIR_DOG_DOV_BAVA_BIK_APA_BEN_TP1_BP2_WOB9/MOV_BIR_DOG_DOV_BAVA_BIK_APA_BEN_TP1_BP2_WOB9.lmm2.assoc.txt",
+   "p_col": "auto",
+   "min_txt": "auto",
+   "peaks": "auto",
+   "peaks_unfiltered": "auto",
+   "min_af": 0,
+   "sig": null,
+   "sug": null
+  },
+  {
+   "id": "PKINGS_ALL_WOB_INCLUDED_lmm2",
+   "label": "PKINGS_ALL_WOB_INCLUDED (lmm2) [set aside]",
+   "type": "gwas",
+   "path": "output_data/06_Association/set_aside/PKINGS_ALL_WOB_INCLUDED/PKINGS_ALL_WOB_INCLUDED.lmm2.assoc.txt",
+   "p_col": "auto",
+   "min_txt": "auto",
+   "peaks": "auto",
+   "peaks_unfiltered": "auto",
+   "min_af": 0,
+   "sig": null,
+   "sug": null
+  },
+  {
+   "id": "PKINGS_TP1_BP2_WOB9_lmm2",
+   "label": "PKINGS_TP1_BP2_WOB9 (lmm2) [set aside]",
+   "type": "gwas",
+   "path": "output_data/06_Association/set_aside/PKINGS_TP1_BP2_WOB9/PKINGS_TP1_BP2_WOB9.lmm2.assoc.txt",
+   "p_col": "auto",
+   "min_txt": "auto",
+   "peaks": "auto",
+   "peaks_unfiltered": "auto",
+   "min_af": 0,
+   "sig": null,
+   "sug": null
+  },
+  {
+   "id": "fst_APA_BAM",
+   "type": "line",
+   "preset": "pixy_fst",
+   "path": "output_data/05_PopGen/MIC4273_HAP2_NEWREF_MSU618_all_fish_all_sites_fst.txt",
+   "filter": {
+    "pop1": "APA",
+    "pop2": "BAM"
+   }
+  },
+  {
+   "id": "pi_APA",
+   "type": "line",
+   "preset": "pixy_pi",
+   "path": "output_data/05_PopGen/MIC4273_HAP2_NEWREF_MSU618_all_fish_all_sites_pi.txt",
+   "filter": {
+    "pop": "APA"
+   }
+  },
+  {
+   "id": "pi_BAM",
+   "type": "line",
+   "preset": "pixy_pi",
+   "path": "output_data/05_PopGen/MIC4273_HAP2_NEWREF_MSU618_all_fish_all_sites_pi.txt",
+   "filter": {
+    "pop": "BAM"
+   }
+  },
+  {
+   "id": "tajd_APA",
+   "type": "line",
+   "preset": "tajd",
+   "path": "output_data/05_PopGen/MIC4273_HAP2_NEWREF_MSU618_all_fish_all_sites_tajd.txt",
+   "filter": {
+    "pop1": "APA"
+   }
+  },
+  {
+   "id": "fdm_BP1_TP1_BP2",
+   "type": "line",
+   "preset": "dsuite",
+   "value_col": "f_dM",
+   "path": "output_data/10_Introgression/BP1_TP1_BP2_localFstats_chr*_50_25.txt"
+  },
+  {
+   "id": "clr_sf2_BP1",
+   "type": "line",
+   "preset": "sf2",
+   "path": "output_data/12_Sweep_Detection/sweepfinder2/merged/BP1.genome_wide_clr.txt"
+  }
+ ]
+}

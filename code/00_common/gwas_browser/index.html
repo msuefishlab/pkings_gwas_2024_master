@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GWAS Browser</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --panel: #ffffff; --fg: #1d232b; --muted: #66707c; --line: #dfe2e6; --grid: #eceef1;
+    --band: #f1f3f5; --accent: #1c6fd6; --hit: #e8590c;
+    --dot-a: #24527f; --dot-b: #6a91bd; --sig: #c92a2a; --sug: #1c7ed6;
+    --peak: rgba(245, 159, 0, 0.13); --peak-faint: rgba(245, 159, 0, 0.06); --peak-edge: #d08c00;
+    --gene: #33506d; --gene-nc: #9aa5b1; --line-mean: #5f3dc4; --line-env: rgba(95, 61, 196, 0.2);
+    --ov-a: #dde3ea; --ov-b: #c4cfdb; --label-w: 200px;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14171b; --panel: #1b1f24; --fg: #e4e7eb; --muted: #98a2ad; --line: #2d333a; --grid: #232830;
+      --band: #1f242a; --accent: #4dabf7; --hit: #ff922b;
+      --dot-a: #8cb6e2; --dot-b: #4c76a1; --sig: #ff6b6b; --sug: #4dabf7;
+      --peak: rgba(250, 176, 5, 0.09); --peak-faint: rgba(250, 176, 5, 0.04); --peak-edge: #f2b01e;
+      --gene: #a9c3de; --gene-nc: #5d6874; --line-mean: #b197fc; --line-env: rgba(177, 151, 252, 0.22);
+      --ov-a: #2a3139; --ov-b: #3a4550;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14171b; --panel: #1b1f24; --fg: #e4e7eb; --muted: #98a2ad; --line: #2d333a; --grid: #232830;
+    --band: #1f242a; --accent: #4dabf7; --hit: #ff922b;
+    --dot-a: #8cb6e2; --dot-b: #4c76a1; --sig: #ff6b6b; --sug: #4dabf7;
+    --peak: rgba(250, 176, 5, 0.09); --peak-faint: rgba(250, 176, 5, 0.04); --peak-edge: #f2b01e;
+    --gene: #a9c3de; --gene-nc: #5d6874; --line-mean: #b197fc; --line-env: rgba(177, 151, 252, 0.22);
+    --ov-a: #2a3139; --ov-b: #3a4550;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg); color: var(--fg);
+    font: 13px/1.35 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    overflow-x: hidden;
+  }
+  header.top {
+    position: sticky; top: 0; z-index: 20; background: var(--panel);
+    border-bottom: 1px solid var(--line); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  }
+  .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 8px 12px 6px; }
+  .controls .title { font-weight: 650; margin-right: 4px; }
+  .controls label { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); }
+  .controls select, .controls input, .controls button, details.menu summary {
+    font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line);
+    border-radius: 6px; padding: 3px 7px; height: 28px;
+  }
+  .controls button { cursor: pointer; min-width: 28px; }
+  .controls button:hover, details.menu summary:hover { border-color: var(--muted); }
+  .controls input[type="number"] { width: 62px; }
+  .controls input[type="checkbox"] { height: auto; }
+  .search { position: relative; }
+  #locus { width: 300px; max-width: 60vw; }
+  #suggest {
+    position: absolute; top: 31px; left: 0; z-index: 40; min-width: 100%; max-width: 520px; max-height: 360px;
+    overflow: auto; margin: 0; padding: 4px 0; list-style: none; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  }
+  #suggest li { padding: 4px 10px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #suggest li b { font-weight: 600; }
+  #suggest li span { color: var(--muted); margin-left: 6px; }
+  #suggest li.active, #suggest li:hover { background: var(--band); }
+  details.menu { position: relative; }
+  details.menu summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; }
+  details.menu summary::-webkit-details-marker { display: none; }
+  details.menu .panel {
+    position: absolute; top: 32px; left: 0; z-index: 40; width: 340px; max-height: 60vh; overflow: auto;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  }
+  details.menu .panel label { display: flex; gap: 6px; padding: 2px 0; color: var(--fg); }
+  details.menu .panel .actions { display: flex; gap: 6px; padding: 4px 0 6px; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
+  #status { margin-left: auto; color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .row { display: flex; align-items: stretch; border-bottom: 1px solid var(--grid); }
+  .row .label {
+    flex: 0 0 var(--label-w); width: var(--label-w); padding: 5px 8px 4px 12px; position: relative;
+    border-right: 1px solid var(--line); overflow: hidden; background: var(--panel);
+  }
+  .row .label .name { font-weight: 600; font-size: 12px; overflow-wrap: break-word; padding-right: 14px; }
+  .row .label .sub { color: var(--muted); font-size: 11px; margin-top: 1px; }
+  .row .label .hide {
+    position: absolute; top: 3px; right: 4px; border: 0; background: none; color: var(--muted);
+    cursor: pointer; font-size: 14px; line-height: 1; padding: 2px 4px; visibility: hidden;
+  }
+  .row:hover .label .hide { visibility: visible; }
+  .row canvas { flex: 1 1 0; width: 0; min-width: 0; display: block; touch-action: none; }
+  .row canvas.plot { cursor: grab; }
+  .row canvas.plot.dragging { cursor: grabbing; }
+  .row.ruler, .row.overview { border-bottom: 0; }
+  .row.overview canvas { cursor: pointer; }
+  .row.ruler .label, .row.overview .label { color: var(--muted); font-size: 11px; padding-top: 6px; }
+  #tracks { background: var(--panel); }
+  #tracks .row.line .label { background: var(--bg); }
+  #gene-row {
+    position: sticky; bottom: 0; z-index: 15; background: var(--panel);
+    border-top: 1px solid var(--line); box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.05);
+  }
+  #gene-row .row { border-bottom: 0; }
+  #message { padding: 40px 24px; color: var(--muted); max-width: 720px; }
+  #message code { background: var(--band); padding: 1px 4px; border-radius: 4px; }
+  #tooltip {
+    position: fixed; z-index: 50; pointer-events: none; background: var(--panel); color: var(--fg);
+    border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; font-size: 12px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15); max-width: 360px; white-space: pre-line;
+  }
+  #drawer {
+    position: fixed; z-index: 30; right: 12px; top: 12px; width: 470px; max-width: calc(100vw - 24px);
+    max-height: calc(100vh - 24px); overflow: auto; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 10px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2); padding: 12px 14px;
+  }
+  #drawer h2 { font-size: 15px; margin: 0 24px 2px 0; }
+  #drawer .close { position: absolute; top: 8px; right: 10px; border: 0; background: none; color: var(--muted); font-size: 18px; cursor: pointer; }
+  #drawer .sub { color: var(--muted); font-size: 12px; margin-bottom: 8px; overflow-wrap: anywhere; }
+  #drawer .gene { margin: 8px 0; padding: 8px 10px; background: var(--band); border-radius: 8px; }
+  #drawer .gene .desc { color: var(--muted); font-size: 12px; }
+  #drawer button.link { border: 0; background: none; color: var(--accent); cursor: pointer; padding: 0; font: inherit; }
+  #drawer table { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+  #drawer th, #drawer td { text-align: right; padding: 3px 4px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+  #drawer th:first-child, #drawer td:first-child { text-align: left; white-space: normal; overflow-wrap: anywhere; min-width: 120px; }
+  #drawer th { color: var(--muted); font-weight: 500; }
+  #drawer td.strong { font-weight: 650; }
+  #drawer td.track { font-size: 11.5px; }
+  #drawer td.sig { color: var(--sig); }
+  #drawer .section { margin-top: 12px; font-weight: 600; font-size: 12px; color: var(--muted); }
+  @media (max-width: 720px) {
+    :root { --label-w: 110px; }
+    #locus { width: 180px; }
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="controls">
+    <span class="title">GWAS Browser</span>
+    <div class="search">
+      <input id="locus" type="text" spellcheck="false" autocomplete="off" placeholder="Gene, chr16, or chr16:10.8-11.1M" aria-label="Locus or gene">
+      <ul id="suggest" hidden></ul>
+    </div>
+    <button id="btn-genome" title="Whole genome (0)">Genome</button>
+    <button id="btn-out" title="Zoom out (-)">−</button>
+    <button id="btn-in" title="Zoom in (+)">+</button>
+    <label title="Y-axis scale">Y
+      <select id="ymode">
+        <option value="track">per track</option>
+        <option value="view">per track, in view</option>
+        <option value="shared">shared</option>
+      </select>
+    </label>
+    <label title="Fixed y maximum (−log10 p); empty = auto">max <input id="ymax" type="number" min="1" step="1" placeholder="auto"></label>
+    <label title="Track height">Height
+      <select id="height">
+        <option value="60">S</option>
+        <option value="90">M</option>
+        <option value="130">L</option>
+        <option value="190">XL</option>
+      </select>
+    </label>
+    <label><input id="ups" type="checkbox"> ups scaffolds</label>
+    <label><input id="unfiltered" type="checkbox"> unfiltered peaks</label>
+    <details class="menu" id="track-menu">
+      <summary>Tracks</summary>
+      <div class="panel">
+        <div class="actions"><button id="show-all">Show all</button><button id="hide-all">Hide all</button></div>
+        <div id="track-list"></div>
+      </div>
+    </details>
+    <span id="status">Loading…</span>
+  </div>
+  <div id="fixed-rows"></div>
+</header>
+<main id="tracks"></main>
+<div id="gene-row"></div>
+<div id="message" hidden></div>
+<aside id="drawer" hidden></aside>
+<div id="tooltip" hidden></div>
+<script type="module" src="viewer.js"></script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+{
+ "genome": {
+  "fai": "input_data/00_Reference_Genome/jordan-mic4273-mb-hirise-20xx3__06-13-2024__final_assembly.fasta.renamed.fa.fai",
+  "gff": "input_data/00_Reference_Genome/paramormyrops_ncbi_0.4.renamed.sorted.gff"
+ },
+ "tracks": [
+  {"id": "PKINGS_ALL_WOB_EXCLUDED_lmm2", "label": "All P. kingsleyae, wobble excluded (lmm2)", "type": "gwas",
+   "path": "output_data/06_Association/PKINGS_ALL_WOB_EXCLUDED/PKINGS_ALL_WOB_EXCLUDED.lmm2.assoc.txt",
+   "p_col": "auto", "min_txt": "auto", "peaks": "auto", "peaks_unfiltered": "auto", "min_af": 0, "sig": null, "sug": null},
+  {"id": "APA_BAM_ONLY_BP_CASES_TP_AND_WOBBLES_CONTROLS_lmm1", "label": "APA+BAM, BP cases vs TP+wobble controls (lmm1)", "type": "gwas",
+   "path": "output_data/06_Association/APA_BAM_ONLY_BP_CASES_TP_AND_WOBBLES_CONTROLS/APA_BAM_ONLY_BP_CASES_TP_AND_WOBBLES_CONTROLS.lmm1.assoc.txt",
+   "p_col": "auto", "min_txt": "auto", "peaks": "auto", "peaks_unfiltered": "auto", "min_af": 0, "sig": null, "sug": null},
+  {"id": "fst_APA_BAM", "type": "line", "preset": "pixy_fst",
+   "path": "output_data/05_PopGen/MIC4273_HAP2_NEWREF_MSU618_all_fish_all_sites_fst.txt", "filter": {"pop1": "APA", "pop2": "BAM"}},
+  {"id": "pi_APA", "type": "line", "preset": "pixy_pi",
+   "path": "output_data/05_PopGen/MIC4273_HAP2_NEWREF_MSU618_all_fish_all_sites_pi.txt", "filter": {"pop": "APA"}},
+  {"id": "pi_BAM", "type": "line", "preset": "pixy_pi",
+   "path": "output_data/05_PopGen/MIC4273_HAP2_NEWREF_MSU618_all_fish_all_sites_pi.txt", "filter": {"pop": "BAM"}},
+  {"id": "tajd_APA", "type": "line", "preset": "tajd",
+   "path": "output_data/05_PopGen/MIC4273_HAP2_NEWREF_MSU618_all_fish_all_sites_tajd.txt", "filter": {"pop1": "APA"}},
+  {"id": "fdm_BP1_TP1_BP2", "type": "line", "preset": "dsuite", "value_col": "f_dM",
+   "path": "output_data/10_Introgression/BP1_TP1_BP2_localFstats_chr*_50_25.txt"},
+  {"id": "clr_sf2_BP1", "type": "line", "preset": "sf2",
+   "path": "output_data/12_Sweep_Detection/sweepfinder2/merged/BP1.genome_wide_clr.txt"}
+ ]
+}
