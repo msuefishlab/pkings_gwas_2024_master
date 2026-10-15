@@ -26,9 +26,27 @@ suppressPackageStartupMessages({
 root <- find_root(".git")
 source(file.path(root, "code/12_Sweep_Detection/evidence/region_stats_lib.R"))
 
+## --suffix     read region_stats<suffix>.tsv.gz (the operator configuration)
+## --out_suffix appended to the output names; defaults to --suffix. Give sensitivity runs
+##              their own, or they overwrite the primary configuration's results.
+## --null_mode  "matched" (default; SNP density and callable fraction),
+##              "unmatched" (every pseudo-peak), or
+##              "differentiation" (adds BP-TP allele-frequency difference to the matching;
+##              a sensitivity row only, because a sweep creates differentiation)
+args <- commandArgs(trailingOnly = TRUE)
+arg_of <- function(flag, default) {
+  i <- match(flag, args)
+  if (is.na(i) || i == length(args)) default else args[i + 1]
+}
+SUFFIX     <- arg_of("--suffix", "")
+OUT_SUFFIX <- arg_of("--out_suffix", SUFFIX)
+NULL_MODE  <- arg_of("--null_mode", "matched")
+
 dir_ev  <- file.path(root, "output_data/12_Sweep_Detection/evidence")
-stats   <- fread(file.path(dir_ev, "region_stats.tsv.gz"))
+stats   <- fread(file.path(dir_ev, sprintf("region_stats%s.tsv.gz", SUFFIX)))
 units   <- test_units()
+cat("Region statistics: region_stats", SUFFIX, ".tsv.gz | null mode: ", NULL_MODE,
+    " | output suffix: '", OUT_SUFFIX, "'\n", sep = "")
 
 PRIMARY      <- c("rsb", "clr", "pi_ratio")   # one per evidence class (H, S, D)
 SUPPORT_PCT  <- 95                            # "supported": >= 2 of 3 primaries at this percentile
@@ -69,6 +87,13 @@ if (file.exists(file.path(dir_ev, "region_callable.tsv"))) {
       "      Run 02b_region_callable.R once the lineage pixy output exists.\n", sep = "")
   covars[, callable := NA_real_]
 }
+if (file.exists(file.path(dir_ev, "region_differentiation.tsv"))) {
+  diffs <- fread(file.path(dir_ev, "region_differentiation.tsv"))
+  covars <- merge(covars, diffs[, .(region_id, lineage, mean_fst)],
+                  by = c("region_id", "lineage"), all.x = TRUE)
+} else {
+  covars[, mean_fst := NA_real_]
+}
 
 decile <- function(x) {
   if (all(is.na(x))) return(rep(NA_integer_, length(x)))
@@ -87,10 +112,11 @@ for (pk in sort(unique(units$peak))) {
 
   ## --- matching: deciles are defined on the pseudo-peaks, using the same lineage set
   cv <- covars[lineage %in% lineage_set,
-               .(n_snps = mean(n_snps, na.rm = TRUE), callable = mean(callable, na.rm = TRUE)),
+               .(n_snps = mean(n_snps, na.rm = TRUE), callable = mean(callable, na.rm = TRUE),
+                 mean_fst = mean(mean_fst, na.rm = TRUE)),
                by = .(region_id, region_type, peak)]
   cvp <- cv[region_type == "pseudo"]
-  cvp[, `:=`(d_snps = decile(n_snps), d_call = decile(callable))]
+  cvp[, `:=`(d_snps = decile(n_snps), d_call = decile(callable), d_fst = decile(mean_fst))]
   target <- cv[region_type == "peak" & peak == pk]
   if (!nrow(target)) { cat("  no covariates for this peak; skipped\n"); next }
 
@@ -107,18 +133,30 @@ for (pk in sort(unique(units$peak))) {
   d_snps_t <- dec_of(target$n_snps, cvp$n_snps)
   use_call <- !all(is.na(cvp$callable)) && !is.na(target$callable)
   d_call_t <- if (use_call) dec_of(target$callable, cvp$callable) else NA_integer_
+  ## differentiation is added only for the sensitivity row, never for the headline
+  use_fst  <- NULL_MODE == "differentiation" && !all(is.na(cvp$mean_fst)) && !is.na(target$mean_fst)
+  d_fst_t  <- if (use_fst) dec_of(target$mean_fst, cvp$mean_fst) else NA_integer_
 
+  if (NULL_MODE == "unmatched") {
+    matched_ids <- cvp$region_id
+    caliper <- NA_integer_
+  } else {
   caliper <- 0L
   repeat {
     ok <- abs(cvp$d_snps - d_snps_t) <= caliper
     if (use_call) ok <- ok & abs(cvp$d_call - d_call_t) <= caliper
+    if (use_fst)  ok <- ok & abs(cvp$d_fst  - d_fst_t)  <= caliper
     matched_ids <- cvp$region_id[which(ok)]
     if (length(matched_ids) >= MIN_NULL || caliper >= N_DECILES) break
     caliper <- caliper + 1L
   }
-  match_note <- sprintf("%s, caliper +/-%d decile(s)",
+  }
+  match_note <- if (NULL_MODE == "unmatched") "unmatched (all pseudo-peaks)" else
+    sprintf("%s, caliper +/-%d decile(s)",
                         if (use_call) "SNP density and callable fraction" else
-                          "SNP density only (callable fraction unavailable)", caliper)
+                          "SNP density only (callable fraction unavailable)",
+                        caliper)
+  if (use_fst) match_note <- paste(match_note, "+ BP-TP Fst")
   cat("  matched null: ", length(matched_ids), " of ", nrow(cvp),
       " pseudo-peaks (", match_note, ")\n", sep = "")
 
@@ -224,7 +262,7 @@ for (pk in sort(unique(units$peak))) {
 ## ================================================================================= outputs
 if (length(matrix_rows)) {
   em <- rbindlist(matrix_rows, fill = TRUE)
-  fwrite(em, file.path(dir_ev, "evidence_matrix.tsv"), sep = "\t")
+  fwrite(em, file.path(dir_ev, sprintf("evidence_matrix%s.tsv", OUT_SUFFIX)), sep = "\t")
   cat("\n", strrep("=", 68), "\nEvidence matrix (primary statistics):\n", sep = "")
   if ("supported" %in% names(em)) {
     print(dcast(em[primary == TRUE], peak + lineages + supported + strong + empirical_p + tp_label ~
@@ -237,7 +275,7 @@ if (length(matrix_rows)) {
 }
 if (length(null_scores)) {
   cal <- rbindlist(null_scores)
-  fwrite(cal, file.path(dir_ev, "calibration.tsv"), sep = "\t")
+  fwrite(cal, file.path(dir_ev, sprintf("calibration%s.tsv", OUT_SUFFIX)), sep = "\t")
   cat("\nCalibration: how often the rule fires on non-peak regions\n")
   print(cal)
 }
@@ -250,7 +288,7 @@ keep <- names(num)[colSums(!is.na(num)) > 500]
 if (length(keep) > 1) {
   cm <- cor(as.matrix(num[, ..keep]), method = "spearman", use = "pairwise.complete.obs")
   fwrite(data.table(statistic = rownames(cm), as.data.table(round(cm, 3))),
-         file.path(dir_ev, "statistic_correlations.tsv"), sep = "\t")
+         file.path(dir_ev, sprintf("statistic_correlations%s.tsv", OUT_SUFFIX)), sep = "\t")
   cat("\nSpearman correlations among statistics across pseudo-peaks:\n")
   print(round(cm, 2))
 }

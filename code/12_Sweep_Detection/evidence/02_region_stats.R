@@ -28,18 +28,25 @@ suppressPackageStartupMessages({
 root <- find_root(".git")
 source(file.path(root, "code/12_Sweep_Detection/evidence/region_stats_lib.R"))
 
+## --stats       comma-separated statistics (default: all that are available)
+## --half_width  search-region half-width in bp (default 100000; sensitivity: 50000)
+## --window      sub-window size in bp       (default  20000; sensitivity: 40000)
+## --suffix      appended to the output file names, so sensitivity runs do not overwrite
+##               the primary configuration
 args <- commandArgs(trailingOnly = TRUE)
-want <- if (length(args) >= 2 && args[1] == "--stats") {
-  strsplit(args[2], ",")[[1]]
-} else {
-  c("rsb", "clr", "pi_ratio", "xpehh", "ihs", "nsl", "clr_folded")
+arg_of <- function(flag, default) {
+  i <- match(flag, args)
+  if (is.na(i) || i == length(args)) default else args[i + 1]
 }
+want       <- strsplit(arg_of("--stats", "rsb,clr,pi_ratio,xpehh,ihs,nsl,clr_folded"), ",")[[1]]
+HALF_WIDTH <- as.numeric(arg_of("--half_width", 100e3))
+WINDOW     <- as.numeric(arg_of("--window", 20e3))
+SUFFIX     <- arg_of("--suffix", "")
 
 out_dir <- file.path(root, "output_data/12_Sweep_Detection/evidence")
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
-PSEUDO_SPACING <- 200e3   # centre-to-centre; equals 2 x the primary half-width
-PEAK_BUFFER    <- 250e3   # exclusion around every GWAS peak
+PEAK_BUFFER <- 250e3   # exclusion around every GWAS peak
 
 ## ------------------------------------------------------------------ statistic registry
 ## lineages: "bp" for contrast statistics (BP versus its own TP), "all" for population
@@ -81,6 +88,8 @@ units <- test_units()
 lineages <- sort(unique(units$bp))
 cat("Peaks:\n"); print(peaks[, .(peak, chrom, index_snp)])
 
+## pseudo-peak spacing tracks the region width so that the regions abut without overlapping
+PSEUDO_SPACING <- 2 * HALF_WIDTH
 built <- build_regions(root, spacing = PSEUDO_SPACING, buffer = PEAK_BUFFER)
 regions <- built$regions
 peak_regions   <- regions[region_type == "peak"]
@@ -94,7 +103,8 @@ op_rows <- list(); results <- list()
 for (stat in want) {
   if (is.null(stat_registry[[stat]])) { cat("\n[skip] unknown statistic:", stat, "\n"); next }
   spec <- stat_registry[[stat]]
-  op <- make_operator(min_sites = spec$min_sites, label = stat)
+  op <- make_operator(half_width = HALF_WIDTH, window = WINDOW,
+                      min_sites = spec$min_sites, label = stat)
 
   use <- if (identical(spec$lineages, "all")) c(lineages, sort(unique(units$tp))) else lineages
   for (bp in use) {
@@ -126,9 +136,9 @@ setcolorder(res, c("region_id", "region_type", "peak", "chrom", "centre",
                    "direction", "operator", "primary"))
 setorder(res, statistic, lineage, region_type, chrom, centre)
 
-f_out <- file.path(out_dir, "region_stats.tsv.gz")
+f_out <- file.path(out_dir, sprintf("region_stats%s.tsv.gz", SUFFIX))
 fwrite(res, f_out, sep = "\t")
-fwrite(rbindlist(op_rows), file.path(out_dir, "region_stats_operators.tsv"), sep = "\t")
+fwrite(rbindlist(op_rows), file.path(out_dir, sprintf("region_stats_operators%s.tsv", SUFFIX)), sep = "\t")
 
 cat("\n", strrep("-", 70), "\nWrote ", f_out, " (", nrow(res), " rows)\n", sep = "")
 cat("Statistics x lineages computed:\n")
