@@ -55,6 +55,11 @@ def main():
     if len(files) != n_chunks:
         raise SystemExit(f"{len(files)} spectra files for {n_chunks} chunks; finish 03_spectra.py first")
 
+    # Two variants per pair: "" = polarized by outgroup agreement (unfolded analysis) and "_alt" = every
+    # SNP, ALT-oriented, invariant sites whether or not the outgroups are callable (folded, label-free
+    # analysis; DESIGN.md Deviation 1)
+    VARIANTS = (("", "spectra", "invariant", "delta_hist"),
+                ("_alt", "spectra_alt", "invariant_all", "delta_hist_alt"))
     acc = {}
     blockstats = collections.defaultdict(lambda: np.zeros(2))
     groups_of = {}
@@ -70,32 +75,33 @@ def main():
         chrom = p["chrom"]
         for (blk, g), (pi_s, d_s) in p["blockstats"].items():
             blockstats[(chrom, blk, g)] += (pi_s, d_s)
-        for pid, sp in p["spectra"].items():
-            n1, n2 = p["projections"][pid]
-            A = acc.setdefault(pid, {
-                "n": (n1, n2), "data": np.zeros((n1 + 1, n2 + 1)), "L_mask": 0.0, "L_scan": 0.0,
-                "region_spec": collections.defaultdict(lambda: np.zeros((n1 + 1, n2 + 1))),
-                "block_spec": collections.defaultdict(lambda: np.zeros((n1 + 1, n2 + 1))),
-                "block_inv": collections.Counter(),
-                "dhist": collections.defaultdict(lambda: np.zeros(len(p["delta_bins"]) - 1)),
-                "delta_bins": p["delta_bins"]})
-            for (blk, c3, region), arr in sp.items():
-                A["L_scan"] += arr.sum()
-                A["region_spec"][region] += arr
-                if region == "none" and c3 in mask_c3:
-                    A["data"] += arr
-                    A["L_mask"] += arr.sum()
-                    A["block_spec"][(chrom, blk)] += arr
-            for (c3, region), h in p["delta_hist"][pid].items():
-                A["dhist"][region] += h
-        for (pid, blk, c3, reg), n in p["invariant"].items():
-            if pid not in acc:
-                continue
-            A = acc[pid]
-            A["L_scan"] += n
-            if reg == "none" and c3 in mask_c3:
-                A["L_mask"] += n
-                A["block_inv"][(chrom, blk)] += n
+        for var, spec_key, inv_key, dh_key in VARIANTS:
+            for pid, sp in p[spec_key].items():
+                n1, n2 = p["projections"][pid]
+                A = acc.setdefault((pid, var), {
+                    "n": (n1, n2), "data": np.zeros((n1 + 1, n2 + 1)), "L_mask": 0.0, "L_scan": 0.0,
+                    "region_spec": collections.defaultdict(lambda n1=n1, n2=n2: np.zeros((n1 + 1, n2 + 1))),
+                    "block_spec": collections.defaultdict(lambda n1=n1, n2=n2: np.zeros((n1 + 1, n2 + 1))),
+                    "block_inv": collections.Counter(),
+                    "dhist": collections.defaultdict(lambda nb=len(p["delta_bins"]) - 1: np.zeros(nb)),
+                    "delta_bins": p["delta_bins"]})
+                for (blk, c3, region), arr in sp.items():
+                    A["L_scan"] += arr.sum()
+                    A["region_spec"][region] += arr
+                    if region == "none" and c3 in mask_c3:
+                        A["data"] += arr
+                        A["L_mask"] += arr.sum()
+                        A["block_spec"][(chrom, blk)] += arr
+                for (c3, region), h in p[dh_key][pid].items():
+                    A["dhist"][region] += h
+            for (pid, blk, c3, reg), n in p[inv_key].items():
+                if (pid, var) not in acc:
+                    continue
+                A = acc[(pid, var)]
+                A["L_scan"] += n
+                if reg == "none" and c3 in mask_c3:
+                    A["L_mask"] += n
+                    A["block_inv"][(chrom, blk)] += n
 
     # local-Ne factor per block for each pair: diversity / outgroup divergence in the populations not in
     # the pair, relative to the same ratio genome-wide (DESIGN.md section 4)
@@ -118,23 +124,28 @@ def main():
             f[(c, b)] = 1.0 if s[1] < 0.25 * d_med else (s[0] / s[1]) / genome_ratio
         return f, off
 
-    for pid, A in acc.items():
-        n1, n2 = A["n"]
-        keys = sorted(A["block_spec"], key=lambda k: (int(k[0][3:]), k[1]))
+    for pid in sorted({k[0] for k in acc}):
         f_blocks, off = f_blocks_for(pid)
-        data = dadi.Spectrum(A["data"], mask_corners=True, data_folded=False, pop_ids=list(groups_of[pid]))
-        data.to_file(os.path.join(OUT, f"sfs/{pid}{out_suffix}.fs"))
-        out = {"pair": pid, "groups": groups_of[pid], "n": A["n"], "mask_c3": sorted(mask_c3),
-               "data": A["data"], "L_mask": A["L_mask"], "L_scan": A["L_scan"],
-               "region_spec": dict(A["region_spec"]),
-               "block_keys": keys, "block_spec": np.array([A["block_spec"][k] for k in keys]),
-               "block_inv": np.array([A["block_inv"][k] for k in keys]),
-               "dhist": dict(A["dhist"]), "delta_bins": A["delta_bins"],
+        out = {"pair": pid, "groups": groups_of[pid], "mask_c3": sorted(mask_c3),
                "f_blocks": f_blocks, "f_off_groups": off}
+        for var, _, _, _ in VARIANTS:
+            A = acc[(pid, var)]
+            n1, n2 = A["n"]
+            keys = sorted(A["block_spec"], key=lambda k: (int(k[0][3:]), k[1]))
+            out.update({"n": A["n"], f"data{var}": A["data"], f"L_mask{var}": A["L_mask"],
+                        f"L_scan{var}": A["L_scan"], f"region_spec{var}": dict(A["region_spec"]),
+                        f"block_keys{var}": keys,
+                        f"block_spec{var}": np.array([A["block_spec"][k] for k in keys]),
+                        f"block_inv{var}": np.array([A["block_inv"][k] for k in keys]),
+                        f"dhist{var}": dict(A["dhist"]), "delta_bins": A["delta_bins"]})
+            print(f"{pid}{var or ' (polarized)'}: n=({n1},{n2}) SNPs in mask {A['data'].sum():.0f} "
+                  f"L_mask {A['L_mask']:.0f} L_scan {A['L_scan']:.0f} blocks {len(keys)}")
+        data = dadi.Spectrum(out["data"], mask_corners=True, data_folded=False, pop_ids=list(groups_of[pid]))
+        data.to_file(os.path.join(OUT, f"sfs/{pid}{out_suffix}.fs"))
+        dadi.Spectrum(out["data_alt"], mask_corners=True, data_folded=False,
+                      pop_ids=list(groups_of[pid])).fold().to_file(os.path.join(OUT, f"sfs/{pid}{out_suffix}.folded.fs"))
         with open(os.path.join(OUT, f"sfs/{pid}{out_suffix}.pkl"), "wb") as fh:
             pickle.dump(out, fh, protocol=pickle.HIGHEST_PROTOCOL)
-        print(f"{pid}: n=({n1},{n2}) SNPs in mask {A['data'].sum():.0f} L_mask {A['L_mask']:.0f} "
-              f"L_scan {A['L_scan']:.0f} blocks {len(keys)}")
 
     # index SNPs, raw frequencies from the site table
     rows = {}
@@ -150,13 +161,13 @@ def main():
             f = line.split()
             peaks.append((int(f[3]), "chr" + f[0] if not f[0].startswith("chr") else f[0], int(f[5])))
     with open(os.path.join(OUT, f"tail/index_units{out_suffix}.tsv"), "w") as o:
-        o.write("pair_id\tpeak\town\tchrom\tpos\taa\tAN_bp\td_bp\tAN_tp\td_tp\tf_bp\tf_tp\tdelta\n")
-        for pid in sorted(acc):
+        o.write("pair_id\tpeak\town\tchrom\tpos\taa\tAN_bp\td_bp\tAN_tp\td_tp\tf_bp\tf_tp\tdelta\tdelta_alt\n")
+        for pid in sorted({k[0] for k in acc}):
             bp, tp = groups_of[pid]
             for pk, chrom, pos in sorted(peaks):
                 f = rows.get((chrom, pos))
                 if f is None:
-                    o.write(f"{pid}\t{pk}\tNA\t{chrom}\t{pos}\tmissing\t" + "\t".join(["NA"] * 7) + "\n")
+                    o.write(f"{pid}\t{pk}\tNA\t{chrom}\t{pos}\tmissing\t" + "\t".join(["NA"] * 8) + "\n")
                     continue
                 anb, acb, ant, act = (to_int(f[f"AN_{bp}"]), to_int(f[f"AC_{bp}"]),
                                       to_int(f[f"AN_{tp}"]), to_int(f[f"AC_{tp}"]))
@@ -164,13 +175,22 @@ def main():
                 db = acb if aa == "R" else anb - acb
                 dt = act if aa == "R" else ant - act
                 own = pk in OWN.get(re.match(r"[A-Z]\d", pid).group(0), [])
-                fb, ft = db / anb if anb else float("nan"), dt / ant if ant else float("nan")
-                o.write(f"{pid}\t{pk}\t{own}\t{chrom}\t{pos}\t{aa}\t{anb}\t{db}\t{ant}\t{dt}\t{fb:.4f}\t{ft:.4f}\t{fb - ft:.4f}\n")
+                # unpolarized under the agreement rule: no derived-allele delta, but the label-free
+                # (ALT-oriented) delta still defines the folded analysis's tail
+                if aa == ".":
+                    fb = ft = float("nan")
+                else:
+                    fb, ft = db / anb if anb else float("nan"), dt / ant if ant else float("nan")
+                d_alt = (acb / anb - act / ant) if anb and ant else float("nan")
+                o.write(f"{pid}\t{pk}\t{own}\t{chrom}\t{pos}\t{aa}\t{anb}\t{db}\t{ant}\t{dt}\t{fb:.4f}\t{ft:.4f}\t"
+                        f"{fb - ft:.4f}\t{d_alt:.4f}\n")
 
     # fixed and near-fixed differences, raw delta, mask and genome-wide (outside peaks)
     with open(os.path.join(OUT, f"fixed_diff_counts{out_suffix}.tsv"), "w") as o:
         o.write("pair_id\tscope\tdirection\tthreshold\tn_snps\n")
-        for pid, A in sorted(acc.items()):
+        for (pid, var), A in sorted(acc.items()):
+            if var:
+                continue
             edges = A["delta_bins"]
             for scope, regions in (("nonpeak", [r for r in A["dhist"] if not r.startswith("peak")]),
                                    ("all", list(A["dhist"]))):

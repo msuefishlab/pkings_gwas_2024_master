@@ -8,6 +8,8 @@ section 5). BP is population 1 throughout, so in IM the founder fraction s belon
   M2  split, asymmetric migration  split_asym_mig                    (nu1, nu2, T, m12, m21)
   M3  isolation with migration     IM: founder fraction s, growth    (s, nu1, nu2, T, m12, m21)
 Every model is wrapped with dadi's ancestral-misidentification parameter (last parameter).
+Folded variants M0f-M3f (DESIGN.md Deviation 1) fit the label-free spectrum (every SNP, folded) with the
+same demography and no misidentification parameter.
 
 Writes one row per start to fits/<pair><suffix>.<model>.seed<seed>.tsv.
 With --boot K, fits bootstrap spectrum K instead of the data, starting from --p0 (for confidence intervals).
@@ -38,8 +40,18 @@ START = {"nu_BP": 1.0, "nu_TP": 1.0, "T": 0.2, "m": 1.0, "m_BP_from_TP": 1.0, "m
          "s_BP": 0.3, "p_misid": 0.02}
 
 
+def is_folded(name):
+    return name.endswith("f")
+
+
 def model_setup(name, ns):
-    base, pnames, fixed = MODELS[name]
+    base, pnames, fixed = MODELS[name.rstrip("f")]
+    if is_folded(name):
+        func_ex = dadi.Numerics.make_extrap_func(base)
+        n = max(ns)
+        pts_l = [n + 10, n + 20, n + 30]
+        return (func_ex, pts_l, list(pnames), [BOUNDS[p][0] for p in pnames], [BOUNDS[p][1] for p in pnames],
+                list(fixed) if fixed else None)
     pnames = pnames + ["p_misid"]
     func = dadi.Numerics.make_anc_state_misid_func(base)
     func_ex = dadi.Numerics.make_extrap_func(func)
@@ -51,9 +63,17 @@ def model_setup(name, ns):
     return func_ex, pts_l, pnames, lower, upper, fixed
 
 
-def bootstrap_spectra(pk, n_boot=100, seed=20261015, block_mb=1):
+def data_of(pk, model):
+    """The spectrum a model is fitted to: polarized (unfolded) or label-free (folded)."""
+    if is_folded(model):
+        return dadi.Spectrum(pk["data_alt"], mask_corners=True).fold()
+    return dadi.Spectrum(pk["data"], mask_corners=True)
+
+
+def bootstrap_spectra(pk, n_boot=100, seed=20261015, block_mb=1, folded=False):
     """Block bootstrap over 1-Mb blocks (or unions of block_mb consecutive blocks on one chromosome)."""
-    keys, stack = pk["block_keys"], pk["block_spec"]
+    var = "_alt" if folded else ""
+    keys, stack = pk[f"block_keys{var}"], pk[f"block_spec{var}"]
     groups = {}
     for i, (c, b) in enumerate(keys):
         groups.setdefault((c, b // block_mb), []).append(i)
@@ -62,14 +82,15 @@ def bootstrap_spectra(pk, n_boot=100, seed=20261015, block_mb=1):
     out = []
     for _ in range(n_boot):
         pick = rng.integers(0, len(units), len(units))
-        out.append(dadi.Spectrum(np.sum([units[i] for i in pick], axis=0), mask_corners=True))
+        sp = dadi.Spectrum(np.sum([units[i] for i in pick], axis=0), mask_corners=True)
+        out.append(sp.fold() if folded else sp)
     return out
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--pair", required=True)
-    ap.add_argument("--model", required=True, choices=sorted(MODELS))
+    ap.add_argument("--model", required=True, choices=sorted(MODELS) + [m + "f" for m in sorted(MODELS)])
     ap.add_argument("--starts", type=int, default=5)
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--suffix", default="")
@@ -80,9 +101,9 @@ def main():
 
     with open(os.path.join(OUT, f"sfs/{a.pair}{a.suffix}.pkl"), "rb") as fh:
         pk = pickle.load(fh)
-    targets = [("data", dadi.Spectrum(pk["data"], mask_corners=True))]
+    targets = [("data", data_of(pk, a.model))]
     if a.boot is not None:
-        boots = bootstrap_spectra(pk)
+        boots = bootstrap_spectra(pk, folded=is_folded(a.model))
         targets = [(f"boot{k}", boots[int(k)]) for k in a.boot.split(",")]
     os.makedirs(os.path.join(OUT, "fits"), exist_ok=True)
     np.random.seed(a.seed)

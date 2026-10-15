@@ -138,7 +138,9 @@ def main():
     an_hist = collections.Counter()                      # (pid, side, AN) -> n
     bins = collections.Counter()                         # (pid, chrom, bin, kind) -> n
     raw = {pid: collections.Counter() for pid, _, _ in pairs}   # (block, c3, region, Nb, db, Nt, dt) -> n
+    raw_alt = {pid: collections.Counter() for pid, _, _ in pairs}  # same with ALT counts, every SNP
     dhist = {pid: collections.defaultdict(lambda: np.zeros(len(DELTA_BINS) - 1)) for pid, _, _ in pairs}
+    dhist_alt = {pid: collections.defaultdict(lambda: np.zeros(len(DELTA_BINS) - 1)) for pid, _, _ in pairs}
     near_fixed, parallel = [], []
     regs, chrom = None, None
     # local-Ne proxy for E_hetNe (DESIGN.md section 4): per 1-Mb block and whole population, the summed
@@ -157,7 +159,8 @@ def main():
             chrom = f[0]
             regs = load_regions(chrom)
         aa = f[4]
-        if aa == ".":
+        pol = aa != "."          # polarized by the outgroups; the folded spectra use every SNP
+        if a.mode != "spectra" and not pol:
             continue
         if any(f[i] not in (".", "") and float(f[i]) < EXCHET_MIN for i in exchet_cols):
             continue
@@ -175,6 +178,13 @@ def main():
             n1, n2 = proj[pid]
             if Nb < n1 or Nt < n2:
                 continue
+            if a.mode == "spectra" and (chrom, b100) not in deserts.get(pid, ()):
+                # label-free (folded) analysis: ALT-oriented counts for every SNP, polarized or not
+                raw_alt[pid][(x // 1_000_000, c3, region, Nb, ab, Nt, at)] += 1
+                d_alt = ab / Nb - at / Nt
+                dhist_alt[pid][(c3, region)][min(np.searchsorted(DELTA_BINS, d_alt, side="right") - 1, len(DELTA_BINS) - 2)] += 1
+            if not pol:
+                continue
             db = ab if aa == "R" else Nb - ab
             dt = at if aa == "R" else Nt - at
             if a.mode == "bins":
@@ -189,7 +199,7 @@ def main():
             dhist[pid][(c3, region)][min(np.searchsorted(DELTA_BINS, delta, side="right") - 1, len(DELTA_BINS) - 2)] += 1
             if abs(delta) >= 0.85:
                 near_fixed.append((pid, chrom, pos, db / Nb, dt / Nt, region, c3))
-        if a.mode == "spectra":
+        if a.mode == "spectra" and pol:
             blk = x // 1_000_000
             for g, (ci, cj) in w_cols.items():
                 an_g, ac_g = to_int(f[ci]), to_int(f[cj])
@@ -221,17 +231,23 @@ def main():
 
     # invariant sites from the site table histograms
     inv = collections.Counter()
+    inv_all = collections.Counter()     # folded analysis: invariant sites whether or not the outgroups are callable
     hist_path = os.path.join(ST, f"invariant_hist.{a.chunk_id}.tsv")
     with open(hist_path) as h:
         next(h)
         for line in h:
             pid, c, b100, dbin, xcode, out_ok, an_bp, an_tp, n = line.rstrip("\n").split("\t")
-            if pid not in proj or out_ok != "1":
+            if pid not in proj:
                 continue
             n1, n2 = proj[pid]
             if int(an_bp) < n1 or int(an_tp) < n2:
                 continue
             b100 = int(b100)
+            if a.mode == "spectra" and (c, b100) not in deserts.get(pid, ()):
+                reg_all = "none" if xcode == "0" else ("chr4_inversion" if xcode == "2" else "peak")
+                inv_all[(pid, b100 // 10, c3_of(int(dbin)), reg_all)] += int(n)
+            if out_ok != "1":
+                continue
             if a.mode == "bins":
                 bins[(pid, c, b100, "callable_invariant")] += int(n)
                 continue
@@ -250,20 +266,27 @@ def main():
         return
 
     # spectra: expand the raw tallies by hypergeometric projection
-    spectra = {}
-    for pid, _, _ in pairs:
-        n1, n2 = proj[pid]
-        sp = {}
-        for (blk, c3, region, Nb, db, Nt, dt), n in raw[pid].items():
-            key = (blk, c3, region)
-            if key not in sp:
-                sp[key] = np.zeros((n1 + 1, n2 + 1))
-            sp[key] += n * np.outer(hyper(Nb, db, n1), hyper(Nt, dt, n2))
-        spectra[pid] = sp
+    def project(rawd):
+        out = {}
+        for pid, _, _ in pairs:
+            n1, n2 = proj[pid]
+            sp = {}
+            for (blk, c3, region, Nb, db, Nt, dt), n in rawd[pid].items():
+                key = (blk, c3, region)
+                if key not in sp:
+                    sp[key] = np.zeros((n1 + 1, n2 + 1))
+                sp[key] += n * np.outer(hyper(Nb, db, n1), hyper(Nt, dt, n2))
+            out[pid] = sp
+        return out
+    spectra = project(raw)
+    spectra_alt = project(raw_alt)
     payload = {
         "chrom": chrom, "chunk_id": a.chunk_id, "projections": {p: proj[p] for p, _, _ in pairs},
         "spectra": spectra,
         "invariant": dict(inv),
+        "spectra_alt": spectra_alt,
+        "invariant_all": dict(inv_all),
+        "delta_hist_alt": {pid: dict(v) for pid, v in dhist_alt.items()},
         "delta_bins": DELTA_BINS,
         "delta_hist": {pid: dict(v) for pid, v in dhist.items()},
         "blockstats": {k: tuple(v) for k, v in blockstats.items()},

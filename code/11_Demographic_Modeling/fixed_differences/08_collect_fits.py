@@ -36,7 +36,7 @@ def main():
     a = ap.parse_args()
 
     runs = collections.defaultdict(list)
-    for path in glob.glob(os.path.join(OUT, f"fits/*{a.suffix}.M?.data.seed*.tsv")):
+    for path in glob.glob(os.path.join(OUT, f"fits/*{a.suffix}.M*.data.seed*.tsv")):
         with open(path) as fh:
             for r in csv.DictReader(fh, delimiter="\t"):
                 runs[(r["pair"], r["model"])].append(r)
@@ -60,9 +60,9 @@ def main():
         if a.godambe:
             with open(os.path.join(OUT, f"sfs/{pair}{a.suffix}.pkl"), "rb") as fh:
                 pk = pickle.load(fh)
-            data = dadi.Spectrum(pk["data"], mask_corners=True)
+            data = fitmod.data_of(pk, model)
             func_ex, pts_l, _, _, _, fixed = fitmod.model_setup(model, data.sample_sizes)
-            boots = fitmod.bootstrap_spectra(pk, block_mb=a.block_mb)
+            boots = fitmod.bootstrap_spectra(pk, block_mb=a.block_mb, folded=fitmod.is_folded(model))
             free = [i for i, f in enumerate(fixed or [None] * len(pnames)) if f is None]
             popt = [row["params"][p] for p in pnames]
 
@@ -96,21 +96,23 @@ def main():
         with open(os.path.join(OUT, f"fits/lrt{a.suffix}.tsv"), "w") as o:
             o.write("pair\tsimple\tcomplex\tD_raw\tD_adj\tp_adj\n")
             for pair in sorted({p for p, _ in best}):
-                for comp, nested in (("M1", [3]), ("M2", [3, 4])):
-                    if (pair, "M0") not in best or (pair, comp) not in best:
+                for simple, comp, nested in (("M0", "M1", [3]), ("M0", "M2", [3, 4]),
+                                             ("M0f", "M1f", [3]), ("M0f", "M2f", [3, 4])):
+                    if (pair, simple) not in best or (pair, comp) not in best:
                         continue
                     with open(os.path.join(OUT, f"sfs/{pair}{a.suffix}.pkl"), "rb") as fh:
                         pk = pickle.load(fh)
-                    data = dadi.Spectrum(pk["data"], mask_corners=True)
+                    data = fitmod.data_of(pk, comp)
                     func_ex, pts_l, pnames, _, _, _ = fitmod.model_setup(comp, data.sample_sizes)
-                    boots = fitmod.bootstrap_spectra(pk, block_mb=a.block_mb)
+                    boots = fitmod.bootstrap_spectra(pk, block_mb=a.block_mb, folded=fitmod.is_folded(comp))
                     p_c = [best[(pair, comp)]["params"][p] for p in pnames]
                     p0 = list(p_c)
                     for i in nested:
                         p0[i] = 0.0
-                    p0[:3] = [best[(pair, "M0")]["params"][p] for p in pnames[:3]]
-                    p0[-1] = best[(pair, "M0")]["params"]["p_misid"]
-                    d_raw = 2 * (best[(pair, comp)]["LL"] - best[(pair, "M0")]["LL"])
+                    p0[:3] = [best[(pair, simple)]["params"][p] for p in pnames[:3]]
+                    if "p_misid" in pnames:
+                        p0[-1] = best[(pair, simple)]["params"]["p_misid"]
+                    d_raw = 2 * (best[(pair, comp)]["LL"] - best[(pair, simple)]["LL"])
                     try:
                         adj = dadi.Godambe.LRT_adjust(func_ex, pts_l, boots, p0, data, nested_indices=nested, multinom=True)
                         d_adj = adj * d_raw
@@ -122,7 +124,7 @@ def main():
                             p = 0.5 * chi2.sf(d_adj, 1) + 0.25 * chi2.sf(d_adj, 2)
                     except Exception as e:
                         d_adj, p = float("nan"), float("nan")
-                    o.write(f"{pair}\tM0\t{comp}\t{d_raw:.3f}\t{d_adj:.3f}\t{p:.4g}\n")
+                    o.write(f"{pair}\t{simple}\t{comp}\t{d_raw:.3f}\t{d_adj:.3f}\t{p:.4g}\n")
 
 
 if __name__ == "__main__":

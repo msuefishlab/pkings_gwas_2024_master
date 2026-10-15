@@ -20,7 +20,7 @@ dx() { echo "singularity exec --bind /mnt/gs21 ${dadi_image} python3 $*"; }
 
 if [[ "${1:-fit}" == "fit" ]]; then
   tasks=${fits}/tasks_fit.txt; : > "${tasks}"
-  for p in ${PAIRS}; do for m in M0 M1 M2 M3; do for s in 1 2 3 4; do
+  for p in ${PAIRS}; do for m in ${MODELS:-M0 M1 M2 M3 M0f M1f M2f M3f}; do for s in 1 2 3 4; do
     echo "--pair ${p} --model ${m} --starts 5 --seed ${s} --maxtime 2400" >> "${tasks}"
   done; done; done
   dep=${2:+--dependency=afterok:$2}
@@ -37,12 +37,20 @@ rows = list(csv.DictReader(open(sys.argv[1]), delimiter="\t"))
 by = {}
 for r in rows:
     by.setdefault(r["pair"], []).append(r)
-for pair, rs in by.items():
-    conv = [r for r in rs if r["converged"] == "True"] or rs
-    top = max(conv, key=lambda r: float(r["LL"]))
-    for r in {top["model"]: top, "M3": next(x for x in rs if x["model"] == "M3")}.values():
-        p0 = ",".join(kv.split("=")[1] for kv in r["params"].split(";"))
-        print(pair, r["model"], p0)
+for pair, rs_all in by.items():
+    # unfolded and folded analyses separately: the best converged model of each, plus M3 / M3f
+    for folded in (False, True):
+        rs = [r for r in rs_all if r["model"].endswith("f") == folded]
+        if not rs:
+            continue
+        conv = [r for r in rs if r["converged"] == "True"] or rs
+        top = max(conv, key=lambda r: float(r["LL"]))
+        m3 = "M3f" if folded else "M3"
+        targets = {top["model"]: top}
+        targets.update({r["model"]: r for r in rs if r["model"] == m3})
+        for r in targets.values():
+            p0 = ",".join(kv.split("=")[1] for kv in r["params"].split(";"))
+            print(pair, r["model"], p0)
 PY
   while read -r p m p0; do
     # 100 bootstrap spectra per target, five per task (keeps the array under the 1,000-job queue limit)

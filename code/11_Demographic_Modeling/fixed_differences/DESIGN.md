@@ -216,8 +216,23 @@ Phase B runs only if the D-008 lineage pairs have at least 200 non-peak, 75-kb-m
 
 **Kept for comparison.** The *P. szaboi*-only run is kept in `output_data/11_Demographic_Modeling/fixed_differences/` and reported as a sensitivity row. The new run writes to `output_data/11_Demographic_Modeling/fixed_differences_agree/` (`FD_OUT`).
 
-**How the re-estimate will be read** (decided before the rerun):
-- If the misidentification rate falls to about 1–2%, mislabelling was the cause and is fixed.
-- If it stays above 5%, mislabelling was not the main cause; the §6.3 "no admissible model" rule then applies, and the folded row is reported next to it.
+**How the re-estimate will be read.** *Superseded by Addendum 1a, before any rerun fit existed.*
 
 Decided by J. Gallant, 2026-10-15.
+
+#### Addendum 1a (2026-10-15, before any fit of the rerun): reading the rate, and the folded headline
+
+**Correction.** The reading above, that a rate staying above 5% means the models are too simple, is wrong. Two labelling errors survive outgroup agreement:
+- **Mapping bias.** All six species are mapped to the same *P. kingsleyae* reference and sit about equally far from it, so they share any bias toward the reference allele.
+- **Shared sorting.** The six species share a common ancestor after their split from *P. kingsleyae*. An old polymorphism that sorted in that ancestor makes all six agree on the wrong allele.
+
+So a rate that stays high could be either leftover mislabelling or too-simple models. These fits alone cannot tell the two apart.
+
+**Evidence already in hand** (`output_data/03_QC/ref_bias/ref_bias_per_sample.tsv`, D-005). The share of reference reads at heterozygous calls is 0.543 in *P. kingsleyae* and 0.544 in *P. szaboi*; in *P. magnostipes*, *parsegnis*, *hopkinsi* and *gabonensis* it is 0.566–0.582. Outgroups have more missing calls (16–17.5% vs 12.6%).
+- *P. szaboi* shows no more reference skew than the ingroup, so mapping bias is unlikely to explain the *szaboi*-only rate. The other outgroups show a slight extra skew.
+- Mapping bias mostly produces missing calls rather than wrong ones: a fish carrying only the non-reference allele produces no reference reads.
+
+**Rule** (J. Gallant, 2026-10-15). The label-free (folded) analysis is built for every pair from every SNP, polarized or not. It is fitted with M0f–M3f: the same demographies without a misidentification parameter. Its tail counts SNPs at least as differentiated as the index SNP *in either direction*, so its E can only exceed the directional E, the drift-generous direction.
+- If at least one unfolded model of a pair is admissible (§5, including misidentification ≤ 5%), the unfolded analysis is the headline for that pair, as designed.
+- If no unfolded model is admissible, the folded analysis is the headline, subject to the same convergence and adequacy gates. The unfolded results are reported alongside.
+- The rate is reported with both explanations named. A rate that falls to about 1–2% is read as mislabelling fixed. A rate that stays high is read as "mislabelling or model inadequacy, not distinguished", and the folded headline does not depend on which.
