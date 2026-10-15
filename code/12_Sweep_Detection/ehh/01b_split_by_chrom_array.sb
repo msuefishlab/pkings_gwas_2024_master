@@ -1,0 +1,59 @@
+#!/bin/bash --login
+#SBATCH --time=04:00:00
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=8G
+#SBATCH --job-name=sweep_bychrom
+#SBATCH --array=0-7
+
+## 01b_split_by_chrom_array.sb
+## Split each whole-genome polarized VCF into 25 per-chromosome VCFs, one array task per set.
+##
+## 03_split_by_chromosome.sh does the same thing in a single serial loop over 8 sets x 25
+## chromosomes, which does not fit in a 4-hour job. This is the same bcftools call, one task
+## per set.
+##
+## Sets: the three BP/TP pairs (used by the rehh scans) and the five lineage groups (used by
+## SweepFinder2 and nSL).
+##
+## Prerequisite: 00_prepare_vcfs.sb has written the whole-genome VCFs under
+##   output_data/12_Sweep_Detection/{vcfs,vcfs/by_group}/
+##
+## Usage (from the repo root):
+##   sbatch --export=root=$(pwd) \
+##     -o output_data/slurm_logs/12_Sweep_Detection/bychrom_%A_%a.log \
+##     code/12_Sweep_Detection/ehh/01b_split_by_chrom_array.sb
+
+set -euo pipefail
+source "${root}/pkings_gwas.env"
+
+outdir="${root}/output_data/12_Sweep_Detection"
+outsub="${outdir}/by_chrom"
+mkdir -p "${outsub}"
+
+# set name | directory holding its whole-genome VCF
+sets=(
+  "BP1_TP1|vcfs" "BP2_TP2|vcfs" "BP3_TP2|vcfs"
+  "BP1|vcfs/by_group" "TP1|vcfs/by_group" "BP2|vcfs/by_group"
+  "TP2|vcfs/by_group" "BP3|vcfs/by_group"
+)
+item="${sets[${SLURM_ARRAY_TASK_ID}]}"
+setname="${item%%|*}"
+subdir="${item##*|}"
+vcf="${outdir}/${subdir}/${setname}.polarized.vcf.gz"
+
+echo "Set ${setname} <- ${vcf}"
+[[ -f "${vcf}" ]] || { echo "ERROR: missing ${vcf} (run 00_prepare_vcfs.sb first)"; exit 1; }
+
+sx() { singularity exec --bind /mnt/research,/mnt/ufs18,/mnt/gs21 "${gwas_tools_image}" "$@"; }
+
+for i in $(seq 1 25); do
+  chrom="chr${i}"
+  out="${outsub}/${setname}.polarized.${chrom}.vcf.gz"
+  if [[ -f "${out}.csi" ]]; then echo "  ${chrom}: already done"; continue; fi
+  sx bcftools view -r "${chrom}" -Oz -o "${out}" "${vcf}"
+  sx bcftools index -f "${out}"
+  echo "  ${chrom}: $(sx bcftools index -n ${out}) records"
+done
+
+echo "Finished ${setname}: $(date)"

@@ -12,10 +12,25 @@
 ##     --bp_list path/to/BP1.txt \
 ##     --tp_list path/to/TP1.txt \
 ##     --output_dir path/to/output \
-##     --min_maf 0.05
+##     --min_maf 0.05 \
+##     --rds_dir path/to/rds \        # optional: save the full scan_hh output (see below)
+##     --subsample 16 --seed 1        # optional: down-sample both groups to N individuals
+##
+## --rds_dir saves the complete scan_hh output (IHH_A, IHH_D, IES, INES and the allele
+## frequency) for each group, which ihh2ihs() and ies2xpehh() need. The .ines.txt.gz files
+## written below keep only inES, so iHS and XP-EHH cannot be computed from them afterwards.
+##
+## --subsample draws N individuals (both haplotypes) per group with a fixed seed, taken from
+## the sorted ID list so the same individuals are used on every chromosome. This is the n = 16
+## robustness check of DESIGN.md section 7: the phasing has no measured switch-error rate, and
+## switch errors shorten inferred haplotypes in a sample-size-dependent way.
+##
+## NOTE: the column written as "iHS" by earlier versions of this script is inES standardized to
+## mean 0 and SD 1, which is not iHS. It is written here as inES_z. Real iHS comes from
+## ihh2ihs() in 10_genome_stats.R, which reads the RDS files.
 ##
 ## Author: Jason Gallant Lab
-## Date: 2024
+## Date: 2024 (revised 2026 for the sweep-evidence re-analysis)
 
 suppressPackageStartupMessages({
   library(optparse)
@@ -41,7 +56,13 @@ option_list <- list(
   make_option("--output_dir", type="character",
               help="Output directory for results"),
   make_option("--min_maf", type="numeric", default=0.05,
-              help="Minimum minor allele frequency filter [default: 0.05]")
+              help="Minimum minor allele frequency filter [default: 0.05]"),
+  make_option("--rds_dir", type="character", default=NULL,
+              help="Optional directory for the full scan_hh output as RDS (needed for iHS and XP-EHH)"),
+  make_option("--subsample", type="integer", default=NULL,
+              help="Optional: down-sample both groups to this many individuals"),
+  make_option("--seed", type="integer", default=1,
+              help="Seed for --subsample [default: 1]")
 )
 
 opt <- parse_args(OptionParser(option_list=option_list))
@@ -172,7 +193,29 @@ if (!file.exists(opt$tp_list)) {
   stop("ERROR: TP list file not found: ", opt$tp_list)
 }
 
-split_result <- split_hh_by_groups(hh_full, opt$bp_list, opt$tp_list)
+bp_ids <- read_id_list(opt$bp_list)
+tp_ids <- read_id_list(opt$tp_list)
+
+# Optional down-sampling (DESIGN.md section 7). Individuals are drawn from the sorted ID list
+# with a fixed seed, so the same individuals are used on every chromosome and in the null.
+if (!is.null(opt$subsample)) {
+  draw <- function(ids, label) {
+    ids <- sort(unique(ids))
+    if (length(ids) <= opt$subsample) {
+      cat("  ", label, ": ", length(ids), " individuals, at or below the target; keeping all\n", sep = "")
+      return(ids)
+    }
+    set.seed(opt$seed)
+    keep <- sort(sample(ids, opt$subsample))
+    cat("  ", label, ": ", length(ids), " -> ", length(keep), " individuals (seed ", opt$seed, ")\n", sep = "")
+    keep
+  }
+  cat("Down-sampling to", opt$subsample, "individuals per group:\n")
+  bp_ids <- draw(bp_ids, "BP")
+  tp_ids <- draw(tp_ids, "TP")
+}
+
+split_result <- split_hh_by_groups(hh_full, bp_ids, tp_ids)
 hh_BP <- split_result$hh$BP
 hh_TP <- split_result$hh$TP
 
@@ -214,6 +257,21 @@ if (length(pair_parts) != 2) {
 label_BP <- pair_parts[1]
 label_TP <- pair_parts[2]
 
+# Save the complete scan_hh output before any column selection. ihh2ihs() (real iHS) and
+# ies2xpehh() (XP-EHH) need IHH_A, IHH_D and the allele frequency, none of which survive into
+# the .ines.txt.gz files written at step 8.
+if (!is.null(opt$rds_dir)) {
+  dir.create(opt$rds_dir, recursive = TRUE, showWarnings = FALSE)
+  tag <- if (is.null(opt$subsample)) "" else paste0(".n", opt$subsample)
+  for (grp in c("BP", "TP")) {
+    f <- file.path(opt$rds_dir, sprintf("%s.%s%s.%s.scan.rds", opt$pair, grp, tag, opt$chromosome))
+    saveRDS(if (grp == "BP") scan_BP else scan_TP, f, compress = "xz")
+    cat("  Saved full scan_hh (", grp, "): ", f, " (",
+        round(file.size(f) / 1024^2, 2), " MB)\n", sep = "")
+  }
+  cat("  Columns: ", paste(names(scan_BP), collapse = ", "), "\n\n", sep = "")
+}
+
 cat("Step 6: Computing Rsb from scan results...\n")
 rsb_result <- tryCatch({
   ines2rsb(
@@ -245,16 +303,16 @@ ihs_col <- dplyr::first(intersect(c("iHS","IHS","ihs"), names(scan_BP_df)))
 # Standardize iHS if not computed
 if (is.na(ihs_col)) {
   scan_BP_df <- scan_BP_df %>%
-    dplyr::mutate(iHS = (!!sym(ines_col) - mean(!!sym(ines_col), na.rm=TRUE)) /
-                        sd(!!sym(ines_col), na.rm=TRUE))
-  ihs_col <- "iHS"
+    dplyr::mutate(inES_z = (!!sym(ines_col) - mean(!!sym(ines_col), na.rm=TRUE)) /
+                           sd(!!sym(ines_col), na.rm=TRUE))
+  ihs_col <- "inES_z"   # NOT iHS: z-scored inES. Real iHS comes from ihh2ihs() in 10_genome_stats.R
 }
 
 output_BP <- scan_BP_df %>%
   dplyr::select(CHR = !!sym(chr_col),
                 POSITION = !!sym(pos_col),
                 inES = !!sym(ines_col),
-                iHS = !!sym(ihs_col))
+                inES_z = !!sym(ihs_col))
 
 # TP inES
 scan_TP_df <- tibble::as_tibble(scan_TP)
@@ -265,16 +323,16 @@ ihs_col <- dplyr::first(intersect(c("iHS","IHS","ihs"), names(scan_TP_df)))
 
 if (is.na(ihs_col)) {
   scan_TP_df <- scan_TP_df %>%
-    dplyr::mutate(iHS = (!!sym(ines_col) - mean(!!sym(ines_col), na.rm=TRUE)) /
-                        sd(!!sym(ines_col), na.rm=TRUE))
-  ihs_col <- "iHS"
+    dplyr::mutate(inES_z = (!!sym(ines_col) - mean(!!sym(ines_col), na.rm=TRUE)) /
+                           sd(!!sym(ines_col), na.rm=TRUE))
+  ihs_col <- "inES_z"   # NOT iHS: z-scored inES. Real iHS comes from ihh2ihs() in 10_genome_stats.R
 }
 
 output_TP <- scan_TP_df %>%
   dplyr::select(CHR = !!sym(chr_col),
                 POSITION = !!sym(pos_col),
                 inES = !!sym(ines_col),
-                iHS = !!sym(ihs_col))
+                inES_z = !!sym(ihs_col))
 
 # Rsb
 rsb_df <- tibble::as_tibble(rsb_result)
@@ -337,14 +395,14 @@ cat("========================================\n")
 cat("\nBP Population (", label_BP, "):\n", sep="")
 cat("  inES: mean =", round(mean(output_BP$inES, na.rm=TRUE), 3),
     ", SD =", round(sd(output_BP$inES, na.rm=TRUE), 3), "\n")
-cat("  iHS:  mean =", round(mean(output_BP$iHS, na.rm=TRUE), 3),
-    "(~0), SD =", round(sd(output_BP$iHS, na.rm=TRUE), 3), "(~1)\n")
+cat("  inES_z: mean =", round(mean(output_BP$inES_z, na.rm=TRUE), 3),
+    "(~0), SD =", round(sd(output_BP$inES_z, na.rm=TRUE), 3), "(~1)\n")
 
 cat("\nTP Population (", label_TP, "):\n", sep="")
 cat("  inES: mean =", round(mean(output_TP$inES, na.rm=TRUE), 3),
     ", SD =", round(sd(output_TP$inES, na.rm=TRUE), 3), "\n")
-cat("  iHS:  mean =", round(mean(output_TP$iHS, na.rm=TRUE), 3),
-    "(~0), SD =", round(sd(output_TP$iHS, na.rm=TRUE), 3), "(~1)\n")
+cat("  inES_z: mean =", round(mean(output_TP$inES_z, na.rm=TRUE), 3),
+    "(~0), SD =", round(sd(output_TP$inES_z, na.rm=TRUE), 3), "(~1)\n")
 
 cat("\nRsb (", label_BP, " / ", label_TP, "):\n", sep="")
 cat("  Mean:", round(mean(output_RSB$RSB, na.rm=TRUE), 3), "(should be ~0)\n")

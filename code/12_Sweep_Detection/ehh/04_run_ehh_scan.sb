@@ -108,7 +108,13 @@ echo "Running integrated EHH scan..."
 echo "  This computes inES (both pops) + Rsb in a single pass"
 echo ""
 
-singularity exec --bind ${root}:/project_root ${rehh_image} \
+# RDS_DIR (optional): save the full scan_hh output, which ihh2ihs() and ies2xpehh() need.
+# SUBSAMPLE (optional): down-sample both groups to N individuals (DESIGN.md section 7).
+extra=()
+[[ -n "${RDS_DIR:-}" ]]   && extra+=(--rds_dir "${RDS_DIR}")
+[[ -n "${SUBSAMPLE:-}" ]] && extra+=(--subsample "${SUBSAMPLE}" --seed "${SEED:-1}")
+
+singularity exec --bind /mnt/research,/mnt/ufs18,/mnt/gs21 --bind ${root}:/project_root ${rehh_image} \
   Rscript /project_root/code/12_Sweep_Detection/ehh/scan_ehh_integrated.R \
   --pair "${PAIR}" \
   --chromosome "${CHR}" \
@@ -116,7 +122,8 @@ singularity exec --bind ${root}:/project_root ${rehh_image} \
   --bp_list "${BP_LIST}" \
   --tp_list "${TP_LIST}" \
   --output_dir "${OUTPUT_DIR}" \
-  --min_maf 0.05
+  --min_maf 0.05 \
+  "${extra[@]}"
 
 exit_code=$?
 

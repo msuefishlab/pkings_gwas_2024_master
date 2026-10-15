@@ -1,0 +1,77 @@
+#!/bin/bash --login
+#SBATCH --time=04:00:00
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=8G
+#SBATCH --job-name=sweep_split
+#SBATCH --array=0-7
+
+## 01a_split_sets_array.sb
+## Subset the whole-genome polarized VCF to each sample set, one array task per set.
+##
+## Same bcftools pipeline as 02_split_by_sample_sets.sh, which runs the eight sets serially at
+## roughly 20 minutes each and so does not fit in a 4-hour job. Sample lists are the ones that
+## script writes to output_data/12_Sweep_Detection/lists/, intersected with the VCF samples;
+## this script recreates a list if it is missing.
+##
+## Sets: the three BP/TP pairs (rehh scans) and the five lineage groups (SweepFinder2, nSL).
+##
+## Prerequisite: 01_polarize_vcf.sh has written the polarized whole-genome VCF.
+##
+## Usage (from the repo root):
+##   sbatch --export=root=$(pwd) \
+##     -o output_data/slurm_logs/12_Sweep_Detection/split_%A_%a.log \
+##     code/12_Sweep_Detection/ehh/01a_split_sets_array.sb
+
+set -euo pipefail
+source "${root}/pkings_gwas.env"
+
+outdir="${root}/output_data/12_Sweep_Detection"
+indir="${root}/input_data/12_Sweep_Detection"
+vcf="${outdir}/MIC4273_HAP2_NEWREF_MSU618_all_fish_all_sites.FILTERED_BIALLELIC_SNPS_ONLY.phased.renamed.polarized.vcf.gz"
+
+# set name | ID list | output subdirectory
+sets=(
+  "BP1_TP1|${indir}/BP1_TP1.txt|vcfs"
+  "BP2_TP2|${indir}/BP2_TP2.txt|vcfs"
+  "BP3_TP2|${indir}/BP3_TP2.txt|vcfs"
+  "BP1|${indir}/split_up/BP1.txt|vcfs/by_group"
+  "TP1|${indir}/split_up/TP1.txt|vcfs/by_group"
+  "BP2|${indir}/split_up/BP2.txt|vcfs/by_group"
+  "TP2|${indir}/split_up/TP2.txt|vcfs/by_group"
+  "BP3|${indir}/split_up/BP3.txt|vcfs/by_group"
+)
+item="${sets[${SLURM_ARRAY_TASK_ID}]}"
+setname="${item%%|*}"; rest="${item#*|}"
+idlist="${rest%%|*}"; subdir="${rest##*|}"
+
+mkdir -p "${outdir}/lists" "${outdir}/${subdir}"
+outvcf="${outdir}/${subdir}/${setname}.polarized.vcf.gz"
+listfile="${outdir}/lists/${setname}.samples.txt"
+
+sx() { singularity exec --bind /mnt/research,/mnt/ufs18,/mnt/gs21 "${gwas_tools_image}" "$@"; }
+
+if [[ -f "${outvcf}.csi" ]]; then
+  echo "${setname}: already present with an index, nothing to do"
+  exit 0
+fi
+
+# sample list: the set's IDs that are actually in the VCF
+if [[ ! -s "${listfile}" ]]; then
+  cache="${outdir}/lists/_ALL_VCF_SAMPLES.txt"
+  [[ -s "${cache}" ]] || sx bcftools query -l "${vcf}" | sort -u > "${cache}"
+  awk '{print $1}' "${idlist}" | sed 's/\r$//' | grep -v '^[[:space:]]*$' | sort -u \
+    | comm -12 "${cache}" - > "${listfile}"
+fi
+n=$(wc -l < "${listfile}" | tr -d '[:space:]')
+echo "${setname}: n=${n} -> ${outvcf}"
+[[ "${n}" -gt 0 ]] || { echo "ERROR: no samples matched for ${setname}"; exit 1; }
+
+sx bash -c "bcftools view -S '${listfile}' -Ou '${vcf}' \
+  | bcftools view -m2 -M2 -v snps -Ou \
+  | bcftools +fill-tags -Ou -- -t AC,AN \
+  | bcftools view -i 'INFO/AN>0' -Oz -o '${outvcf}'"
+sx bcftools index -f "${outvcf}"
+
+echo "${setname}: $(sx bcftools index -n ${outvcf}) records"
+echo "Finished: $(date)"

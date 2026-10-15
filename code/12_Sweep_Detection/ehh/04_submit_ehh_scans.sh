@@ -30,8 +30,11 @@ fi
 # Create output directories
 outdir="${root}/output_data/12_Sweep_Detection/ehh"
 scan_dir="${outdir}/scans"
+# full scan_hh output (large) lives on scratch; needed for iHS and XP-EHH
+rds_dir="${RDS_DIR_OVERRIDE:-${sweep_scratch}/12_Sweep_Detection/ehh_rds}"
 log_dir="${root}/output_data/slurm_logs/12_Sweep_Detection/ehh"
 mkdir -p "${scan_dir}"
+mkdir -p "${rds_dir}"
 mkdir -p "${log_dir}"
 
 # ========================================
@@ -130,7 +133,13 @@ fi
 # Confirm submission
 # ========================================
 
-read -p "Submit ${total_jobs} jobs? (y/n) " -n 1 -r
+# ASSUME_YES=1 skips the prompt (for non-interactive submission from a driver script)
+if [[ "${ASSUME_YES:-0}" == "1" ]]; then
+  REPLY=y
+  echo "Submit ${total_jobs} jobs? (y/n) y   [ASSUME_YES]"
+else
+  read -p "Submit ${total_jobs} jobs? (y/n) " -n 1 -r
+fi
 echo
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
   echo "Cancelled."
@@ -171,7 +180,7 @@ for pair in "${PAIRS[@]}"; do
     # Submit SLURM job
     sbatch --job-name="${job_name}" \
            --output="${log_file}" \
-           --export=ALL,root=${root},PAIR=${pair},CHR=${chr},VCF=${vcf_file},BP_LIST=${bp_list},TP_LIST=${tp_list},OUTPUT_DIR=${scan_dir} \
+           --export=ALL,root=${root},PAIR=${pair},CHR=${chr},VCF=${vcf_file},BP_LIST=${bp_list},TP_LIST=${tp_list},OUTPUT_DIR=${scan_dir},RDS_DIR=${rds_dir},SUBSAMPLE=${SUBSAMPLE:-},SEED=${SEED:-1} \
            "${root}/code/12_Sweep_Detection/ehh/04_run_ehh_scan.sb"
 
     echo "  [SUBMITTED] ${chr}: ${job_name}"
