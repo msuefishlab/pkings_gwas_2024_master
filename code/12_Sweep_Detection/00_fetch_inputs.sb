@@ -1,0 +1,56 @@
+#!/bin/bash --login
+#SBATCH --time=04:00:00
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=8G
+#SBATCH --job-name=sweep_fetch
+#SBATCH --array=0-9
+
+## 00_fetch_inputs.sb
+## Restore the inputs for the sweep-evidence analysis from the S3 backup, one file per array task.
+## Each copy is checked against the S3 object size.
+##
+## Usage (from the repo root):
+##   mkdir -p output_data/slurm_logs/12_Sweep_Detection
+##   sbatch --export=root=$(pwd) -o output_data/slurm_logs/12_Sweep_Detection/fetch_%A_%a.log \
+##     code/12_Sweep_Detection/00_fetch_inputs.sb
+##
+## Large files (the all-sites VCF) go to ${sweep_scratch} and are symlinked into the repo.
+
+source "${root}/pkings_gwas.env"
+
+aws=/mnt/home/jgallant/.conda/envs/awscli/bin/aws
+bucket=pkings-gwas-2026-master-backup
+prefix=pkings_gwas_2024_master
+
+# key (relative to the backup prefix) | local destination
+items=(
+  "images/rehh.sif|${root}/images/rehh.sif"
+  "images/sweepfinder2.sif|${root}/images/sweepfinder2.sif"
+  "images/sweed.sif|${root}/images/sweed.sif"
+  "images/dadi_tools.sif|${root}/images/dadi_tools.sif"
+  "input_data/00_Reference_Genome/${reference}|${root}/input_data/00_Reference_Genome/${reference}"
+  "input_data/00_Reference_Genome/${reference}.fai|${root}/input_data/00_Reference_Genome/${reference}.fai"
+  "output_data/03_QC/${allsites_vcf}|${sweep_scratch}/03_QC/${allsites_vcf}"
+  "output_data/03_QC/${allsites_vcf}.tbi|${sweep_scratch}/03_QC/${allsites_vcf}.tbi"
+  "output_data/05_PopGen/${popgen_prefix}_pi.txt|${root}/output_data/05_PopGen/${popgen_prefix}_pi.txt"
+  "output_data/05_PopGen/${popgen_prefix}_tajd.txt|${root}/output_data/05_PopGen/${popgen_prefix}_tajd.txt"
+)
+
+item="${items[${SLURM_ARRAY_TASK_ID}]}"
+key="${prefix}/${item%%|*}"
+dest="${item##*|}"
+mkdir -p "$(dirname "${dest}")"
+
+remote=$(${aws} s3api head-object --bucket ${bucket} --key "${key}" --query ContentLength --output text)
+if [[ -f "${dest}" ]] && [[ "$(stat -c %s "${dest}")" == "${remote}" ]]; then
+  echo "SKIP (already present, size matches): ${dest}"
+  exit 0
+fi
+
+echo "Copying s3://${bucket}/${key} -> ${dest} (${remote} bytes)"
+${aws} s3 cp --only-show-errors "s3://${bucket}/${key}" "${dest}"
+
+local_size=$(stat -c %s "${dest}")
+echo "remote=${remote} local=${local_size}"
+[[ "${remote}" == "${local_size}" ]] && echo "SIZE_OK" || { echo "SIZE_MISMATCH"; exit 1; }

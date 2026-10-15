@@ -1,0 +1,36 @@
+#!/bin/bash --login
+#SBATCH --time=04:00:00
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=16G
+#SBATCH --job-name=sweep_prep_vcfs
+
+## 00_prepare_vcfs.sb
+## Regenerate the polarized VCFs used by every sweep statistic, inside gwas_tools.sif (bcftools 1.13):
+##   1. 01_polarize_vcf.sh          INFO/AA from the P. szaboi outgroup -> full polarized VCF
+##   2. 02_split_by_sample_sets.sh  BP/TP pair VCFs (input_data/12_Sweep_Detection/*.txt) -> vcfs/
+##   3. 02_split_by_sample_sets.sh  lineage-group VCFs (split_up/*.txt)                    -> vcfs/by_group/
+##   4. 03_split_by_chromosome.sh   all 25 chromosomes, pairs and groups                    -> by_chrom/
+##
+## Usage (from the repo root):
+##   sbatch --export=root=$(pwd) -o output_data/slurm_logs/12_Sweep_Detection/prep_vcfs_%j.log \
+##     code/12_Sweep_Detection/ehh/00_prepare_vcfs.sb
+
+set -euo pipefail
+source "${root}/pkings_gwas.env"
+cd "${root}"
+
+sx() { singularity exec --bind /mnt/research,/mnt/ufs18,/mnt/gs21 "${gwas_tools_image}" "$@"; }
+
+ehh=code/12_Sweep_Detection/ehh
+sx bash ${ehh}/01_polarize_vcf.sh
+sx bash ${ehh}/02_split_by_sample_sets.sh
+sx bash ${ehh}/02_split_by_sample_sets.sh input_data/12_Sweep_Detection/split_up vcfs/by_group
+sx bash ${ehh}/03_split_by_chromosome.sh --all-chromosomes
+sx bash ${ehh}/03_split_by_chromosome.sh --all-chromosomes vcfs/by_group
+
+# record counts for the check against the S3 copies (one chromosome per set)
+for f in output_data/12_Sweep_Detection/by_chrom/*.polarized.chr8.vcf.gz; do
+  echo -e "$(basename ${f})\t$(sx bcftools index -n ${f})"
+done
+echo "Finished: $(date)"

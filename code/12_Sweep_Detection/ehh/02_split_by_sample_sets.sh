@@ -5,19 +5,24 @@ set -euo pipefail
 ## August 2025
 ## JRG
 
-module load BCFtools   # or conda env with bcftools ≥1.13
+command -v bcftools >/dev/null 2>&1 || module load BCFtools   # bcftools >= 1.13 (gwas_tools.sif provides it)
 
 root="$(git rev-parse --show-toplevel)"
 source "${root}/pkings_gwas.env"
 
-indir="${root}/input_data/12_Sweep_Detection"
+# Optional arguments:
+#   $1  sample-set directory relative to the repo root (default: input_data/12_Sweep_Detection, the BP/TP pairs)
+#   $2  output subdirectory under output_data/12_Sweep_Detection (default: vcfs)
+# e.g. lineage groups: bash 02_split_by_sample_sets.sh input_data/12_Sweep_Detection/split_up vcfs/by_group
+indir="${root}/${1:-input_data/12_Sweep_Detection}"
 outdir="${root}/output_data/12_Sweep_Detection"
+vcfsub="${2:-vcfs}"
 
 # INPUTS
 vcf="${outdir}/MIC4273_HAP2_NEWREF_MSU618_all_fish_all_sites.FILTERED_BIALLELIC_SNPS_ONLY.phased.renamed.polarized.vcf.gz"  # polarized VCF with INFO/AA present
 exclude_regex='^$'  # optional: e.g., '^PSZA$|^COB$' or leave empty '' / '^$' for no exclusion
 
-mkdir -p "${outdir}"/{lists,vcfs}
+mkdir -p "${outdir}/lists" "${outdir}/${vcfsub}"
 
 # cache VCF sample names (sorted, unique)
 vcf_samples_cache="${outdir}/lists/_ALL_VCF_SAMPLES.txt"
@@ -64,7 +69,7 @@ for f in "${list_files[@]}"; do
   fi
 
   echo "Splitting ${setname} (n=${ns}) ..."
-  outvcf="${outdir}/vcfs/${setname}.polarized.vcf.gz"
+  outvcf="${outdir}/${vcfsub}/${setname}.polarized.vcf.gz"
 
   # Subset and keep polarized INFO; ensure biallelic SNPs; fill AC/AN; drop sites with AN==0
   bcftools view -S "${listfile}" -Ou "${vcf}" \
@@ -75,4 +80,4 @@ for f in "${list_files[@]}"; do
   bcftools index -f "${outvcf}"
 done
 
-echo "Done. Outputs in ${outdir}/vcfs/"
+echo "Done. Outputs in ${outdir}/${vcfsub}/"

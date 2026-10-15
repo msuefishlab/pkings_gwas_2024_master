@@ -5,7 +5,7 @@ set -euo pipefail
 ## August 2025
 ## JRG
 
-module load BCFtools   # or conda env with bcftools≥1.13
+command -v bcftools >/dev/null 2>&1 || module load BCFtools   # bcftools >= 1.13 (gwas_tools.sif provides it)
 
 root="$(git rev-parse --show-toplevel)"
 source "${root}/pkings_gwas.env"

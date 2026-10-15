@@ -1,0 +1,53 @@
+#!/bin/bash --login
+#SBATCH --time=04:00:00
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=32
+#SBATCH --mem=120G
+#SBATCH --job-name=pixy_lineages
+#SBATCH --array=1-25%10
+
+## run_pixy_lineages.sb
+## pi, dxy and Fst in 5-kb windows for the five EHH lineage groups (BP1, TP1, BP2, TP2, BP3),
+## one array task per chromosome. The published 05_PopGen run used the 18 sampling-site
+## populations, whose memberships differ from the lineage groups used by every sweep statistic
+## here (for example BAM holds 67 fish including 25 wobbles, while BP1 is 42 fish).
+##
+## pixy version is pinned in the container to 1.2.10.beta2, the version behind the published
+## popgen numbers. Validation: BIR and BP3 have identical membership, so lineage-group BP3 pi
+## must reproduce population BIR pi from the published run (see 02_validate_pixy.R).
+##
+## Usage (from the repo root):
+##   sbatch --export=root=$(pwd) \
+##     -o output_data/slurm_logs/12_Sweep_Detection/pixy_lineages_%A_%a.log \
+##     code/12_Sweep_Detection/pixy_lineages/run_pixy_lineages.sb
+
+set -euo pipefail
+source "${root}/pkings_gwas.env"
+
+chrom="chr${SLURM_ARRAY_TASK_ID}"
+indir="${root}/output_data/03_QC"
+outdir="${root}/output_data/12_Sweep_Detection/pixy_lineages"
+popsfile="${root}/input_data/12_Sweep_Detection/popsfile_lineages.txt"
+mkdir -p "${outdir}"
+
+echo "=========================================="
+echo "pixy (lineage groups): ${chrom}"
+echo "Job:   ${SLURM_JOB_ID} task ${SLURM_ARRAY_TASK_ID} on ${SLURMD_NODENAME}"
+echo "VCF:   ${indir}/${allsites_vcf}"
+echo "Pops:  ${popsfile}"
+echo "Start: $(date)"
+echo "=========================================="
+
+singularity exec --bind /mnt/research,/mnt/ufs18,/mnt/gs21 "${gwas_tools_image}" \
+  pixy --stats pi fst dxy \
+  --vcf "${indir}/${allsites_vcf}" \
+  --populations "${popsfile}" \
+  --chromosomes "${chrom}" \
+  --window_size 5000 \
+  --n_cores "${SLURM_CPUS_PER_TASK}" \
+  --bypass_invariant_check yes \
+  --output_folder "${outdir}" \
+  --output_prefix "lineages_${chrom}"
+
+echo "Finished: $(date)"
+ls -la "${outdir}"/lineages_${chrom}_*.txt

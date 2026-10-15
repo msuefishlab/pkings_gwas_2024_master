@@ -19,11 +19,11 @@ if [[ "${1:-}" == "--all-chromosomes" ]]; then
   ALL_CHROM=true
 fi
 
-module load BCFtools
+command -v bcftools >/dev/null 2>&1 || module load BCFtools   # bcftools >= 1.13 (gwas_tools.sif provides it)
 
 root="$(git rev-parse --show-toplevel)"
 outdir="${root}/output_data/12_Sweep_Detection"
-vcfdir="${outdir}/vcfs"
+vcfdir="${outdir}/${2:-vcfs}"   # optional $2: VCF subdirectory (e.g. vcfs/by_group)
 outsub="${outdir}/by_chrom"
 
 mkdir -p "${outsub}"
