@@ -4,7 +4,7 @@
 ## uncertainties. Stage 2 (run with "boot" after stage 1 has been collected) refits 100 block-bootstrap
 ## spectra under M3 and under the highest-likelihood converged model, each started from its best fit.
 ## Deviation 2 adds refinement rounds between the two stages: 20 more starts per pair x model, perturbed from
-## the best start so far (round 2: fold 0.5, seeds 101-104; round 3: fold 0.25, seeds 201-204). "collect"
+## the best start so far (round 2: fold 0.5, seeds 201-204; round 3: fold 0.25, seeds 301-304). "collect"
 ## then pools every round (08_collect_fits.py --godambe).
 ##   bash code/11_Demographic_Modeling/fixed_differences/run_fits.sh fit [dependency_jobid]
 ##   bash code/11_Demographic_Modeling/fixed_differences/run_fits.sh refine 2|3
