@@ -24,7 +24,10 @@ suppressPackageStartupMessages({
   library(rprojroot)
 })
 
-root <- find_root(".git")
+## .git is a directory in a clone and a file in a linked worktree, and rprojroot's
+## has_file() criterion matches only the latter. Accept either, so the script runs
+## wherever the repository is checked out.
+root <- find_root(has_file(".git") | has_dir(".git"))
 args <- commandArgs(trailingOnly = TRUE)
 subsample <- if (length(args) >= 2 && args[1] == "--subsample") as.integer(args[2]) else NA_integer_
 tag <- if (is.na(subsample)) "" else paste0(".n", subsample)

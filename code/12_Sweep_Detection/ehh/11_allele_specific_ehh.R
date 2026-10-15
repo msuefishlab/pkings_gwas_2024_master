@@ -26,7 +26,10 @@ suppressPackageStartupMessages({
   library(rprojroot)
 })
 
-root <- find_root(".git")
+## .git is a directory in a clone and a file in a linked worktree, and rprojroot's
+## has_file() criterion matches only the latter. Accept either, so the script runs
+## wherever the repository is checked out.
+root <- find_root(has_file(".git") | has_dir(".git"))
 WIN <- 250e3   # plotting window either side of the index SNP, as in the published figure
 
 out_dir <- file.path(root, "output_data/12_Sweep_Detection/ehh/allele_specific")

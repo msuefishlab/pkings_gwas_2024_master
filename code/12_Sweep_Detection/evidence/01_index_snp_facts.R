@@ -28,7 +28,10 @@ suppressPackageStartupMessages({
   library(rprojroot)
 })
 
-root <- find_root(".git")
+## .git is a directory in a clone and a file in a linked worktree, and rprojroot's
+## has_file() criterion matches only the latter. Accept either, so the script runs
+## wherever the repository is checked out.
+root <- find_root(has_file(".git") | has_dir(".git"))
 MAX_FREQ_FOR_IHS <- 0.85   # DESIGN.md section 3
 
 vcf_dir  <- file.path(root, "output_data/12_Sweep_Detection/vcfs/by_group")

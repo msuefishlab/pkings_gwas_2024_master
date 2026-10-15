@@ -2,7 +2,10 @@
 ## Diagnostic for DESIGN.md section 1: what the published maximum-versus-single-SNP
 ## comparison actually measures. Not part of the pipeline; it documents the flaw it replaces.
 suppressPackageStartupMessages({ library(data.table); library(rprojroot) })
-root <- find_root(".git")
+## .git is a directory in a clone and a file in a linked worktree, and rprojroot's
+## has_file() criterion matches only the latter. Accept either, so the script runs
+## wherever the repository is checked out.
+root <- find_root(has_file(".git") | has_dir(".git"))
 source(file.path(root, "code/12_Sweep_Detection/evidence/region_stats_lib.R"))
 
 peaks <- load_peaks(root)

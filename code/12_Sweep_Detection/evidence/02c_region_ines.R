@@ -33,7 +33,10 @@ suppressPackageStartupMessages({
   library(rprojroot)
 })
 
-root <- find_root(".git")
+## .git is a directory in a clone and a file in a linked worktree, and rprojroot's
+## has_file() criterion matches only the latter. Accept either, so the script runs
+## wherever the repository is checked out.
+root <- find_root(has_file(".git") | has_dir(".git"))
 source(file.path(root, "code/12_Sweep_Detection/evidence/region_stats_lib.R"))
 
 HALF_WIDTH <- 100e3    # must equal the primary operator's half-width
