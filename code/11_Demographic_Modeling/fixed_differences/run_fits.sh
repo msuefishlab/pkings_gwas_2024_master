@@ -11,7 +11,9 @@ cd "${root}"
 source pkings_gwas.env
 dir=code/11_Demographic_Modeling/fixed_differences
 logs=output_data/slurm_logs/11_Demographic_Modeling
-fits=output_data/11_Demographic_Modeling/fixed_differences/fits
+fd_out=${FD_OUT:-output_data/11_Demographic_Modeling/fixed_differences}
+export FD_OUT=${fd_out}
+fits=${fd_out}/fits
 mkdir -p "${fits}"
 PAIRS="A1w A2w A3w A4w C1w C2w"
 dx() { echo "singularity exec --bind /mnt/gs21 ${dadi_image} python3 $*"; }
@@ -22,7 +24,7 @@ if [[ "${1:-fit}" == "fit" ]]; then
     echo "--pair ${p} --model ${m} --starts 5 --seed ${s} --maxtime 2400" >> "${tasks}"
   done; done; done
   dep=${2:+--dependency=afterok:$2}
-  arr=$(sbatch --parsable ${dep} --export=root=${root},TASKS=${tasks} --array=1-$(wc -l < "${tasks}")%100 ${dir}/07_fit_models.sb)
+  arr=$(sbatch --parsable ${dep} --export=root=${root},FD_OUT=${fd_out},TASKS=${tasks} --array=1-$(wc -l < "${tasks}")%100 ${dir}/07_fit_models.sb)
   col=$(sbatch --parsable --dependency=afterany:${arr} --time=04:00:00 --mem=16G --job-name=fd_collect -o ${logs}/collect_%j.log \
     --wrap "cd ${root} && export OMP_NUM_THREADS=1 && $(dx ${dir}/08_collect_fits.py --godambe)")
   echo "fits ${arr} | collect ${col}"
@@ -48,6 +50,6 @@ PY
       echo "--pair ${p} --model ${m} --starts 1 --seed $((k + 1000)) --boot $(seq -s, ${k} $((k + 4))) --p0 ${p0} --maxtime 1500" >> "${tasks}"
     done
   done < "${fits}/boot_targets.txt"
-  arr=$(sbatch --parsable --export=root=${root},TASKS=${tasks} --array=1-$(wc -l < "${tasks}")%150 ${dir}/07_fit_models.sb)
+  arr=$(sbatch --parsable --export=root=${root},FD_OUT=${fd_out},TASKS=${tasks} --array=1-$(wc -l < "${tasks}")%150 ${dir}/07_fit_models.sb)
   echo "bootstrap refits ${arr} ($(wc -l < "${tasks}") tasks)"
 fi

@@ -12,7 +12,7 @@ import re
 import statistics
 import sys
 
-OUT = os.path.join(os.getcwd(), "output_data/11_Demographic_Modeling/fixed_differences")
+OUT = os.path.join(os.getcwd(), os.environ.get("FD_OUT", "output_data/11_Demographic_Modeling/fixed_differences"))
 SUFFIX = sys.argv[1] if len(sys.argv) > 1 else ""
 pat = re.compile(r"bins\.\d+" + re.escape(SUFFIX) + r"\.tsv$")
 v = collections.defaultdict(lambda: collections.Counter())

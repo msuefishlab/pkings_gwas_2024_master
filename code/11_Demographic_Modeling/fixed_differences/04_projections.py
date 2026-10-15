@@ -11,7 +11,7 @@ import glob
 import os
 import re
 
-OUT = os.path.join(os.getcwd(), "output_data/11_Demographic_Modeling/fixed_differences")
+OUT = os.path.join(os.getcwd(), os.environ.get("FD_OUT", "output_data/11_Demographic_Modeling/fixed_differences"))
 ap = argparse.ArgumentParser()
 ap.add_argument("--cap", type=int, default=60)
 ap.add_argument("--suffix", default="")

@@ -21,7 +21,7 @@ import pickle
 import numpy as np
 import dadi
 
-OUT = os.path.join(os.getcwd(), "output_data/11_Demographic_Modeling/fixed_differences")
+OUT = os.path.join(os.getcwd(), os.environ.get("FD_OUT", "output_data/11_Demographic_Modeling/fixed_differences"))
 HERE = os.path.dirname(os.path.abspath(__file__))
 spec = importlib.util.spec_from_file_location("fitmod", os.path.join(HERE, "07_fit_models.py"))
 fitmod = importlib.util.module_from_spec(spec)

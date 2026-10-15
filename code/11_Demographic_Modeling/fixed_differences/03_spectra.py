@@ -35,7 +35,7 @@ import numpy as np
 
 ROOT = os.getcwd()
 INP = os.path.join(ROOT, "input_data/11_Demographic_Modeling")
-OUT = os.path.join(ROOT, "output_data/11_Demographic_Modeling/fixed_differences")
+OUT = os.path.join(ROOT, os.environ.get("FD_OUT", "output_data/11_Demographic_Modeling/fixed_differences"))
 ST = os.path.join(OUT, "site_table")
 EXCHET_MIN = 0.001
 DELTA_BINS = np.linspace(-1, 1, 801)        # 0.0025 resolution for empirical ranks

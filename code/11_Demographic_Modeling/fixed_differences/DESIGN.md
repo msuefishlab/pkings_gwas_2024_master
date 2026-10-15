@@ -45,7 +45,7 @@ Index SNPs come from column 6 of `input_data/10_Introgression/peaks.bed`: P1 chr
 The GWAS wobble-excluded lists are a sensitivity row. Group sizes: wBAM 67, wAPA 30, wBEN 17, wBIK 30, wBAVA 23, wBIR 16, wDOV 16, wDOG 15.
 
 **Data:** the unphased all-sites VCF (`$allsites_vcf`; PASS sites only, invariant sites included), read in one `bcftools +fill-tags -S` pass (`01_site_table.sb`).
-- **Ancestral allele:** the allele fixed in the 11 *P. szaboi* of the popsfile, with outgroup AN ≥ 8, otherwise unpolarized. PSZA_455 is *P. hopkinsi* and is excluded.
+- **Ancestral allele:** the allele fixed in the 11 *P. szaboi* of the popsfile, with outgroup AN ≥ 8, otherwise unpolarized. PSZA_455 is *P. hopkinsi* and is excluded. *Superseded by Deviation 1 (outgroup agreement).*
 - The older `AA.tsv.gz` is not used. It came from the SHAPEIT-imputed VCF, where missing outgroup calls were filled from mostly *P. kingsleyae* haplotypes, and it included PSZA_455.
 - **Zero-coverage genotypes are missing.** GATK writes `0/0` with DP = 0 for uncovered samples at invariant sites. They are set to missing (`bcftools +setGT -i 'FMT/DP<1'`), which is also how pixy counts them; checked to reproduce pixy's comparison count exactly on one window.
 - **Callable site for a pair:** AN ≥ the projection size in both populations and outgroup callable. SNPs are additionally required to be biallelic SNVs with a polarized ancestral allele. L (callable sites) uses the same rules.
@@ -201,4 +201,23 @@ Phase B runs only if the D-008 lineage pairs have at least 200 non-peak, 75-kb-m
 
 ## Deviations
 
-(none yet)
+### Deviation 1 (2026-10-15): ancestral allele by agreement of six outer-clade species
+
+**What was seen first.** The first set of fits used the *P. szaboi*-only rule (§3). It returned an ancestral-misidentification rate of 3–10% in every pair, including both TP–TP controls (APA–BEN about 10%). §5 makes such models inadmissible above 5%. No E value, tier or unit result had been computed when this deviation was decided. The observed fixed-difference counts and the parallel counts had been seen; neither depends on the labelling.
+
+**Why.** The species tree (`output_data/04_Phylogenomics/...cf.tree`) places *P. szaboi* inside an outer clade with *P. magnostipes*, *P. parsegnis*, *P. hopkinsi*, *P. gabonensis* and *P. vadamans*. Gene concordance at the deep nodes is low (about 12–40%), which points to extensive incomplete lineage sorting. Many *P. kingsleyae* polymorphisms are therefore old, and a single outgroup species fixed for one allele may simply have sorted it by chance. Species sort independently, so requiring several to agree makes such errors much less likely. Reference bias in the outgroup calls may also contribute; agreement among species does not remove that, which is why the misidentification rate is re-estimated (see the readings below).
+
+**New rule.** The six outer-clade species are separate outgroup groups (OUT_PSZA 11, OUT_PMAG 20, OUT_PPAR 7, OUT_PHOP 5, OUT_PGAB 4, OUT_PVAD 2 fish; PSZA_455 is *P. hopkinsi* and counts under PHOP).
+- A SNP is polarized only if at least 2 species have data (AN ≥ 2 each), they carry at least 8 alleles in total, and every species with data is fixed for the same allele.
+- An invariant site is outgroup-callable under the same data rule.
+- The curvifrons group (*P. curvifrons*, *P. ntotom*, *P. longicaudatus*, *P.* sp. SN2) is not used. It is closer to *P. kingsleyae* and shares excess derived alleles with it (D-006).
+
+**Unchanged.** Everything else in this design: masks, projections, models, the 5% admissibility rule, tiers, sensitivity rows.
+
+**Kept for comparison.** The *P. szaboi*-only run is kept in `output_data/11_Demographic_Modeling/fixed_differences/` and reported as a sensitivity row. The new run writes to `output_data/11_Demographic_Modeling/fixed_differences_agree/` (`FD_OUT`).
+
+**How the re-estimate will be read** (decided before the rerun):
+- If the misidentification rate falls to about 1–2%, mislabelling was the cause and is fixed.
+- If it stays above 5%, mislabelling was not the main cause; the §6.3 "no admissible model" rule then applies, and the folded row is reported next to it.
+
+Decided by J. Gallant, 2026-10-15.

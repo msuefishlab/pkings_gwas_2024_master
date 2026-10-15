@@ -26,8 +26,8 @@ import os
 import sys
 
 ROOT = os.getcwd()
-ST = os.path.join(ROOT, "output_data/11_Demographic_Modeling/fixed_differences/site_table")
-OUT = os.path.join(ROOT, "output_data/11_Demographic_Modeling/fixed_differences/checks")
+ST = os.path.join(ROOT, os.environ.get("FD_OUT", "output_data/11_Demographic_Modeling/fixed_differences"), "site_table")
+OUT = os.path.join(ROOT, os.environ.get("FD_OUT", "output_data/11_Demographic_Modeling/fixed_differences"), "checks")
 TOL_REL = 0.005
 TOL_FREQ = 0.05
 PHASED_SNPS = 51_073_851

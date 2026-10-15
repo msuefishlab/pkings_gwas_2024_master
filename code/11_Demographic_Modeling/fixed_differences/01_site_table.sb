@@ -23,8 +23,9 @@ source "${root}/pkings_gwas.env"
 
 dir=code/11_Demographic_Modeling/fixed_differences
 inp=input_data/11_Demographic_Modeling
-out=output_data/11_Demographic_Modeling/fixed_differences/site_table
-masks=output_data/11_Demographic_Modeling/fixed_differences/masks
+fd_out=${FD_OUT:-output_data/11_Demographic_Modeling/fixed_differences}
+out=${fd_out}/site_table
+masks=${fd_out}/masks
 mkdir -p "${out}"
 VCF="${sweep_scratch}/03_QC/${allsites_vcf}"
 sx() { singularity exec --bind /mnt/research,/mnt/ufs18,/mnt/gs21 "${gwas_tools_image}" "$@"; }

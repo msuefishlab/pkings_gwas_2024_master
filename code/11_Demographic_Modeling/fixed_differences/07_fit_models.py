@@ -24,7 +24,7 @@ import numpy as np
 import dadi
 import nlopt
 
-OUT = os.path.join(os.getcwd(), "output_data/11_Demographic_Modeling/fixed_differences")
+OUT = os.path.join(os.getcwd(), os.environ.get("FD_OUT", "output_data/11_Demographic_Modeling/fixed_differences"))
 
 MODELS = {
     "M0": (dadi.Demographics2D.split_mig, ["nu_BP", "nu_TP", "T", "m"], [None, None, None, 0.0]),

@@ -21,8 +21,10 @@ Writes
                                    SNP table), and record counts
   <outdir>/index_snps.<id>.tsv     the SNP rows at the GWAS index SNPs, if any fall in this chunk
 
-aa:   ancestral allele from the outgroup group OUT: "R" if OUT is fixed for REF, "A" if fixed for ALT,
-      with AN_OUT >= --out_min_an; otherwise "." (unpolarized).
+aa:   ancestral allele by outgroup agreement (DESIGN.md, Deviation 1): among the OUT_* species groups,
+      those with data (AN >= 2) must number at least --out_min_species, carry at least --out_min_an
+      alleles in total, and all be fixed for the same allele: "R" (REF) or "A" (ALT); otherwise "."
+      (unpolarized). An invariant site is outgroup-callable under the same data rule.
 dbin: distance to the nearest exon: 0 inside, 1 <= 2 kb, 2 <= 5 kb, 3 <= 10 kb, 4 > 10 kb.
 excl: 0 none, 1 GWAS extended peak +/-250 kb, 2 chr4 inversion-like polymorphism.
 """
@@ -59,6 +61,7 @@ def main():
     ap.add_argument("--outdir", required=True)
     ap.add_argument("--an_cap", type=int, default=60)
     ap.add_argument("--out_min_an", type=int, default=8)
+    ap.add_argument("--out_min_species", type=int, default=2)
     ap.add_argument("--index_snps", default="", help="peaks BED (col 6 = index SNP); their rows are also "
                     "written to <outdir>/index_snps.<id>.tsv")
     ap.add_argument("--bin", type=int, default=100_000,
@@ -69,7 +72,25 @@ def main():
     groups = a.groups.split(",")
     gi = {g: i for i, g in enumerate(groups)}
     exchet = a.exchet.split(",")
-    out_i = gi["OUT"]
+    out_idx = [gi[g] for g in groups if g.startswith("OUT_")]
+    if not out_idx:
+        sys.exit("no OUT_* outgroup groups in --groups")
+
+    def outgroup_call(cols_):
+        """(callable, ancestral) under the agreement rule; ancestral is "R", "A" or "."."""
+        spp = []
+        for i in out_idx:
+            an = to_int(cols_[2 * i])
+            if an >= 2:
+                spp.append((an, to_int(cols_[2 * i + 1])))
+        ok = len(spp) >= a.out_min_species and sum(an for an, _ in spp) >= a.out_min_an
+        if not ok:
+            return False, "."
+        if all(ac == 0 for _, ac in spp):
+            return True, "R"
+        if all(ac == an for an, ac in spp):
+            return True, "A"
+        return True, "."
 
     pairs, checks = [], []
     with open(a.pairs) as fh:
@@ -113,7 +134,7 @@ def main():
         for (block, dbin, xcode, rest), n in inv.items():
             cols = rest.split("\t")
             an = [to_int(cols[2 * i]) for i in range(len(groups))]
-            out_ok = int(an[out_i] >= a.out_min_an)
+            out_ok = int(outgroup_call(cols)[0])
             for g in whole:
                 k = an[gi[g]]
                 pi_comp[g] += n * k * (k - 1) // 2
@@ -160,10 +181,7 @@ def main():
             continue
         n_snp += 1
         cols = f[4].split("\t")
-        an_o, ac_o = to_int(cols[2 * out_i]), to_int(cols[2 * out_i + 1])
-        aa = "."
-        if an_o >= a.out_min_an:
-            aa = "R" if ac_o == 0 else ("A" if ac_o == an_o else ".")
+        aa = outgroup_call(cols)[1]
         row = f"{f[0]}\t{pos}\t{ref}\t{alt}\t{aa}\t{dbin}\t{xcode}\t{f[4]}\n"
         out.write(row)
         if pos in index_pos:

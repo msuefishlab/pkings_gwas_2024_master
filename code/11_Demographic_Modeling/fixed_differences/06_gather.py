@@ -30,7 +30,7 @@ import numpy as np
 import dadi
 
 ROOT = os.getcwd()
-OUT = os.path.join(ROOT, "output_data/11_Demographic_Modeling/fixed_differences")
+OUT = os.path.join(ROOT, os.environ.get("FD_OUT", "output_data/11_Demographic_Modeling/fixed_differences"))
 WHOLE8 = ["wAPA", "wBAM", "wBAVA", "wBEN", "wBIK", "wBIR", "wDOG", "wDOV"]
 OWN = {"A1": [1, 4, 5], "A2": [2, 3, 6], "A3": [2, 3, 6], "A4": [2, 3]}
 

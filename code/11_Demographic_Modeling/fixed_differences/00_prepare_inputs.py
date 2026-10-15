@@ -14,8 +14,9 @@ Groups. Two samplings of each creek, both computed so that DESIGN.md can name ei
 headline without a second pass over the VCF:
   p<POP>  phenotype-pure GWAS lists (input_data/12_Sweep_Detection/split_up/), split by name prefix
   w<POP>  whole populations as pixy saw them (input_data/05_PopGen/popsfile.txt), wobble fish included
-plus the pooled references pTP1/pTP2/pBP2 and wTP1/wTP2/wBP2, and OUT, the 11 P. szaboi of the
-popsfile. PSZA_455 is P. hopkinsi (fish_data_2023) and is not in the popsfile's PSZA group.
+plus the pooled references pTP1/pTP2/pBP2 and wTP1/wTP2/wBP2, and one group per outer-clade outgroup
+species (OUT_PSZA, OUT_PMAG, OUT_PPAR, OUT_PHOP, OUT_PGAB, OUT_PVAD) from the popsfile. PSZA_455 is
+P. hopkinsi (fish_data_2023) and the popsfile lists it under PHOP.
 
 Every listed sample is checked against the VCF header (--vcf_samples, from `bcftools query -l`);
 any mismatch aborts.
@@ -31,6 +32,11 @@ import sys
 
 POPS = ["BAM", "APA", "BEN", "BIK", "BAVA", "BIR", "DOV", "DOG"]
 SPLIT_FILES = ["BP1", "BP2", "BP3", "TP1", "TP2"]
+# Outer clade of the Paramormyrops species tree (output_data/04_Phylogenomics/...cf.tree): the species
+# used to call the ancestral allele by agreement (DESIGN.md, Deviation 1). The curvifrons group
+# (PCUR, PNTO, PLON, PSN2) is closer to P. kingsleyae and shares excess derived alleles with it (D-006),
+# so it is not used.
+OUTGROUP_SPECIES = ["PSZA", "PMAG", "PPAR", "PHOP", "PGAB", "PVAD"]
 POOLED = {"TP1": ["APA", "BEN"], "TP2": ["DOV", "DOG"], "BP2": ["BIK", "BAVA"]}
 CHUNK = 10_000_000
 PEAK_BUFFER = 250_000
@@ -79,7 +85,7 @@ def main():
     args = ap.parse_args()
     root = args.root
     out_in = os.path.join(root, "input_data/11_Demographic_Modeling")
-    out_mask = os.path.join(root, "output_data/11_Demographic_Modeling/fixed_differences/masks")
+    out_mask = os.path.join(root, os.environ.get("FD_OUT", "output_data/11_Demographic_Modeling/fixed_differences"), "masks")
     os.makedirs(out_in, exist_ok=True)
     os.makedirs(out_mask, exist_ok=True)
 
@@ -101,10 +107,10 @@ def main():
             s, pop = line.rstrip("\n").split("\t")[:2]
             if pop in POPS:
                 groups[s].append("w" + pop)
-            elif pop == "PSZA":
-                groups[s].append("OUT")
-    if "PSZA_455" in groups:
-        sys.exit("PSZA_455 (P. hopkinsi) must not be in the outgroup")
+            elif pop in OUTGROUP_SPECIES:
+                groups[s].append("OUT_" + pop)
+    if "OUT_PSZA" in groups.get("PSZA_455", []):
+        sys.exit("PSZA_455 is P. hopkinsi; the popsfile should list it as PHOP")
     # pooled references
     for s, gs in groups.items():
         for pooled, members in POOLED.items():
