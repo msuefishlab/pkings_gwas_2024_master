@@ -1,0 +1,60 @@
+#!/bin/bash --login
+#SBATCH --time=04:00:00
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=8G
+#SBATCH --job-name=site_table
+#SBATCH -o output_data/slurm_logs/11_Demographic_Modeling/site_table_%A_%a.log
+## 01_site_table.sb
+## One pass over the all-sites VCF per 10-Mb chunk: per-group allele counts (AN/AC) at every SNP,
+## compact summaries of the invariant sites, and the outgroup-based ancestral allele. DESIGN.md step 1.
+## Genotypes with no reads (FMT/DP = 0) are set to missing first: GATK writes 0/0 for uncovered samples
+## at invariant sites, and pixy does not count them. With this rule the site table reproduces pixy's
+## comparison counts exactly (checked on chr1:10,960,001-10,965,000, APA: 6,042,053).
+##
+## Submit from the repo root, after 00_prepare_inputs.py:
+##   n=$(( $(wc -l < input_data/11_Demographic_Modeling/chunks.tsv) - 2 ))
+##   sbatch --export=root=$(pwd) --array=0-${n}%40 code/11_Demographic_Modeling/fixed_differences/01_site_table.sb
+## Smoke test on one chunk with a region override:
+##   sbatch --export=root=$(pwd),REGION=chr9:20000001-21000000 --array=0 .../01_site_table.sb
+set -euo pipefail
+cd "${root}"
+source "${root}/pkings_gwas.env"
+
+dir=code/11_Demographic_Modeling/fixed_differences
+inp=input_data/11_Demographic_Modeling
+out=output_data/11_Demographic_Modeling/fixed_differences/site_table
+masks=output_data/11_Demographic_Modeling/fixed_differences/masks
+mkdir -p "${out}"
+VCF="${sweep_scratch}/03_QC/${allsites_vcf}"
+sx() { singularity exec --bind /mnt/research,/mnt/ufs18,/mnt/gs21 "${gwas_tools_image}" "$@"; }
+
+task=${SLURM_ARRAY_TASK_ID}
+read -r chunk_id chrom start end < <(awk -v t="${task}" 'NR == t + 2' "${inp}/chunks.tsv")
+region="${chrom}:${start}-${end}"
+if [[ -n "${REGION:-}" ]]; then
+  region="${REGION}"; chrom="${REGION%%:*}"; chunk_id="smoke"
+fi
+echo "chunk ${chunk_id}: ${region}"
+
+# group order = the order of the AN/AC columns; ExcHet only for the whole-population groups
+groups=$(cut -f1 "${inp}/group_sizes.tsv" | tail -n +2 | paste -sd,)
+exchet=$(tr ',' '\n' <<< "${groups}" | grep '^w' | grep -v -E '^w(TP1|TP2|BP2)$' | paste -sd,)
+fmt='%CHROM\t%POS\t%REF\t%ALT'
+for g in ${groups//,/ }; do fmt+="\t%INFO/AN_${g}\t%INFO/AC_${g}"; done
+for g in ${exchet//,/ }; do fmt+="\t%INFO/ExcHet_${g}"; done
+fmt+='\n'
+cut -f1 "${inp}/groups.tsv" > "${out}/samples.${chunk_id}.txt"
+
+sx bash -c "set -o pipefail
+  bcftools view -r '${region}' -S '${out}/samples.${chunk_id}.txt' -Ou '${VCF}' \
+  | bcftools +setGT -Ou -- -t q -n . -i 'FMT/DP<1' \
+  | bcftools +fill-tags -Ou -- -S '${inp}/groups.tsv' -t AN,AC,ExcHet \
+  | bcftools query -f '${fmt}' \
+  | python3 '${dir}/site_table_stream.py' --groups '${groups}' --exchet '${exchet}' \
+      --pairs '${inp}/pairs.tsv' --exons '${masks}/exons.bed' --exclude '${masks}/exclude.bed' \
+      --index_snps input_data/10_Introgression/peaks.bed --chrom '${chrom}' --chunk_id '${chunk_id}' --outdir '${out}' \
+  | bgzip -c > '${out}/snps.${chunk_id}.tsv.gz'"
+rm -f "${out}/samples.${chunk_id}.txt"
+cat "${out}/invariant_sums.${chunk_id}.tsv" | grep n_records
+echo "done chunk ${chunk_id}"

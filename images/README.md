@@ -70,6 +70,8 @@
 
     cd images
     singularity build dadi_tools.sif docker://jasongallant/dadi_tools:latest
+    # 2026-10-15: dadi pinned to 2.4.3 in DadiDocker; the Docker Hub image of 2025-08-07 already holds
+    # dadi 2.4.3, numpy 1.26.4, scipy 1.13.1, demes 0.2.3, nlopt 2.7.1 (used by the D-009 drift test).
 
 ## SweepFinder2
 

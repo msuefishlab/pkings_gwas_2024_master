@@ -22,3 +22,4 @@ output_data/12_Sweep_Detection/by_chrom
 
 # results and intermediates for the sweep-evidence analysis (regenerable; holds multi-GB VCFs)
 output_data/12_Sweep_Detection/
+output_data/11_Demographic_Modeling/

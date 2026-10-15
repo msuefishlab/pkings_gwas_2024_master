@@ -19,7 +19,7 @@ RUN set -eux; \
 # Install the pure‑Python packages
 RUN pip install --no-cache-dir \
 	"numpy<2"\
-	dadi \
+	dadi==2.4.3 \
 	scikit-allel \
 	pandas 
 
