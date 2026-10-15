@@ -32,7 +32,8 @@ import subprocess
 import argparse
 
 
-def vcf_to_sf2(vcf_path, output_path, chromosome=None):
+def vcf_to_sf2(vcf_path, output_path, chromosome=None,
+               polymorphic_only=False, folded=False):
     """
     Convert VCF with INFO/AA to SweepFinder2 format
 
@@ -66,6 +67,7 @@ def vcf_to_sf2(vcf_path, output_path, chromosome=None):
         skipped_no_aa = 0
         skipped_missing = 0
         skipped_aa_mismatch = 0
+        skipped_monomorphic = 0
 
         for line in proc.stdout:
             fields = line.strip().split('\t')
@@ -108,9 +110,19 @@ def vcf_to_sf2(vcf_path, output_path, chromosome=None):
                 skipped_aa_mismatch += 1
                 continue
 
+            # Drop sites that are monomorphic in this sample. SweepFinder2 accepts them,
+            # but then the CLR partly tracks SNP density rather than the shape of the
+            # frequency spectrum, and the peaks were ascertained on SNP-dense regions.
+            if polymorphic_only and (x == 0 or x == an):
+                skipped_monomorphic += 1
+                continue
+
             # Write SweepFinder2 format: position, x, n, folded
-            # folded=0 indicates unfolded/polarized SFS
-            out.write(f"{pos}\t{x}\t{an}\t0\n")
+            if folded:
+                # folded spectrum: x is the minor allele count, ancestral state unused
+                out.write(f"{pos}\t{min(x, an - x)}\t{an}\t1\n")
+            else:
+                out.write(f"{pos}\t{x}\t{an}\t0\n")
             processed += 1
 
         # Wait for bcftools to finish
@@ -122,7 +134,15 @@ def vcf_to_sf2(vcf_path, output_path, chromosome=None):
     print(f"  Skipped (no AA): {skipped_no_aa}")
     print(f"  Skipped (missing data): {skipped_missing}")
     print(f"  Skipped (AA mismatch): {skipped_aa_mismatch}")
-    print(f"  Total attempted: {processed + skipped_no_aa + skipped_missing + skipped_aa_mismatch}")
+    print(f"  Skipped (monomorphic in sample): {skipped_monomorphic}")
+    total = processed + skipped_no_aa + skipped_missing + skipped_aa_mismatch + skipped_monomorphic
+    print(f"  Total attempted: {total}")
+    # AA coverage is reported because a region with poor ancestral-allele coverage can look
+    # like a CLR peak for purely technical reasons (DESIGN.md verification).
+    if total:
+        print(f"  AA coverage: {100.0 * (total - skipped_no_aa) / total:.2f}%")
+    print(f"  Mode: {'folded' if folded else 'unfolded/polarized'}"
+          f"{', polymorphic sites only' if polymorphic_only else ', all sites incl. monomorphic'}")
 
 
 def main():
@@ -134,13 +154,18 @@ def main():
     )
     parser.add_argument('vcf', help='Input polarized VCF (can be gzipped)')
     parser.add_argument('output', help='Output SweepFinder2 format file')
+    parser.add_argument('--polymorphic-only', action='store_true',
+                        help='Drop sites monomorphic in this sample (x==0 or x==n)')
+    parser.add_argument('--folded', action='store_true',
+                        help='Write a folded spectrum (minor allele count); polarization check')
     parser.add_argument('-c', '--chromosome',
                        help='Restrict to chromosome (e.g., chr6)')
 
     args = parser.parse_args()
 
     # Run conversion
-    vcf_to_sf2(args.vcf, args.output, args.chromosome)
+    vcf_to_sf2(args.vcf, args.output, args.chromosome,
+               polymorphic_only=args.polymorphic_only, folded=args.folded)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,48 @@
+#!/bin/bash --login
+#SBATCH --time=04:00:00
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=2
+#SBATCH --mem=16G
+#SBATCH --job-name=sf2_scan
+#SBATCH --array=0-124%40
+
+## 12_sf2_scan.sb
+## SweepFinder2 CLR scan, 5 lineages x 25 chromosomes, one array task each.
+##
+## Grid: -lg 10000, a grid point every 10 kb. That is the spacing the earlier run actually
+## produced (its script comments say 1 kb, but -lg is the spacing in base pairs, so -lg 1000
+## would have been 1 kb and the output shows 10 kb). Keeping 10 kb genome-wide matters more
+## than a finer grid: the peaks and the null regions must be scored on the same grid.
+##
+## Usage (from the repo root):
+##   sbatch --export=root=$(pwd) -o output_data/slurm_logs/12_Sweep_Detection/sf2_scan_%A_%a.log \
+##     code/12_Sweep_Detection/sweepfinder2/12_sf2_scan.sb
+
+set -euo pipefail
+source "${root}/pkings_gwas.env"
+
+mode="${MODE:-unfolded}"
+GRID_BP="${GRID_BP:-10000}"
+lineages=(BP1 TP1 BP2 TP2 BP3)
+pop="${lineages[$((SLURM_ARRAY_TASK_ID / 25))]}"
+chrom="chr$(((SLURM_ARRAY_TASK_ID % 25) + 1))"
+
+indir="${root}/output_data/12_Sweep_Detection/sweepfinder2/sfs_input_${mode}"
+specdir="${root}/output_data/12_Sweep_Detection/sweepfinder2/background_${mode}"
+outdir="${root}/output_data/12_Sweep_Detection/sweepfinder2/clr_${mode}"
+mkdir -p "${outdir}"
+
+input="${indir}/${pop}.${chrom}.sf2.txt"
+spectrum="${specdir}/${pop}.spectrum"
+output="${outdir}/${pop}.${chrom}.clr.txt"
+
+echo "${pop} ${chrom} (${mode}), grid ${GRID_BP} bp"
+[[ -f "${input}"    ]] || { echo "ERROR: missing ${input}"; exit 1; }
+[[ -f "${spectrum}" ]] || { echo "ERROR: missing ${spectrum}"; exit 1; }
+if [[ -s "${output}" ]]; then echo "already done"; exit 0; fi
+
+singularity exec --bind /mnt/research,/mnt/ufs18,/mnt/gs21 "${sweepfinder2_image}" \
+  SweepFinder2 -lg "${GRID_BP}" "${input}" "${spectrum}" "${output}"
+
+echo "Output: ${output} ($(wc -l < "${output}") grid points)"
+echo "Finished: $(date)"

@@ -81,30 +81,12 @@ units <- test_units()
 lineages <- sort(unique(units$bp))
 cat("Peaks:\n"); print(peaks[, .(peak, chrom, index_snp)])
 
-fai <- fread(file.path(root, "input_data/00_Reference_Genome",
-                       "jordan-mic4273-mb-hirise-20xx3__06-13-2024__final_assembly.fasta.renamed.fa.fai"),
-             select = 1:2, col.names = c("chrom", "length"))
-fai <- fai[chrom %in% paste0("chr", 1:25)]
-
-peak_regions <- peaks[, .(region_id = paste0("peak", peak), region_type = "peak",
-                          peak = peak, chrom = chrom, centre = as.numeric(index_snp))]
-
-grid <- fai[, .(centre = seq(PSEUDO_SPACING, length - PSEUDO_SPACING, by = PSEUDO_SPACING)),
-            by = chrom]
-grid[, blocked := FALSE]
-for (i in seq_len(nrow(peaks))) {
-  grid[chrom == peaks$chrom[i] &
-         centre > peaks$start[i] - PEAK_BUFFER &
-         centre < peaks$end[i]   + PEAK_BUFFER, blocked := TRUE]
-}
-pseudo_regions <- grid[blocked == FALSE,
-                       .(region_id = paste0("pseudo_", chrom, "_", centre),
-                         region_type = "pseudo", peak = NA_integer_, chrom, centre)]
+built <- build_regions(root, spacing = PSEUDO_SPACING, buffer = PEAK_BUFFER)
+regions <- built$regions
+peak_regions   <- regions[region_type == "peak"]
+pseudo_regions <- regions[region_type == "pseudo"]
 cat(sprintf("\nPseudo-peaks: %d candidates on %d chromosomes (%d blocked by peak +/-%g kb)\n",
-            nrow(pseudo_regions), uniqueN(pseudo_regions$chrom), sum(grid$blocked),
-            PEAK_BUFFER / 1e3))
-
-regions <- rbind(peak_regions, pseudo_regions)
+            nrow(pseudo_regions), uniqueN(pseudo_regions$chrom), built$n_blocked, PEAK_BUFFER / 1e3))
 
 ## --------------------------------------------------------------------------- computation
 op_rows <- list(); results <- list()

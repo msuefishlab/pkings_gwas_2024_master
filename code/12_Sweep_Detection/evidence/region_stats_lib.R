@@ -183,3 +183,34 @@ load_peaks <- function(root) {
              col.names = c("chrom_num", "start", "end", "peak", "score", "index_snp"))
   p[, chrom := paste0("chr", chrom_num)][order(peak)]
 }
+
+## ------------------------------------------------------------------------ region construction
+## Peaks plus a deterministic grid of pseudo-peak centres. Shared by 02_region_stats.R and
+## 02b_region_callable.R so that both score exactly the same regions; a mismatch would make the
+## matching covariates line up with the wrong regions.
+PSEUDO_SPACING_DEFAULT <- 200e3
+PEAK_BUFFER_DEFAULT    <- 250e3
+
+build_regions <- function(root, spacing = PSEUDO_SPACING_DEFAULT, buffer = PEAK_BUFFER_DEFAULT) {
+  peaks <- load_peaks(root)
+  fai <- fread(file.path(root, "input_data/00_Reference_Genome",
+                         "jordan-mic4273-mb-hirise-20xx3__06-13-2024__final_assembly.fasta.renamed.fa.fai"),
+               select = 1:2, col.names = c("chrom", "length"))
+  fai <- fai[chrom %in% paste0("chr", 1:25)]
+
+  peak_regions <- peaks[, .(region_id = paste0("peak", peak), region_type = "peak",
+                            peak = peak, chrom = chrom, centre = as.numeric(index_snp))]
+
+  grid <- fai[, .(centre = seq(spacing, length - spacing, by = spacing)), by = chrom]
+  grid[, blocked := FALSE]
+  for (i in seq_len(nrow(peaks))) {
+    grid[chrom == peaks$chrom[i] &
+           centre > peaks$start[i] - buffer &
+           centre < peaks$end[i]   + buffer, blocked := TRUE]
+  }
+  pseudo_regions <- grid[blocked == FALSE,
+                         .(region_id = paste0("pseudo_", chrom, "_", centre),
+                           region_type = "pseudo", peak = NA_integer_, chrom, centre)]
+  list(regions = rbind(peak_regions, pseudo_regions),
+       n_blocked = sum(grid$blocked), peaks = peaks)
+}

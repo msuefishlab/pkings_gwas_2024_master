@@ -1,0 +1,63 @@
+#!/bin/bash --login
+#SBATCH --time=04:00:00
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=48G
+#SBATCH --job-name=ehh_scan
+#SBATCH --array=0-74%25
+
+## 14_ehh_scan_array.sb
+## Genome-wide rehh scan: 3 BP/TP pairs x 25 chromosomes, one array task each.
+##
+## Replaces 04_submit_ehh_scans.sh, which submits the same work as individual jobs behind an
+## interactive prompt and so cannot be chained with --dependency.
+##
+## Each task saves the complete scan_hh output as RDS (--rds_dir) in addition to the inES and
+## Rsb tables. ihh2ihs() and ies2xpehh() need IHH_A, IHH_D and the allele frequency, none of
+## which survive into the .ines.txt.gz files, so without the RDS the scan would have to be
+## repeated to obtain real iHS and XP-EHH.
+##
+## SUBSAMPLE=16 runs the down-sampling check of DESIGN.md section 7 and writes to the same
+## directories with an .n16 tag.
+##
+## Usage (from the repo root):
+##   sbatch --export=root=$(pwd) -o output_data/slurm_logs/12_Sweep_Detection/ehh_scan_%A_%a.log \
+##     code/12_Sweep_Detection/ehh/14_ehh_scan_array.sb
+##   sbatch --export=root=$(pwd),SUBSAMPLE=16 ...    # the n = 16 robustness run
+
+set -euo pipefail
+source "${root}/pkings_gwas.env"
+
+pairs=(BP1_TP1 BP2_TP2 BP3_TP2)
+pair="${pairs[$((SLURM_ARRAY_TASK_ID / 25))]}"
+chrom="chr$(((SLURM_ARRAY_TASK_ID % 25) + 1))"
+bp="${pair%%_*}"; tp="${pair##*_}"
+
+vcf="${root}/output_data/12_Sweep_Detection/by_chrom/${pair}.polarized.${chrom}.vcf.gz"
+bp_list="${root}/input_data/12_Sweep_Detection/split_up/${bp}.txt"
+tp_list="${root}/input_data/12_Sweep_Detection/split_up/${tp}.txt"
+scan_dir="${root}/output_data/12_Sweep_Detection/ehh/scans"
+rds_dir="${sweep_scratch}/12_Sweep_Detection/ehh_rds"
+mkdir -p "${scan_dir}" "${rds_dir}"
+
+echo "${pair} ${chrom} (BP=${bp} n=$(wc -l < "${bp_list}"), TP=${tp} n=$(wc -l < "${tp_list}"))"
+[[ -f "${vcf}" ]] || { echo "ERROR: missing ${vcf}"; exit 1; }
+
+extra=()
+if [[ -n "${SUBSAMPLE:-}" ]]; then
+  extra+=(--subsample "${SUBSAMPLE}" --seed "${SEED:-1}")
+  tag=".n${SUBSAMPLE}"
+else
+  tag=""
+fi
+
+done_file="${rds_dir}/${pair}.BP${tag}.${chrom}.scan.rds"
+if [[ -s "${done_file}" ]]; then echo "already done: ${done_file}"; exit 0; fi
+
+singularity exec --bind /mnt/research,/mnt/ufs18,/mnt/gs21 --bind "${root}:/project_root" "${rehh_image}" \
+  Rscript /project_root/code/12_Sweep_Detection/ehh/scan_ehh_integrated.R \
+  --pair "${pair}" --chromosome "${chrom}" --vcf_file "${vcf}" \
+  --bp_list "${bp_list}" --tp_list "${tp_list}" \
+  --output_dir "${scan_dir}" --rds_dir "${rds_dir}" --min_maf 0.05 "${extra[@]}"
+
+echo "Finished: $(date)"

@@ -1,0 +1,50 @@
+#!/bin/bash --login
+#SBATCH --time=04:00:00
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=2
+#SBATCH --mem=16G
+#SBATCH --job-name=sf2_background
+#SBATCH --array=0-4
+
+## 11_sf2_background.sb
+## Empirical background frequency spectrum per lineage, from all 25 chromosomes.
+##
+## This spectrum is what makes the CLR a test rather than a description: SweepFinder2 compares
+## the local spectrum against this genome-wide one, so demography shared across the genome is
+## already absorbed. The earlier run built it from the six GWAS-peak chromosomes only, which
+## means the peaks contributed to their own null.
+##
+## Usage (from the repo root):
+##   sbatch --export=root=$(pwd) -o output_data/slurm_logs/12_Sweep_Detection/sf2_bg_%A_%a.log \
+##     code/12_Sweep_Detection/sweepfinder2/11_sf2_background.sb
+
+set -euo pipefail
+source "${root}/pkings_gwas.env"
+
+mode="${MODE:-unfolded}"
+lineages=(BP1 TP1 BP2 TP2 BP3)
+pop="${lineages[${SLURM_ARRAY_TASK_ID}]}"
+
+indir="${root}/output_data/12_Sweep_Detection/sweepfinder2/sfs_input_${mode}"
+outdir="${root}/output_data/12_Sweep_Detection/sweepfinder2/background_${mode}"
+mkdir -p "${outdir}"
+
+combined="${outdir}/${pop}.allchroms.sf2.txt"
+spectrum="${outdir}/${pop}.spectrum"
+
+echo "Concatenating 25 chromosomes for ${pop} (${mode})"
+head -1 "${indir}/${pop}.chr1.sf2.txt" > "${combined}"
+for i in $(seq 1 25); do
+  f="${indir}/${pop}.chr${i}.sf2.txt"
+  [[ -f "${f}" ]] || { echo "ERROR: missing ${f}"; exit 1; }
+  tail -n +2 "${f}" >> "${combined}"
+done
+echo "  sites: $(($(wc -l < "${combined}") - 1))"
+
+echo "Computing the empirical background spectrum (SweepFinder2 -f)"
+singularity exec --bind /mnt/research,/mnt/ufs18,/mnt/gs21 "${sweepfinder2_image}" \
+  SweepFinder2 -f "${combined}" "${spectrum}"
+
+echo "Spectrum: ${spectrum} ($(wc -l < "${spectrum}") lines)"
+head -3 "${spectrum}"
+echo "Finished: $(date)"
