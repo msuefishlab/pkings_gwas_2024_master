@@ -122,9 +122,20 @@ apply_operator <- function(stat_dt, regions, op, direction, operator) {
 ## --------------------------------------------------------------------- statistic loaders
 ## Each returns a data.table(chrom, pos, value) for one lineage.
 
+## Rsb is read from the current scan (ehh/merged) when that exists, and otherwise from the
+## published scan restored from the S3 backup (ehh/merged_published). The two are kept apart
+## deliberately: the published files are the reproduction target, so nothing may overwrite
+## them. SWEEP_MERGED_DIR forces one or the other.
+rsb_dir <- function(root) {
+  forced <- Sys.getenv("SWEEP_MERGED_DIR", "")
+  if (nzchar(forced)) return(forced)
+  new <- file.path(root, "output_data/12_Sweep_Detection/ehh/merged")
+  if (dir.exists(new) && length(list.files(new, pattern = "genome_wide_rsb"))) return(new)
+  file.path(root, "output_data/12_Sweep_Detection/ehh/merged_published")
+}
+
 load_rsb <- function(root, pair) {
-  f <- file.path(root, "output_data/12_Sweep_Detection/ehh/merged",
-                 sprintf("%s.genome_wide_rsb.txt.gz", pair))
+  f <- file.path(rsb_dir(root), sprintf("%s.genome_wide_rsb.txt.gz", pair))
   if (!file.exists(f)) stop("missing Rsb file: ", f)
   d <- fread(cmd = sprintf("zcat < %s", shQuote(f)))
   setnames(d, c("CHR", "POSITION", "RSB"), c("chrom", "pos", "value"), skip_absent = TRUE)
