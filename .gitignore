@@ -19,3 +19,6 @@ output_data/07_Phasing/*.vcf.gz*
 output_data/slurm_logs/**/*.log
 output_data/12_Sweep_Detection/vcfs
 output_data/12_Sweep_Detection/by_chrom
+
+# results and intermediates for the sweep-evidence analysis (regenerable; holds multi-GB VCFs)
+output_data/12_Sweep_Detection/
