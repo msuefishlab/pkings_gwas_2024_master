@@ -84,7 +84,17 @@ cat("BP list:    ", opt$bp_list, "\n")
 cat("TP list:    ", opt$tp_list, "\n")
 cat("Output dir: ", opt$output_dir, "\n")
 cat("Min MAF:    ", opt$min_maf, "\n")
+cat("Subsample:  ", if (is.null(opt$subsample)) "no (full sample)" else
+                     paste0(opt$subsample, " individuals per group, seed ", opt$seed), "\n")
 cat("========================================\n\n")
+
+## Every output file carries this tag, so a down-sampled run cannot overwrite the full-sample
+## scans. The full-sample scans in output_data/12_Sweep_Detection/ehh/scans/ are the ones
+## verified against the published analysis by 15_verify_against_published.R, and an untagged
+## down-sampled run would silently replace them with values that are correct but not
+## comparable. The merge script globs the untagged names only, so tagged files stay out of the
+## genome-wide Rsb and inES tables as well.
+tag <- if (is.null(opt$subsample)) "" else paste0(".n", opt$subsample)
 
 # ========================================
 # Helper Functions (from analyze_peak_pair_integrated.R)
@@ -262,7 +272,6 @@ label_TP <- pair_parts[2]
 # the .ines.txt.gz files written at step 8.
 if (!is.null(opt$rds_dir)) {
   dir.create(opt$rds_dir, recursive = TRUE, showWarnings = FALSE)
-  tag <- if (is.null(opt$subsample)) "" else paste0(".n", opt$subsample)
   for (grp in c("BP", "TP")) {
     f <- file.path(opt$rds_dir, sprintf("%s.%s%s.%s.scan.rds", opt$pair, grp, tag, opt$chromosome))
     saveRDS(if (grp == "BP") scan_BP else scan_TP, f, compress = "xz")
@@ -358,14 +367,14 @@ cat("\nStep 8: Saving output files...\n")
 # Create output directory
 dir.create(opt$output_dir, recursive = TRUE, showWarnings = FALSE)
 
-# Define output file names
-# Format: {PAIR}.BP.{CHR}.ines.txt.gz  (BP population inES)
-#         {PAIR}.TP.{CHR}.ines.txt.gz  (TP population inES)
-#         {PAIR}.{CHR}.rsb.txt.gz       (Rsb between populations)
+# Define output file names. The .nN tag appears only in a down-sampled run.
+# Format: {PAIR}.BP[.nN].{CHR}.ines.txt.gz  (BP population inES)
+#         {PAIR}.TP[.nN].{CHR}.ines.txt.gz  (TP population inES)
+#         {PAIR}[.nN].{CHR}.rsb.txt.gz      (Rsb between populations)
 
-file_BP <- file.path(opt$output_dir, paste0(opt$pair, ".BP.", opt$chromosome, ".ines.txt.gz"))
-file_TP <- file.path(opt$output_dir, paste0(opt$pair, ".TP.", opt$chromosome, ".ines.txt.gz"))
-file_RSB <- file.path(opt$output_dir, paste0(opt$pair, ".", opt$chromosome, ".rsb.txt.gz"))
+file_BP <- file.path(opt$output_dir, paste0(opt$pair, ".BP", tag, ".", opt$chromosome, ".ines.txt.gz"))
+file_TP <- file.path(opt$output_dir, paste0(opt$pair, ".TP", tag, ".", opt$chromosome, ".ines.txt.gz"))
+file_RSB <- file.path(opt$output_dir, paste0(opt$pair, tag, ".", opt$chromosome, ".rsb.txt.gz"))
 
 # Save files
 readr::write_tsv(output_BP, file_BP)

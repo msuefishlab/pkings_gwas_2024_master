@@ -16,6 +16,8 @@
 ##
 ## Usage (inside gwas_tools.sif, from the repo root):
 ##   Rscript code/12_Sweep_Detection/evidence/02_region_stats.R [--stats rsb,clr,pi_ratio]
+##   Rscript .../02_region_stats.R --subsample 16 --suffix _n16        # the n = 16 row
+##   Rscript .../02_region_stats.R --rsb_source rsb_check --suffix _rsbgw   # its control row
 ##
 ## Output: output_data/12_Sweep_Detection/evidence/region_stats.tsv.gz
 ##         output_data/12_Sweep_Detection/evidence/region_stats_operators.tsv
@@ -33,6 +35,17 @@ source(file.path(root, "code/12_Sweep_Detection/evidence/region_stats_lib.R"))
 ## --window      sub-window size in bp       (default  20000; sensitivity: 40000)
 ## --suffix      appended to the output file names, so sensitivity runs do not overwrite
 ##               the primary configuration
+## --subsample   read the haplotype statistics from the down-sampled scans (DESIGN.md section 7).
+##               Only Rsb, XP-EHH, iHS and nSL have an .nN variant; CLR and the pi ratio do not
+##               depend on the haplotypes and are read unchanged, which is what isolates the
+##               effect of sample size on the haplotype class.
+## --rsb_source  "merged" (the per-chromosome standardized scan, the headline) or "rsb_check"
+##               (recomputed genome-wide by 10_genome_stats.R). A down-sampled run defaults to
+##               rsb_check, because that is the only place an .nN Rsb exists. The two
+##               standardizations are not interchangeable: "merged" standardizes Rsb within
+##               each chromosome and "rsb_check" across all 25 at once, which reorders regions
+##               between chromosomes. So the n = 16 row must be read against the rsb_check
+##               full-sample row (_rsbgw), not against the headline.
 args <- commandArgs(trailingOnly = TRUE)
 arg_of <- function(flag, default) {
   i <- match(flag, args)
@@ -42,6 +55,14 @@ want       <- strsplit(arg_of("--stats", "rsb,clr,pi_ratio,xpehh,ihs,nsl,clr_fol
 HALF_WIDTH <- as.numeric(arg_of("--half_width", 100e3))
 WINDOW     <- as.numeric(arg_of("--window", 20e3))
 SUFFIX     <- arg_of("--suffix", "")
+SUBSAMPLE  <- arg_of("--subsample", "")
+HAP_TAG    <- if (nzchar(SUBSAMPLE)) paste0(".n", SUBSAMPLE) else ""
+RSB_SOURCE <- arg_of("--rsb_source", if (nzchar(HAP_TAG)) "rsb_check" else "merged")
+if (!RSB_SOURCE %in% c("merged", "rsb_check")) {
+  stop("--rsb_source must be 'merged' or 'rsb_check', not '", RSB_SOURCE, "'")
+}
+cat("Haplotype statistics: ", if (nzchar(HAP_TAG)) HAP_TAG else "full sample",
+    " | Rsb source: ", RSB_SOURCE, "\n", sep = "")
 
 out_dir <- file.path(root, "output_data/12_Sweep_Detection/evidence")
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
@@ -57,7 +78,8 @@ PEAK_BUFFER <- 250e3   # exclusion around every GWAS peak
 ## min_sites: scored sites required in a window; pixy statistics are 5-kb bins, not sites
 stat_registry <- list(
   rsb        = list(lineages = "bp", direction = "high", operator = "window_mean", min_sites = 20L, primary = TRUE,
-                    load = function(bp, tp) load_rsb(root, pair_of(bp))),
+                    load = function(bp, tp) if (RSB_SOURCE == "rsb_check")
+                      load_derived(root, "rsb_check", bp) else load_rsb(root, pair_of(bp))),
   clr        = list(lineages = "all", direction = "high", operator = "region_max",  min_sites =  3L, primary = TRUE,
                     load = function(bp, tp) load_clr(root, bp)),
   pi_ratio   = list(lineages = "bp", direction = "low",  operator = "window_mean", min_sites =  4L, primary = TRUE,
@@ -72,10 +94,11 @@ stat_registry <- list(
                     load = function(bp, tp) load_clr(root, bp, suffix = "genome_wide_clr_folded.txt"))
 )
 
-## Statistics written by 10_genome_stats.R / 12_nsl.py as {stat}/{lineage}.genome_wide.txt.gz
-load_derived <- function(root, stat, lineage) {
+## Statistics written by 10_genome_stats.R / 12_nsl.py as
+## {stat}/{lineage}[.nN].genome_wide.txt.gz. HAP_TAG selects the down-sampled variant.
+load_derived <- function(root, stat, lineage, tag = HAP_TAG) {
   f <- file.path(root, "output_data/12_Sweep_Detection/ehh", stat,
-                 sprintf("%s.genome_wide.txt.gz", lineage))
+                 sprintf("%s%s.genome_wide.txt.gz", lineage, tag))
   if (!file.exists(f)) stop("missing ", stat, " file: ", f)
   d <- fread(cmd = sprintf("zcat < %s", shQuote(f)))
   setnames(d, names(d)[1:3], c("chrom", "pos", "value"))

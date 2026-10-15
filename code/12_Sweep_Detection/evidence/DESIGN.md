@@ -169,6 +169,16 @@ stratification of the null by a recombination proxy — the mean inES of the lin
 the matched TP, which may share the signal under test; SweepFinder2 on the folded spectrum; and every haplotype
 statistic recomputed with all lineages down-sampled to n = 16, the size of BP3, with a fixed seed.
 
+The down-sampled row needs a control row, added 2026-10-15 once the row was actually run. The only
+down-sampled Rsb available is the one `10_genome_stats.R` recomputes from the saved `scan_hh` output, and it
+standardizes Rsb across all 25 chromosomes at once, whereas the headline Rsb is standardized within each
+chromosome by `ines2rsb` as each chromosome is scanned. Those two standardizations reorder regions relative to
+one another between chromosomes, so comparing the down-sampled row directly with the headline would vary the
+sample size and the standardization together and a changed call could not be attributed to either. The control
+row (`_rsbgw`) is therefore the full sample with the genome-wide standardization, and the sample-size question
+is answered by `_rsbgw` against `_n16`. This adds a comparison; it does not change the headline configuration
+or the decision rule.
+
 The down-sampling matters because the phasing (SHAPEIT4, no genetic map and no reference panel) has an unmeasured
 switch-error rate that varies with sample size and heterozygosity, and switch errors shorten inferred
 haplotypes. BP lineages carry genome-wide median inES 2–4× that of their TP references, which is exactly the

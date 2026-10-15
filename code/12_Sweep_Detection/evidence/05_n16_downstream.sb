@@ -1,0 +1,98 @@
+#!/bin/bash --login
+#SBATCH --time=03:00:00
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=64G
+#SBATCH --job-name=n16_down
+
+## 05_n16_downstream.sb
+## Everything the n = 16 down-sampling row of DESIGN.md section 7 needs after the scan array:
+## the genome-wide haplotype statistics from the down-sampled scans, the control row at the full
+## sample size, the n = 16 row itself, and a side-by-side comparison of the calls.
+##
+## Why this is a job and not a loop on a dev node: it reads 300 scan RDS files, stacks them per
+## lineage, and runs ihh2ihs, ies2xpehh and ines2rsb over several million sites each. That is
+## real compute and belongs in SLURM.
+##
+## Why it checks its own inputs: an earlier run of the scan array was submitted with an afterok
+## dependency on the per-chromosome split array and was nonetheless observed running alongside
+## it, so the early tasks read VCFs that were still being written. The resulting scans completed
+## normally and looked right. A dependency is therefore treated here as a convenience, not a
+## guarantee: this script refuses to start unless all 150 down-sampled scan RDS files are
+## present and non-empty.
+##
+## Usage (from the repo root):
+##   sbatch --export=root=$(pwd) --dependency=afterok:<scan array id> \
+##     -o output_data/slurm_logs/12_Sweep_Detection/n16_downstream_%j.log \
+##     code/12_Sweep_Detection/evidence/05_n16_downstream.sb
+
+set -euo pipefail
+source "${root}/pkings_gwas.env"
+cd "${root}"
+
+ev=code/12_Sweep_Detection/evidence
+D=output_data/12_Sweep_Detection
+rds_dir="${sweep_scratch}/12_Sweep_Detection/ehh_rds"
+sx()  { singularity exec --bind /mnt/research,/mnt/ufs18,/mnt/gs21 "${gwas_tools_image}" "$@"; }
+sxr() { singularity exec --bind /mnt/research,/mnt/ufs18,/mnt/gs21 "${rehh_image}" "$@"; }
+step() { echo; echo "=== $* ==="; }
+
+step "checking the down-sampled scan RDS files"
+missing=0
+for pair in BP1_TP1 BP2_TP2 BP3_TP2; do
+  for grp in BP TP; do
+    for i in $(seq 1 25); do
+      f="${rds_dir}/${pair}.${grp}.n16.chr${i}.scan.rds"
+      [[ -s "${f}" ]] || { echo "  MISSING OR EMPTY: ${f}"; missing=$((missing + 1)); }
+    done
+  done
+done
+if [[ "${missing}" -gt 0 ]]; then
+  echo "STOPPING: ${missing} of 150 down-sampled scan files are missing or empty." >&2
+  echo "          Re-run 14_ehh_scan_array.sb with SUBSAMPLE=16 and let it finish." >&2
+  exit 1
+fi
+echo "  all 150 present and non-empty"
+
+step "confirming the full-sample scans were not overwritten"
+## scan_ehh_integrated.R tags every down-sampled output with .n16, so the verified full-sample
+## scans must still reproduce the published analysis exactly. If this fails, the tagging is
+## broken and the headline results are no longer trustworthy.
+sx Rscript code/12_Sweep_Detection/ehh/15_verify_against_published.R
+
+step "genome-wide iHS, XP-EHH and Rsb from the n = 16 scans"
+sxr Rscript code/12_Sweep_Detection/ehh/10_genome_stats.R --subsample 16
+
+step "control row: full sample, Rsb standardized genome-wide"
+sx Rscript ${ev}/02_region_stats.R --rsb_source rsb_check --suffix _rsbgw
+sx Rscript ${ev}/03_evidence_matrix.R --suffix _rsbgw
+
+step "n = 16 row"
+sx Rscript ${ev}/02_region_stats.R --subsample 16 --suffix _n16
+sx Rscript ${ev}/03_evidence_matrix.R --suffix _n16
+
+step "calls: headline, control row, n = 16"
+sx Rscript -e '
+suppressPackageStartupMessages(library(data.table))
+d <- "output_data/12_Sweep_Detection/evidence"
+grab <- function(sfx, label) {
+  f <- file.path(d, sprintf("evidence_matrix%s.tsv", sfx))
+  if (!file.exists(f)) return(NULL)
+  x <- fread(f)[primary == TRUE]
+  unique(x[, .(peak, config = label, supported = supported[1], strong = strong[1],
+               empirical_p = empirical_p[1]), by = peak])[, -1]
+}
+a <- rbindlist(list(grab("", "headline"), grab("_rsbgw", "rsbgw_full_n"),
+                    grab("_n16", "n16")), use.names = TRUE)
+if (nrow(a)) {
+  cat("\nsupported:\n");   print(dcast(a, peak ~ config, value.var = "supported"))
+  cat("\nstrong:\n");      print(dcast(a, peak ~ config, value.var = "strong"))
+  cat("\nempirical p:\n"); print(dcast(a, peak ~ config, value.var = "empirical_p"))
+  b <- dcast(a[config %in% c("rsbgw_full_n", "n16")], peak ~ config, value.var = "supported")
+  flip <- b[rsbgw_full_n != n16]
+  cat("\nCalls that change with n = 16 (against the control row):",
+      if (nrow(flip)) "" else " none\n")
+  if (nrow(flip)) print(flip)
+}'
+
+step "done: $(date)"

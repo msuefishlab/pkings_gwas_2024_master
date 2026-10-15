@@ -51,10 +51,13 @@ if [[ $(ls ${D}/sweepfinder2/clr_folded/*.clr.txt 2>/dev/null | wc -l) -ge 125 ]
 fi
 
 step "rehh: merge inES and Rsb from the new scans"
-if [[ $(ls ${D}/ehh/scans/*.rsb.txt.gz 2>/dev/null | wc -l) -ge 75 ]]; then
+## Down-sampled scans carry an .nN tag and are not merged: the merge produces the genome-wide
+## tables the headline analysis reads, and those must come from the full sample.
+n_rsb=$(ls ${D}/ehh/scans/*.rsb.txt.gz 2>/dev/null | grep -vc '\.n[0-9]\+\.' || true)
+if [[ "${n_rsb}" -ge 75 ]]; then
   bash code/12_Sweep_Detection/ehh/05_merge_ehh_results.sh || echo "merge reported a problem; continuing"
 else
-  echo "skipped: $(ls ${D}/ehh/scans/*.rsb.txt.gz 2>/dev/null | wc -l) of 75 Rsb files present"
+  echo "skipped: ${n_rsb} of 75 full-sample Rsb files present"
 fi
 
 step "verify the re-run scans against the published ones"

@@ -15,7 +15,16 @@ set -euo pipefail
 ##   _w40             40-kb window
 ##   _unmatched       every pseudo-peak, matched on nothing
 ##   _differentiation matched additionally on BP-TP allele-frequency difference
+##   _rsbgw           full sample, Rsb standardized genome-wide instead of per chromosome
 ##   _n16             haplotype statistics from the n = 16 down-sampled scans
+##
+## _n16 must be read against _rsbgw, not against the headline. The only down-sampled Rsb is the
+## one 10_genome_stats.R recomputes from the scan RDS files, and that is standardized across all
+## 25 chromosomes at once, whereas the headline Rsb is standardized within each chromosome.
+## Comparing _n16 with the headline would therefore change the sample size and the
+## standardization together, and a flipped call could not be attributed to either. _rsbgw is the
+## same genome-wide standardization at the full sample size, so _rsbgw versus _n16 isolates the
+## sample size.
 ##
 ## Usage (from the repo root):
 ##   bash code/12_Sweep_Detection/evidence/04_run_sensitivity.sh
@@ -45,11 +54,18 @@ sx Rscript ${ev}/03_evidence_matrix.R --null_mode unmatched --out_suffix _unmatc
 echo "=== differentiation-matched null (sensitivity only; a sweep creates differentiation)"
 sx Rscript ${ev}/03_evidence_matrix.R --null_mode differentiation --out_suffix _differentiation
 
-echo "=== n = 16 down-sampled haplotype statistics"
-if [[ -f output_data/12_Sweep_Detection/evidence/region_stats_n16.tsv.gz ]]; then
+echo "=== n = 16 down-sampled haplotype statistics, with its control row"
+if ls output_data/12_Sweep_Detection/ehh/rsb_check/*.n16.genome_wide.txt.gz >/dev/null 2>&1; then
+  echo "--- control: full sample, Rsb standardized genome-wide"
+  sx Rscript ${ev}/02_region_stats.R --rsb_source rsb_check --suffix _rsbgw
+  sx Rscript ${ev}/03_evidence_matrix.R --suffix _rsbgw
+  echo "--- n = 16"
+  sx Rscript ${ev}/02_region_stats.R --subsample 16 --suffix _n16
   sx Rscript ${ev}/03_evidence_matrix.R --suffix _n16
 else
-  echo "    skipped: run 14_ehh_scan_array.sb with SUBSAMPLE=16 first"
+  echo "    skipped: no .n16 statistics yet. Run"
+  echo "      sbatch --export=root=\$(pwd),SUBSAMPLE=16 code/12_Sweep_Detection/ehh/14_ehh_scan_array.sb"
+  echo "    then Rscript code/12_Sweep_Detection/ehh/10_genome_stats.R --subsample 16"
 fi
 
 echo
