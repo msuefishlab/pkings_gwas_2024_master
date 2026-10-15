@@ -1,0 +1,77 @@
+#!/bin/bash --login
+#SBATCH --time=03:00:00
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=96G
+#SBATCH --job-name=recomb_null
+
+## 06_recomb_null.sb
+## The recombination-proxy-matched null of DESIGN.md sections 5 and 7.
+##
+## Builds the per-region inES covariate for all five lineages, then re-runs the evidence matrix
+## matching each peak on that proxy in addition to SNP density and callable fraction.
+##
+## What the row is for. Rsb, XP-EHH and the diversity ratio all respond to the local
+## recombination rate as well as to selection, and there is no recombination map for this
+## assembly. The differentiation-matched row bounds the ascertainment effect but cannot
+## separate selection from recombination, because a sweep raises differentiation itself. The
+## proxy can: integrated haplotype length in the lineages outside the contrast responds to the
+## same recombination environment while the allele under test is not sweeping in them.
+##
+## Usage (from the repo root):
+##   sbatch --export=root=$(pwd) \
+##     -o output_data/slurm_logs/12_Sweep_Detection/recomb_null_%j.log \
+##     code/12_Sweep_Detection/evidence/06_recomb_null.sb
+
+set -euo pipefail
+source "${root}/pkings_gwas.env"
+cd "${root}"
+
+ev=code/12_Sweep_Detection/evidence
+D=output_data/12_Sweep_Detection
+sx() { singularity exec --bind /mnt/research,/mnt/ufs18,/mnt/gs21 "${gwas_tools_image}" "$@"; }
+step() { echo; echo "=== $* ==="; }
+
+step "checking inputs"
+n_ines=$(ls ${D}/ehh/merged/*.genome_wide_ines.txt.gz 2>/dev/null | wc -l)
+echo "  genome-wide inES files: ${n_ines} (expect 5: BP1 BP2 BP3 TP1 TP2)"
+if [[ "${n_ines}" -lt 5 ]]; then
+  echo "STOPPING: need all five lineages' inES to build the proxy." >&2
+  exit 1
+fi
+[[ -f ${D}/evidence/region_stats.tsv.gz ]] || { echo "STOPPING: no region_stats.tsv.gz" >&2; exit 1; }
+
+step "per-region inES covariate (all five lineages)"
+sx Rscript ${ev}/02c_region_ines.R
+
+step "evidence matrix against the recombination-proxy-matched null"
+sx Rscript ${ev}/03_evidence_matrix.R --null_mode recombination --out_suffix _recombination
+
+step "headline vs differentiation-matched vs recombination-matched"
+sx Rscript -e '
+suppressPackageStartupMessages(library(data.table))
+d <- "output_data/12_Sweep_Detection/evidence"
+grab <- function(sfx, lab) {
+  f <- file.path(d, sprintf("evidence_matrix%s.tsv", sfx))
+  if (!file.exists(f)) return(NULL)
+  x <- fread(f)[primary == TRUE]
+  x[, .(config = lab, peak, statistic, pct = pct_matched,
+        supported, strong, empirical_p, n_matched_null)]
+}
+a <- rbindlist(list(grab("", "headline"), grab("_differentiation", "diff_matched"),
+                    grab("_recombination", "recomb_matched")), use.names = TRUE)
+if (!nrow(a)) stop("nothing to compare")
+for (st in c("rsb", "clr", "pi_ratio")) {
+  cat("\n", st, " percentile by null:\n", sep = "")
+  print(dcast(a[statistic == st], peak ~ config, value.var = "pct"))
+}
+cat("\nsupported:\n");   print(dcast(unique(a[, .(peak, config, supported)]), peak ~ config, value.var = "supported"))
+cat("\nempirical p:\n"); print(dcast(unique(a[, .(peak, config, empirical_p)]), peak ~ config, value.var = "empirical_p"))
+cat("\nmatched null size:\n"); print(dcast(unique(a[, .(peak, config, n_matched_null)]), peak ~ config, value.var = "n_matched_null"))
+b <- dcast(unique(a[config %in% c("headline", "recomb_matched"), .(peak, config, supported)]),
+           peak ~ config, value.var = "supported")
+cat("\nCalls that change under the recombination-proxy null:")
+flip <- b[headline != recomb_matched]
+if (nrow(flip)) { cat("\n"); print(flip) } else cat(" none\n")'
+
+step "done: $(date)"

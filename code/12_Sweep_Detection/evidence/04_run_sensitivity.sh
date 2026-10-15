@@ -15,6 +15,10 @@ set -euo pipefail
 ##   _w40             40-kb window
 ##   _unmatched       every pseudo-peak, matched on nothing
 ##   _differentiation matched additionally on BP-TP allele-frequency difference
+##   _recombination   matched additionally on the recombination proxy (inES of the lineages
+##                    outside the contrast). Unlike _differentiation, which is raised by a
+##                    sweep and so conflates selection with recombination, this row holds the
+##                    recombination environment fixed and leaves selection free to show.
 ##   _rsbgw           full sample, Rsb standardized genome-wide instead of per chromosome
 ##   _n16             haplotype statistics from the n = 16 down-sampled scans
 ##
@@ -53,6 +57,13 @@ sx Rscript ${ev}/03_evidence_matrix.R --null_mode unmatched --out_suffix _unmatc
 
 echo "=== differentiation-matched null (sensitivity only; a sweep creates differentiation)"
 sx Rscript ${ev}/03_evidence_matrix.R --null_mode differentiation --out_suffix _differentiation
+
+echo "=== recombination-proxy-matched null"
+if [[ -f output_data/12_Sweep_Detection/evidence/region_ines.tsv ]]; then
+  sx Rscript ${ev}/03_evidence_matrix.R --null_mode recombination --out_suffix _recombination
+else
+  echo "    skipped: run ${ev}/02c_region_ines.R first"
+fi
 
 echo "=== n = 16 down-sampled haplotype statistics, with its control row"
 if ls output_data/12_Sweep_Detection/ehh/rsb_check/*.n16.genome_wide.txt.gz >/dev/null 2>&1; then

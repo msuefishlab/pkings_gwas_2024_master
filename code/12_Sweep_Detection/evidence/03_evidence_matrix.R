@@ -30,9 +30,14 @@ source(file.path(root, "code/12_Sweep_Detection/evidence/region_stats_lib.R"))
 ## --out_suffix appended to the output names; defaults to --suffix. Give sensitivity runs
 ##              their own, or they overwrite the primary configuration's results.
 ## --null_mode  "matched" (default; SNP density and callable fraction),
-##              "unmatched" (every pseudo-peak), or
-##              "differentiation" (adds BP-TP allele-frequency difference to the matching;
-##              a sensitivity row only, because a sweep creates differentiation)
+##              "unmatched" (every pseudo-peak),
+##              "differentiation" (adds BP-TP Fst to the matching; a sensitivity row only,
+##              because a sweep creates differentiation), or
+##              "recombination" (adds the recombination proxy of DESIGN.md section 5: mean
+##              rank-normalized inES over the lineages not in the peak's contrast, from
+##              02c_region_ines.R). The proxy responds to the local recombination environment
+##              but not to a sweep on the allele under test, so unlike the differentiation
+##              row it separates those two explanations instead of conflating them.
 args <- commandArgs(trailingOnly = TRUE)
 arg_of <- function(flag, default) {
   i <- match(flag, args)
@@ -95,6 +100,18 @@ if (file.exists(file.path(dir_ev, "region_differentiation.tsv"))) {
   covars[, mean_fst := NA_real_]
 }
 
+## The recombination proxy is kept out of `covars` on purpose. Every other covariate is
+## averaged over the lineages being tested; this one is averaged over the lineages that are
+## NOT being tested, and that set differs from peak to peak, so it is assembled inside the
+## per-peak loop instead.
+if (file.exists(file.path(dir_ev, "region_ines.tsv"))) {
+  ines <- fread(file.path(dir_ev, "region_ines.tsv"))
+  ines_lineages <- sort(unique(ines$lineage))
+  cat("Recombination proxy available for: ", paste(ines_lineages, collapse = ", "), "\n", sep = "")
+} else {
+  ines <- data.table(); ines_lineages <- character()
+}
+
 decile <- function(x) {
   if (all(is.na(x))) return(rep(NA_integer_, length(x)))
   cut(x, breaks = unique(quantile(x, probs = seq(0, 1, length.out = N_DECILES + 1), na.rm = TRUE)),
@@ -115,8 +132,22 @@ for (pk in sort(unique(units$peak))) {
                .(n_snps = mean(n_snps, na.rm = TRUE), callable = mean(callable, na.rm = TRUE),
                  mean_fst = mean(mean_fst, na.rm = TRUE)),
                by = .(region_id, region_type, peak)]
+  ## Recombination proxy for this peak: the lineages outside its contrast. They share the
+  ## region's recombination environment but are not sweeping for the allele under test, so the
+  ## proxy tracks recombination without absorbing the signal. DESIGN.md section 5 forbids
+  ## taking it from the matched TP, which may share the signal; setdiff() excludes both the
+  ## eligible BP lineages and that TP.
+  proxy_set <- setdiff(ines_lineages, c(lineage_set, tp_set))
+  if (length(proxy_set) && nrow(ines)) {
+    prox <- ines[lineage %in% proxy_set, .(recomb = mean(ines_rank, na.rm = TRUE)), by = region_id]
+    cv <- merge(cv, prox, by = "region_id", all.x = TRUE)
+  } else {
+    cv[, recomb := NA_real_]
+  }
+
   cvp <- cv[region_type == "pseudo"]
-  cvp[, `:=`(d_snps = decile(n_snps), d_call = decile(callable), d_fst = decile(mean_fst))]
+  cvp[, `:=`(d_snps = decile(n_snps), d_call = decile(callable), d_fst = decile(mean_fst),
+             d_recomb = decile(recomb))]
   target <- cv[region_type == "peak" & peak == pk]
   if (!nrow(target)) { cat("  no covariates for this peak; skipped\n"); next }
 
@@ -136,6 +167,14 @@ for (pk in sort(unique(units$peak))) {
   ## differentiation is added only for the sensitivity row, never for the headline
   use_fst  <- NULL_MODE == "differentiation" && !all(is.na(cvp$mean_fst)) && !is.na(target$mean_fst)
   d_fst_t  <- if (use_fst) dec_of(target$mean_fst, cvp$mean_fst) else NA_integer_
+  ## the recombination proxy is likewise added only for its own sensitivity row
+  use_rec  <- NULL_MODE == "recombination" && nrow(target) == 1L &&
+              !all(is.na(cvp$recomb)) && !is.na(target$recomb)
+  d_rec_t  <- if (use_rec) dec_of(target$recomb, cvp$recomb) else NA_integer_
+  if (NULL_MODE == "recombination" && !use_rec) {
+    stop("--null_mode recombination needs region_ines.tsv with a value for peak ", pk,
+         "; run 02c_region_ines.R first", call. = FALSE)
+  }
 
   if (NULL_MODE == "unmatched") {
     matched_ids <- cvp$region_id
@@ -146,6 +185,7 @@ for (pk in sort(unique(units$peak))) {
     ok <- abs(cvp$d_snps - d_snps_t) <= caliper
     if (use_call) ok <- ok & abs(cvp$d_call - d_call_t) <= caliper
     if (use_fst)  ok <- ok & abs(cvp$d_fst  - d_fst_t)  <= caliper
+    if (use_rec)  ok <- ok & abs(cvp$d_recomb - d_rec_t) <= caliper
     matched_ids <- cvp$region_id[which(ok)]
     if (length(matched_ids) >= MIN_NULL || caliper >= N_DECILES) break
     caliper <- caliper + 1L
@@ -157,6 +197,8 @@ for (pk in sort(unique(units$peak))) {
                           "SNP density only (callable fraction unavailable)",
                         caliper)
   if (use_fst) match_note <- paste(match_note, "+ BP-TP Fst")
+  if (use_rec) match_note <- paste0(match_note, " + recombination proxy (inES of ",
+                                    paste(proxy_set, collapse = "/"), ")")
   cat("  matched null: ", length(matched_ids), " of ", nrow(cvp),
       " pseudo-peaks (", match_note, ")\n", sep = "")
 
