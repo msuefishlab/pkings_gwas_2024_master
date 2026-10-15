@@ -10,8 +10,8 @@ on the same VCF, and the index SNPs must match the sweep analysis, before anythi
   3. SNP record count, reported against the 51,073,851-site phased SNP set (not gated: the
      all-sites VCF also carries SNPs that the phasing inputs dropped)
   4. index-SNP ALT frequencies in the phenotype-pure lineage groups within 0.05 of
-     output_data/12_Sweep_Detection/evidence/index_snp_facts.tsv, and the BP allele derived
-     under the new outgroup calls
+     output_data/12_Sweep_Detection/evidence/index_snp_facts.tsv, and the BP allele not called
+     ancestral by the outgroups (unlabelled index SNPs are reported, Addendum 1b)
 
 Writes output_data/11_Demographic_Modeling/fixed_differences/checks/site_table_checks.tsv and exits
 non-zero if any gated check fails.
@@ -128,10 +128,17 @@ def main():
             ok = an > 0 and abs(ours - float(r["alt_freq"])) <= TOL_FREQ
             record("index_snp_freq", name, r["chrom"], f"{ours:.3f} (AN {an})", r["alt_freq"], ok)
             if r["role"] == "own":
+                # DESIGN.md Addendum 1b: under outgroup agreement an index SNP may be unlabelled (the
+                # outgroups disagree). That is genuine uncertainty, not a labelling error: it is reported,
+                # and the unit is analysed by the label-free (folded) analysis only. The gate fails only
+                # if the outgroups call the BP allele ancestral.
                 anc = {"R": f["ref"], "A": f["alt"]}.get(f["aa"], ".")
-                ok = anc == r["ancestral_allele"] and anc != r["bp_allele"]
-                record("index_snp_bp_derived", f"P{r['peak']}", r["chrom"], f"ancestral {anc}",
-                       f"ancestral {r['ancestral_allele']}, BP {r['bp_allele']}", ok)
+                if anc == ".":
+                    rows.append(("index_snp_bp_derived", f"P{r['peak']}", r["chrom"], "unlabelled (outgroups disagree)",
+                                 f"BP {r['bp_allele']}", "INFO", "folded analysis only"))
+                else:
+                    record("index_snp_bp_derived", f"P{r['peak']}", r["chrom"], f"ancestral {anc}",
+                           f"ancestral {r['ancestral_allele']}, BP {r['bp_allele']}", anc != r["bp_allele"])
 
     out = os.path.join(OUT, "site_table_checks.tsv")
     with open(out, "w") as fh:

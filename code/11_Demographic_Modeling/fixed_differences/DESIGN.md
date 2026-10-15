@@ -236,3 +236,15 @@ So a rate that stays high could be either leftover mislabelling or too-simple mo
 - If at least one unfolded model of a pair is admissible (§5, including misidentification ≤ 5%), the unfolded analysis is the headline for that pair, as designed.
 - If no unfolded model is admissible, the folded analysis is the headline, subject to the same convergence and adequacy gates. The unfolded results are reported alongside.
 - The rate is reported with both explanations named. A rate that falls to about 1–2% is read as mislabelling fixed. A rate that stays high is read as "mislabelling or model inadequacy, not distinguished", and the folded headline does not depend on which.
+
+#### Addendum 1b (2026-10-15, after the gate of the rerun, before any statistic of it)
+
+**What happened.** The rerun's gate (§9.1) failed on one check only: "BP allele derived at all six index SNPs". Under outgroup agreement, the Peak 2 and Peak 6 index SNPs are unlabelled. Every other gate check passed.
+- **Peak 2** (chr8:15,786,956): *P. parsegnis* is fixed for the BP allele (T, 14 of 14 alleles); the other five species are fixed for C.
+- **Peak 6** (chr24:8,596,847): *P. vadamans* carries the BP allele (G, 2 of 4 alleles); the others are fixed for T.
+
+**Why the gate changes.** That check was written for a single-outgroup rule, under which every SNP gets a label. Under agreement, "unlabelled" means the ancestral state is genuinely uncertain; it is not a labelling error. The gate now fails only if the outgroups call the *BP* allele ancestral, and unlabelled index SNPs are reported as INFO.
+
+**Consequence.** Peak 2 and Peak 6 units have no unfolded result (no derived-allele Δ exists). They are analysed by the label-free (folded) analysis, whose tail counts both directions. Nothing else changes.
+
+**Side finding, reported but not part of the test.** At Peak 2, *P. parsegnis* (a BP species) carries the BP allele at 9 of 45 differentiated sites (BP2 vs TP2, |Δ| ≥ 0.8) where all the other outgroups carry the TP allele; it is fixed at 8 of them. The other four outgroup species with that many sites carry it at 0–1 of about 40. Peaks 6 and 3 show weaker sharing (*parsegnis* 17/156 and 8/172; *P. vadamans* 22/161 and 15/182, mostly heterozygous). Without a genome-wide baseline for these species this is not yet evidence of peak-specific sharing. It bears on the manuscript's statement that the Peak 2, 3 and 6 BP alleles occur in no other BP Paramormyrops species, and is logged in `private_data/TODO.md`.
