@@ -19,7 +19,9 @@ For each model:
 Headline (Deviation 1): the unfolded analysis if any unfolded model is admissible for the pair; otherwise
 the folded analysis. Both are reported.
 For each unit (pair x index SNP) and analysis:
-  E_genome     E over R scaled from the fitting mask to every callable site (L_scan / L_mask)
+  E_genome     E over R scaled from the fitting mask to every callable site (L_scan / L_mask); for a converged
+               model, the largest E among its best three starts (Deviation 2: the starts are statistically
+               indistinguishable, so the most drift-generous is used)
   E_hetNe      the same with local Ne scaled by f_w per 1-Mb block (T/f, m*f, theta*f)
   E_robust     max(upper 97.5% bootstrap E under the best model, point E under every admissible model,
                E_hetNe under the best model)
@@ -96,6 +98,8 @@ def main():
         for r in csv.DictReader(fh, delimiter="\t"):
             r["params"] = {k: float(v) for k, v in (x.split("=") for x in r["params"].split(";"))}
             r["converged"] = r["converged"] == "True"
+            r["top3"] = ([{k: float(v) for k, v in (x.split("=") for x in t.split(";"))}
+                          for t in r["top3_params"].split("|")] if r.get("top3_params") else [r["params"]])
             best[r["pair"]][r["model"]] = r
     boot = collections.defaultdict(list)
     for path in glob.glob(os.path.join(OUT, f"fits/*{a.suffix}.M*.boot*.seed*.tsv")):
@@ -141,6 +145,12 @@ def main():
             m = func_ex(popt, data.sample_sizes, pts_l)
             theta = dadi.Inference.optimal_sfs_scaling(m.fold() if folded else m, data)
             exp = np.ma.filled(theta * m, 0.0)                    # unfolded shape, expected counts
+            exp_ridge = [exp]                                      # Deviation 2: best three starts
+            if r["converged"]:
+                for t in r["top3"][1:]:
+                    mt = func_ex([t[p_] for p_ in pnames], data.sample_sizes, pts_l)
+                    th = dadi.Inference.optimal_sfs_scaling(mt.fold() if folded else mt, data)
+                    exp_ridge.append(np.ma.filled(th * mt, 0.0))
             ladder = []
             for thr in LADDER:
                 checks = [("either" if folded else "BP_derived", sel(folded, thr))]
@@ -162,7 +172,8 @@ def main():
                 mf = func_ex(rescale(pnames, popt, f), data.sample_sizes, pts_l)
                 q_grid[f] = np.ma.filled(theta * f * mf, 0.0) / V["L_mask"]
             info[model] = dict(r=r, folded=folded, popt=popt, pnames=pnames, func_ex=func_ex, pts_l=pts_l,
-                               ns=data.sample_sizes, exp=exp, theta=theta, admissible=admissible, q_grid=q_grid)
+                               ns=data.sample_sizes, exp=exp, exp_ridge=exp_ridge, theta=theta,
+                               admissible=admissible, q_grid=q_grid)
             n_anc = [theta / (4 * mu * V["L_mask"]) for mu in MU]
             bp95 = D >= 0.95 - EPS
             tp95 = D <= -0.95 + EPS
@@ -190,7 +201,7 @@ def main():
             O_genome = sum(np.asarray(arr)[R].sum() for k, arr in V["region_spec"].items() if k != own_region)
             ratio = V["L_scan"] / V["L_mask"]
             models = [m for m in info if info[m]["folded"] == folded]
-            E_by = {m: info[m]["exp"][R].sum() * ratio for m in models}
+            E_by = {m: max(e[R].sum() for e in info[m]["exp_ridge"]) * ratio for m in models}
             res = dict(thr=thr, O_mask=O_mask, O_genome=O_genome, E_by=E_by, best=None, E_point=float("nan"),
                        E_het=float("nan"), E_boot=float("nan"), f_star=float("nan"), E_robust=float("nan"),
                        tier="model-dependent (no admissible model): report O")

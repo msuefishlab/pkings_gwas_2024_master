@@ -1,0 +1,12 @@
+#!/bin/bash --login
+#SBATCH --time=03:00:00
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=8G
+#SBATCH --job-name=fd_diag
+#SBATCH -o output_data/slurm_logs/11_Demographic_Modeling/diag_%A_%a.log
+set -euo pipefail
+cd "${root}"; source pkings_gwas.env; export OMP_NUM_THREADS=1
+case ${SLURM_ARRAY_TASK_ID} in
+  1) a="A2w M0,M3";; 2) a="A1w M0,M3";; 3) a="C2w M2";; 4) a="A2w M3f";;
+esac
+singularity exec --bind /mnt/gs21 "${dadi_image}" python3 code/11_Demographic_Modeling/fixed_differences/diagnostics/grid_noise.py ${a}

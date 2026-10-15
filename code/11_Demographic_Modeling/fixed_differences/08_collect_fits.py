@@ -3,7 +3,10 @@
 Collect the starts from 07_fit_models.py, check convergence, and add Godambe uncertainties and the
 adjusted likelihood-ratio tests (DESIGN.md section 5).
 
-Converged: the best three starts lie within 1 log-likelihood unit and their parameters within 5%.
+Converged (DESIGN.md Deviation 2): the best three starts, pooled over all rounds, lie within one
+Godambe-adjusted log-likelihood unit: (LL_1 - LL_3) / c <= 1, where c is the mean eigenvalue of H^-1 J at the
+best start (the composite-likelihood inflation; GIM = H J^-1 H). Needs --godambe; without it the strict rule of
+section 5 is used (best three within 1 raw unit, parameters within 5%), which is also always reported.
 Godambe (GIM) uses 100 bootstrap spectra over 1-Mb blocks (--block_mb 5 for the sensitivity row).
 LRTs are reported for information only (M0 nested in M1 and in M2, migration fixed at 0); no AIC,
 because dadi's likelihood is composite.
@@ -53,10 +56,12 @@ def main():
         small = np.all(np.abs(p_top) < 1e-3, axis=0)
         par_ok = bool(np.all((rel[1:] <= 0.05) | small))
         r0 = rs[0]
+        gap = float(top[0]["LL"]) - float(top[-1]["LL"]) if len(top) >= 3 else float("nan")
         row = {"pair": pair, "model": model, "n_starts": len(rs), "LL": float(r0["LL"]),
-               "theta": float(r0["theta"]), "converged": ll_ok and par_ok,
-               "LL_gap_top3": float(top[0]["LL"]) - float(top[-1]["LL"]) if len(top) >= 3 else float("nan"),
-               "params": {p: float(r0[p]) for p in pnames}}
+               "theta": float(r0["theta"]), "converged_strict": ll_ok and par_ok, "converged": ll_ok and par_ok,
+               "LL_gap_top3": gap, "c_adj": float("nan"), "gap_adj": float("nan"),
+               "params": {p: float(r0[p]) for p in pnames},
+               "top3": [{p: float(r[p]) for p in pnames} for r in top]}
         if a.godambe:
             with open(os.path.join(OUT, f"sfs/{pair}{a.suffix}.pkl"), "rb") as fh:
                 pk = pickle.load(fh)
@@ -72,24 +77,41 @@ def main():
                     full[i] = v
                 return func_ex(full, ns, pts)
             try:
-                se = dadi.Godambe.GIM_uncert(f_free, pts_l, boots, [popt[i] for i in free], data, multinom=True)
+                se, gim, hess = dadi.Godambe.GIM_uncert(f_free, pts_l, boots, [popt[i] for i in free], data,
+                                                        multinom=True, return_GIM=True)
                 row["se"] = {pnames[i]: float(s) for i, s in zip(free, se[:-1])}
                 row["se_theta"] = float(se[-1])
+                # H^-1 J = GIM^-1 H; its mean eigenvalue is the factor by which linkage inflates the raw
+                # composite log-likelihood (Deviation 2). A non-positive value (best start not at an optimum)
+                # leaves the model unconverged.
+                c = float(np.mean(np.real(np.linalg.eigvals(np.linalg.inv(gim) @ hess))))
+                row["c_adj"] = c
+                if c > 0 and len(top) >= 3:
+                    row["gap_adj"] = gap / c
+                    row["converged"] = gap / c <= 1.0
+                else:
+                    row["converged"] = False
             except Exception as e:                       # report, do not hide
                 row["se"] = {}
                 row["godambe_error"] = str(e)
+                row["converged"] = False
         rows.append(row)
         best[(pair, model)] = row
-        print(pair, model, f"LL {row['LL']:.2f}", "converged" if row["converged"] else "NOT converged",
-              " ".join(f"{p}={v:.4g}" for p, v in row["params"].items()))
+        print(pair, model, f"LL {row['LL']:.2f} gap {gap:.1f} c {row['c_adj']:.4g} gap_adj {row['gap_adj']:.3g}",
+              "converged" if row["converged"] else "NOT converged",
+              "(strict yes)" if row["converged_strict"] else "(strict no)",
+              " ".join(f"{p}={v:.4g}" for p, v in row["params"].items()), flush=True)
 
     with open(os.path.join(OUT, f"fits/best_fits{a.suffix}.tsv"), "w") as o:
-        o.write("pair\tmodel\tn_starts\tLL\ttheta\tconverged\tLL_gap_top3\tparams\tse\n")
+        o.write("pair\tmodel\tn_starts\tLL\ttheta\tconverged\tLL_gap_top3\tparams\tse\t"
+                "converged_strict\tc_adj\tgap_adj\ttop3_params\n")
         for r in rows:
             o.write(f"{r['pair']}\t{r['model']}\t{r['n_starts']}\t{r['LL']:.4f}\t{r['theta']:.6g}\t{r['converged']}\t"
                     f"{r['LL_gap_top3']:.3f}\t"
                     + ";".join(f"{k}={v:.6g}" for k, v in r["params"].items()) + "\t"
-                    + ";".join(f"{k}={v:.4g}" for k, v in r.get("se", {}).items()) + "\n")
+                    + ";".join(f"{k}={v:.4g}" for k, v in r.get("se", {}).items()) + "\t"
+                    + f"{r['converged_strict']}\t{r['c_adj']:.6g}\t{r['gap_adj']:.4g}\t"
+                    + "|".join(";".join(f"{k}={v:.8g}" for k, v in t.items()) for t in r["top3"]) + "\n")
 
     # adjusted LRTs (information only): M0 (no migration) nested in M1 and in M2
     if a.godambe:

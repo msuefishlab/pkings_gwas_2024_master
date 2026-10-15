@@ -3,7 +3,12 @@
 ## TP-TP controls, 20 perturbed starts each (4 tasks x 5 starts), then collects them with Godambe
 ## uncertainties. Stage 2 (run with "boot" after stage 1 has been collected) refits 100 block-bootstrap
 ## spectra under M3 and under the highest-likelihood converged model, each started from its best fit.
+## Deviation 2 adds refinement rounds between the two stages: 20 more starts per pair x model, perturbed from
+## the best start so far (round 2: fold 0.5, seeds 101-104; round 3: fold 0.25, seeds 201-204). "collect"
+## then pools every round (08_collect_fits.py --godambe).
 ##   bash code/11_Demographic_Modeling/fixed_differences/run_fits.sh fit [dependency_jobid]
+##   bash code/11_Demographic_Modeling/fixed_differences/run_fits.sh refine 2|3
+##   bash code/11_Demographic_Modeling/fixed_differences/run_fits.sh collect [dependency_jobid]
 ##   bash code/11_Demographic_Modeling/fixed_differences/run_fits.sh boot
 set -euo pipefail
 root="$(git rev-parse --show-toplevel)"
@@ -28,6 +33,34 @@ if [[ "${1:-fit}" == "fit" ]]; then
   col=$(sbatch --parsable --dependency=afterany:${arr} --time=04:00:00 --mem=16G --job-name=fd_collect -o ${logs}/collect_%j.log \
     --wrap "cd ${root} && export OMP_NUM_THREADS=1 && $(dx ${dir}/08_collect_fits.py --godambe)")
   echo "fits ${arr} | collect ${col}"
+elif [[ "$1" == "refine" ]]; then
+  round=$2
+  case ${round} in 2) fold=0.5;; 3) fold=0.25;; *) echo "round 2 or 3"; exit 1;; esac
+  tasks=${fits}/tasks_refine${round}.txt; : > "${tasks}"
+  # best start so far per pair x model, from the per-start files (every earlier round)
+  python3 - "${fits}" ${PAIRS} > "${fits}/refine${round}_starts.txt" <<'PY'
+import csv, glob, os, sys
+fits, pairs = sys.argv[1], sys.argv[2:]
+fixed = {"pair", "model", "target", "seed", "start", "LL", "theta", "seconds"}
+for pair in pairs:
+    for m in ("M0", "M1", "M2", "M3", "M0f", "M1f", "M2f", "M3f"):
+        rows = [r for f in glob.glob(os.path.join(fits, f"{pair}.{m}.data.seed*.tsv"))
+                for r in csv.DictReader(open(f), delimiter="\t")]
+        if not rows:
+            continue
+        b = max(rows, key=lambda r: float(r["LL"]))
+        print(pair, m, ",".join(b[k] for k in b if k not in fixed))
+PY
+  while read -r p m p0; do for s in 1 2 3 4; do
+    echo "--pair ${p} --model ${m} --starts 5 --seed $((round * 100 + s)) --p0 ${p0} --fold ${fold} --maxtime 2400" >> "${tasks}"
+  done; done < "${fits}/refine${round}_starts.txt"
+  arr=$(sbatch --parsable --export=root=${root},FD_OUT=${fd_out},TASKS=${tasks} --array=1-$(wc -l < "${tasks}")%150 ${dir}/07_fit_models.sb)
+  echo "refine round ${round}: ${arr} ($(wc -l < "${tasks}") tasks)"
+elif [[ "$1" == "collect" ]]; then
+  dep=${2:+--dependency=afterany:$2}
+  col=$(sbatch --parsable ${dep} --time=06:00:00 --mem=16G --job-name=fd_collect -o ${logs}/collect_%j.log \
+    --wrap "cd ${root} && export OMP_NUM_THREADS=1 && $(dx ${dir}/08_collect_fits.py --godambe)")
+  echo "collect ${col}"
 else
   tasks=${fits}/tasks_boot.txt; : > "${tasks}"
   # M3 and the best converged model per pair, from best_fits.tsv

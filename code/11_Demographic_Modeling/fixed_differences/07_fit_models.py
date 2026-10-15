@@ -13,6 +13,7 @@ same demography and no misidentification parameter.
 
 Writes one row per start to fits/<pair><suffix>.<model>.seed<seed>.tsv.
 With --boot K, fits bootstrap spectrum K instead of the data, starting from --p0 (for confidence intervals).
+With --p0 alone, refines the data fit from those parameters (Deviation 2 rounds; perturbation --fold).
 
 Usage (inside dadi_tools.sif, from the repo root):
   python3 .../07_fit_models.py --pair A1w --model M3 --starts 5 --seed 1
@@ -97,6 +98,8 @@ def main():
     ap.add_argument("--boot", default=None, help="refit bootstrap spectra K[,K2,...] (needs --p0)")
     ap.add_argument("--p0", default=None, help="comma-separated start parameters (bootstrap refits)")
     ap.add_argument("--maxtime", type=float, default=2400, help="seconds per start")
+    ap.add_argument("--fold", type=float, default=None,
+                    help="perturbation of the start (dadi perturb_params); default 1.5 for random starts, 0.5 with --p0")
     a = ap.parse_args()
 
     with open(os.path.join(OUT, f"sfs/{a.pair}{a.suffix}.pkl"), "rb") as fh:
@@ -120,9 +123,9 @@ def fit_target(a, tag, data):
         for k in range(a.starts):
             if a.p0:
                 p0 = [float(v) for v in a.p0.split(",")]
-                p0 = dadi.Misc.perturb_params(p0, fold=0.5, lower_bound=lower, upper_bound=upper)
+                p0 = dadi.Misc.perturb_params(p0, fold=a.fold or 0.5, lower_bound=lower, upper_bound=upper)
             else:
-                p0 = dadi.Misc.perturb_params([START[p] for p in pnames], fold=1.5,
+                p0 = dadi.Misc.perturb_params([START[p] for p in pnames], fold=a.fold or 1.5,
                                               lower_bound=lower, upper_bound=upper)
             if fixed:
                 p0 = [f if f is not None else v for v, f in zip(p0, fixed)]
