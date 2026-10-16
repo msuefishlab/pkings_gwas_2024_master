@@ -18,6 +18,7 @@ import collections
 import csv
 import glob
 import importlib.util
+import multiprocessing
 import os
 import pickle
 
@@ -31,12 +32,74 @@ fitmod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(fitmod)
 
 
+def collect_one(item):
+    """One pair x model: convergence and, with --godambe, the Godambe uncertainties. Runs in a worker process;
+    reads the parsed arguments that main() sets as the module global A."""
+    (pair, model), rs = item
+    a = A
+    rs.sort(key=lambda r: -float(r["LL"]))
+    pnames = [k for k in rs[0] if k not in ("pair", "model", "target", "seed", "start", "LL", "theta", "seconds")]
+    top = rs[:3]
+    p_top = np.array([[float(r[p]) for p in pnames] for r in top])
+    ll_ok = len(top) >= 3 and float(top[0]["LL"]) - float(top[-1]["LL"]) <= 1.0
+    rel = np.abs(p_top - p_top[0]) / np.maximum(np.abs(p_top[0]), 1e-8)
+    # parameters pinned near zero (e.g. migration) count as agreeing if all are below 1e-3
+    small = np.all(np.abs(p_top) < 1e-3, axis=0)
+    par_ok = bool(np.all((rel[1:] <= 0.05) | small))
+    r0 = rs[0]
+    gap = float(top[0]["LL"]) - float(top[-1]["LL"]) if len(top) >= 3 else float("nan")
+    row = {"pair": pair, "model": model, "n_starts": len(rs), "LL": float(r0["LL"]),
+           "theta": float(r0["theta"]), "converged_strict": ll_ok and par_ok, "converged": ll_ok and par_ok,
+           "LL_gap_top3": gap, "c_adj": float("nan"), "gap_adj": float("nan"),
+           "params": {p: float(r0[p]) for p in pnames},
+           "top3": [{p: float(r[p]) for p in pnames} for r in top]}
+    if a.godambe:
+        with open(os.path.join(OUT, f"sfs/{pair}{a.suffix}.pkl"), "rb") as fh:
+            pk = pickle.load(fh)
+        data = fitmod.data_of(pk, model)
+        func_ex, pts_l, _, _, _, fixed = fitmod.model_setup(model, data.sample_sizes)
+        boots = fitmod.bootstrap_spectra(pk, block_mb=a.block_mb, folded=fitmod.is_folded(model))
+        free = [i for i, f in enumerate(fixed or [None] * len(pnames)) if f is None]
+        popt = [row["params"][p] for p in pnames]
+
+        def f_free(pf, ns, pts):
+            full = list(popt)
+            for i, v in zip(free, pf):
+                full[i] = v
+            return func_ex(full, ns, pts)
+        try:
+            se, gim, hess = dadi.Godambe.GIM_uncert(f_free, pts_l, boots, [popt[i] for i in free], data,
+                                                    multinom=True, return_GIM=True)
+            row["se"] = {pnames[i]: float(s) for i, s in zip(free, se[:-1])}
+            row["se_theta"] = float(se[-1])
+            # H^-1 J = GIM^-1 H; its mean eigenvalue is the factor by which linkage inflates the raw
+            # composite log-likelihood (Deviation 2). A non-positive value (best start not at an optimum)
+            # leaves the model unconverged.
+            c = float(np.mean(np.real(np.linalg.eigvals(np.linalg.inv(gim) @ hess))))
+            row["c_adj"] = c
+            if c > 0 and len(top) >= 3:
+                row["gap_adj"] = gap / c
+                row["converged"] = gap / c <= 1.0
+            else:
+                row["converged"] = False
+        except Exception as e:                       # report, do not hide
+            row["se"] = {}
+            row["godambe_error"] = str(e)
+            row["converged"] = False
+    print(pair, model, f"LL {row['LL']:.2f} gap {gap:.1f} c {row['c_adj']:.4g} gap_adj {row['gap_adj']:.3g}",
+          "converged" if row["converged"] else "NOT converged",
+          "(strict yes)" if row["converged_strict"] else "(strict no)",
+          " ".join(f"{p}={v:.4g}" for p, v in row["params"].items()), flush=True)
+    return row
+
+
 def main():
+    global A
     ap = argparse.ArgumentParser()
     ap.add_argument("--suffix", default="")
     ap.add_argument("--godambe", action="store_true")
     ap.add_argument("--block_mb", type=int, default=1)
-    a = ap.parse_args()
+    a = A = ap.parse_args()
 
     runs = collections.defaultdict(list)
     for path in glob.glob(os.path.join(OUT, f"fits/*{a.suffix}.M*.data.seed*.tsv")):
@@ -47,63 +110,20 @@ def main():
                 if os.path.basename(path).split(".")[0] == r["pair"] + a.suffix:
                     runs[(r["pair"], r["model"])].append(r)
 
-    rows, best = [], {}
-    for (pair, model), rs in sorted(runs.items()):
-        rs.sort(key=lambda r: -float(r["LL"]))
-        pnames = [k for k in rs[0] if k not in ("pair", "model", "target", "seed", "start", "LL", "theta", "seconds")]
-        top = rs[:3]
-        p_top = np.array([[float(r[p]) for p in pnames] for r in top])
-        ll_ok = len(top) >= 3 and float(top[0]["LL"]) - float(top[-1]["LL"]) <= 1.0
-        rel = np.abs(p_top - p_top[0]) / np.maximum(np.abs(p_top[0]), 1e-8)
-        # parameters pinned near zero (e.g. migration) count as agreeing if all are below 1e-3
-        small = np.all(np.abs(p_top) < 1e-3, axis=0)
-        par_ok = bool(np.all((rel[1:] <= 0.05) | small))
-        r0 = rs[0]
-        gap = float(top[0]["LL"]) - float(top[-1]["LL"]) if len(top) >= 3 else float("nan")
-        row = {"pair": pair, "model": model, "n_starts": len(rs), "LL": float(r0["LL"]),
-               "theta": float(r0["theta"]), "converged_strict": ll_ok and par_ok, "converged": ll_ok and par_ok,
-               "LL_gap_top3": gap, "c_adj": float("nan"), "gap_adj": float("nan"),
-               "params": {p: float(r0[p]) for p in pnames},
-               "top3": [{p: float(r[p]) for p in pnames} for r in top]}
-        if a.godambe:
-            with open(os.path.join(OUT, f"sfs/{pair}{a.suffix}.pkl"), "rb") as fh:
-                pk = pickle.load(fh)
-            data = fitmod.data_of(pk, model)
-            func_ex, pts_l, _, _, _, fixed = fitmod.model_setup(model, data.sample_sizes)
-            boots = fitmod.bootstrap_spectra(pk, block_mb=a.block_mb, folded=fitmod.is_folded(model))
-            free = [i for i, f in enumerate(fixed or [None] * len(pnames)) if f is None]
-            popt = [row["params"][p] for p in pnames]
-
-            def f_free(pf, ns, pts):
-                full = list(popt)
-                for i, v in zip(free, pf):
-                    full[i] = v
-                return func_ex(full, ns, pts)
-            try:
-                se, gim, hess = dadi.Godambe.GIM_uncert(f_free, pts_l, boots, [popt[i] for i in free], data,
-                                                        multinom=True, return_GIM=True)
-                row["se"] = {pnames[i]: float(s) for i, s in zip(free, se[:-1])}
-                row["se_theta"] = float(se[-1])
-                # H^-1 J = GIM^-1 H; its mean eigenvalue is the factor by which linkage inflates the raw
-                # composite log-likelihood (Deviation 2). A non-positive value (best start not at an optimum)
-                # leaves the model unconverged.
-                c = float(np.mean(np.real(np.linalg.eigvals(np.linalg.inv(gim) @ hess))))
-                row["c_adj"] = c
-                if c > 0 and len(top) >= 3:
-                    row["gap_adj"] = gap / c
-                    row["converged"] = gap / c <= 1.0
-                else:
-                    row["converged"] = False
-            except Exception as e:                       # report, do not hide
-                row["se"] = {}
-                row["godambe_error"] = str(e)
-                row["converged"] = False
-        rows.append(row)
-        best[(pair, model)] = row
-        print(pair, model, f"LL {row['LL']:.2f} gap {gap:.1f} c {row['c_adj']:.4g} gap_adj {row['gap_adj']:.3g}",
-              "converged" if row["converged"] else "NOT converged",
-              "(strict yes)" if row["converged_strict"] else "(strict no)",
-              " ".join(f"{p}={v:.4g}" for p, v in row["params"].items()), flush=True)
+    # pairs x models are independent; one worker each when SLURM gives several CPUs, the slow M3 fits first.
+    # Rows keep the sorted order, so the output does not depend on the number of workers.
+    items = sorted(runs.items())
+    nproc = min(len(items), int(os.environ.get("SLURM_CPUS_PER_TASK", "1")))
+    if nproc > 1:
+        order = sorted(range(len(items)), key=lambda i: not items[i][0][1].startswith("M3"))
+        with multiprocessing.get_context("fork").Pool(nproc) as pool:
+            done = pool.map(collect_one, [items[i] for i in order], chunksize=1)
+        rows = [None] * len(items)
+        for i, row in zip(order, done):
+            rows[i] = row
+    else:
+        rows = [collect_one(i) for i in items]
+    best = {(r["pair"], r["model"]): r for r in rows}
 
     # Deviation 2, change 4: a model whose best LL is still below its nested sub-model's (M0 < M1 < M2, same
     # folding) has not reached its optimum and is not converged.

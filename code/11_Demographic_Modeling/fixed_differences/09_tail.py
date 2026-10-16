@@ -184,11 +184,16 @@ def _do_pair(pair):
             for col, name in enumerate(("T", "tau_BP", "tau_TP")):
                 lo, hi = np.quantile(bt[:, col], [0.025, 0.975])
                 ci[name] = f"{lo:.5f}-{hi:.5f}"
+        # information: free parameters within 1% of a fitting bound (Godambe c and SEs assume an interior optimum)
+        fixed = fitmod.model_setup(model, data.sample_sizes)[5] or [None] * len(pnames)
+        lo_hit = {k: p[k] <= fitmod.BOUNDS[k][0] * 1.01 + 1e-9 for k in pnames}
+        at_bound = [f"{k}={'lower' if lo_hit[k] else 'upper'}" for k, fx in zip(pnames, fixed)
+                    if fx is None and (lo_hit[k] or p[k] >= fitmod.BOUNDS[k][1] * 0.99)]
         mrows.append((pair, model, "folded" if folded else "unfolded", r["LL"], r["converged"],
                       f"{misid:.4f}", thr_g, f"{O_g:.1f}", f"{E_g:.1f}", adequate, admissible, f"{theta:.1f}",
                       f"{p['T']:.5f}", f"{tb:.5f}", f"{tt:.5f}", f"{1 - math.exp(-tb):.4f}",
                       f"{1 - math.exp(-tt):.4f}", f"{n_anc[0]:.0f}", f"{n_anc[1]:.0f}", *asym,
-                      len(brs), ci["T"], ci["tau_BP"], ci["tau_TP"],
+                      len(brs), ci["T"], ci["tau_BP"], ci["tau_TP"], ";".join(at_bound) or "none",
                       ";".join(f"{k}={v:.5g}" for k, v in p.items())))
         info[model].update(tau_BP=tb, tau_TP=tt, asym=asym)
         # section 9.3 parameter recovery: is each generating value inside the 95% range of the Poisson refits?
@@ -397,7 +402,7 @@ def main():
         o.write("pair\tmodel\tanalysis\tLL\tconverged\tp_misid\tgate_threshold\tgate_O\tgate_E\tadequate\t"
                 "admissible\ttheta\tT_2Nanc\ttau_BP\ttau_TP\tF_BP\tF_TP\tN_anc_mu4e-9\tN_anc_mu1e-8\t"
                 "obs_BPder95\texp_BPder95\tobs_TPder95\texp_TPder95\tn_boot\tT_2Nanc_95ci\ttau_BP_95ci\ttau_TP_95ci\t"
-                "params\n")
+                "at_bound\tparams\n")
         for r in mrows:
             o.write("\t".join(str(x) for x in r) + "\n")
     with open(os.path.join(OUT, f"tail/ladder{a.suffix}.tsv"), "w") as o:

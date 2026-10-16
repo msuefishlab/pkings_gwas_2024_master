@@ -35,7 +35,7 @@ if [[ "${1:-fit}" == "fit" ]]; then
   done; done; done
   dep=${2:+--dependency=afterok:$2}
   arr=$(sbatch --parsable ${dep} --export=root=${root},FD_OUT=${fd_out},TASKS=${tasks} --array=1-$(wc -l < "${tasks}")%100 ${dir}/07_fit_models.sb)
-  col=$(sbatch --parsable --dependency=afterany:${arr} --time=04:00:00 --mem=16G --job-name=fd_collect -o ${logs}/collect_%j.log \
+  col=$(sbatch --parsable --dependency=afterany:${arr} --time=12:00:00 --cpus-per-task=16 --mem=64G --job-name=fd_collect -o ${logs}/collect_%j.log \
     --wrap "cd ${root} && export OMP_NUM_THREADS=1 && $(dx ${dir}/08_collect_fits.py --godambe)")
   echo "fits ${arr} | collect ${col}"
 elif [[ "$1" == "refine" ]]; then
@@ -104,7 +104,8 @@ PY
   fi
 elif [[ "$1" == "collect" ]]; then
   dep=${2:+--dependency=afterany:$2}
-  col=$(sbatch --parsable ${dep} --time=06:00:00 --mem=16G --job-name=fd_collect -o ${logs}/collect_%j.log \
+  # one worker per pair x model (08 reads SLURM_CPUS_PER_TASK); serial, the Godambe step took > 6 h after round 3
+  col=$(sbatch --parsable ${dep} --time=12:00:00 --cpus-per-task=16 --mem=64G --job-name=fd_collect -o ${logs}/collect_%j.log \
     --wrap "cd ${root} && export OMP_NUM_THREADS=1 && $(dx ${dir}/08_collect_fits.py --godambe)")
   echo "collect ${col}"
 elif [[ "$1" == "tail" ]]; then
