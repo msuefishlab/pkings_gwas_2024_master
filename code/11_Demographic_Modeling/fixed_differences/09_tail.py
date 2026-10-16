@@ -289,8 +289,9 @@ def _do_pair(pair):
         f_peak = pk["f_blocks"].get((u["chrom"], int(u["pos"]) // 1_000_000), float("nan"))
         res_by = {f: analyse(u, f) for f in (False, True) if VAR[f] is not None}
         # headline per unit (Addenda 1a, 1b): unfolded if the pair has an admissible unfolded model and the
-        # index SNP is polarized; otherwise folded (Peak 2 and Peak 6 have no derived-allele delta)
-        head = False if (adm[False] and res_by.get(False) is not None) else True
+        # index SNP is polarized; otherwise folded (Peak 2 and Peak 6 have no derived-allele delta). A run
+        # without the folded variant (v1) keeps unfolded as the headline even with no admissible model.
+        head = False if ((adm[False] or VAR[True] is None) and res_by.get(False) is not None) else True
         for folded, res in res_by.items():
             if res is None:
                 continue

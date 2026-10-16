@@ -43,6 +43,17 @@ def fmt(x, nd=3):
     return f"{v:.{nd}g}"
 
 
+def share(e):
+    # section 2: K_needed as a fraction of all callable sites, 1 / E, at the drift-generous E_robust
+    v = num(e)
+    if v != v:
+        return "NA"
+    if v <= 1:
+        return "> 100%"
+    x = 100 / v
+    return f"{x:.2g}%" if x < 1 else f"{x:.0f}%"
+
+
 def table(head, rows):
     out = ["| " + " | ".join(head) + " |", "|" + "|".join("---" for _ in head) + "|"]
     out += ["| " + " | ".join(str(c) for c in r) + " |" for r in rows]
@@ -64,9 +75,13 @@ def main():
               else "NA")
         rows.append((f"{POP[u['pair']][0]} vs {POP[u['pair']][1]}", f"P{u['peak']}", u["analysis"],
                      fmt(u["tail_threshold"]), fmt(u["O_genome"]), u["best_model"], fmt(u["E_genome_best"]), ci,
-                     fmt(u["E_hetNe"]), fmt(u["E_grid2"]), fmt(u["E_robust"]), u["tier"], fmt(u["K_needed"])))
+                     fmt(u["E_hetNe"]), fmt(u["E_grid2"]), fmt(u["E_robust"]), u["tier"], fmt(u["K_needed"]),
+                     share(u["E_robust"])))
     print(table(["Pair", "Peak", "Analysis", "Δ", "O (non-peak)", "Best model", "E", "E 95% CI", "E_hetNe",
-                 "E_grid2", "E_robust", "Tier", "K_needed"], rows))
+                 "E_grid2", "E_robust", "Tier", "K_needed", "BP-capable share needed"], rows))
+    print("\nK_needed = L_scan / E (best model). The last column is 1 / E_robust: the share of all callable sites "
+          "that would each have to be able to make a fish BP for drift to be expected to produce one site this "
+          "differentiated (section 2), at the most drift-generous E.")
 
     print("\n## Section 10 sentences\n")
     for u in own:
@@ -78,16 +93,24 @@ def main():
                   f"{fmt(u['tail_threshold'])}). Verdict: {u['tier']}.")
             continue
         m = models[(u["pair"], bm)]
-        F, t2n = num(m["F_BP"]), num(m["T_2Nanc"])
-        frac = t2n / 2 * 100          # a new neutral mutation needs ~4N = 2 x 2N generations to fix
-        new_ok = ("so any neutral fixed difference must come from variation that already existed"
-                  if frac < 100 else "enough for new neutral mutations to have drifted to fixation")
+        F, t2n, tau = num(m["F_BP"]), num(m["T_2Nanc"]), num(m["tau_BP"])
+        # A new neutral mutation that fixes takes on average 4N generations, tau = 2 in units of 2N. The clock is
+        # the BP branch's own drift (tau_BP), not T/2N_anc: the BP population is smaller than the ancestor in every
+        # headline fit, so tau_BP is the larger, drift-generous value.
+        frac = tau / 2 * 100
+        if frac < 25:
+            new_ok = "so a neutral fixed difference must come from variation that already existed"
+        elif frac < 100:
+            new_ok = ("so new mutations could only rarely have drifted to fixation; most neutral fixed differences "
+                      "come from variation that already existed")
+        else:
+            new_ok = "enough for new neutral mutations to have drifted to fixation"
         ci = (f" (bootstrap 95% interval {fmt(u['E_boot2.5'])}–{fmt(u['E_boot97.5'])})"
               if num(u.get("E_boot2.5")) == num(u.get("E_boot2.5")) else "")
         print(f"- **{bp}, P{u['peak']}** ({u['analysis']}, {bm}): Since {bp} split from {tp}, drift has had time "
               f"to move a typical 50% allele by about ±{math.sqrt(F * 0.25):.2f}. The elapsed time is "
-              f"{t2n:.3g} × 2N_anc generations, {frac:.0f}% of the time a new neutral mutation needs to fix, "
-              f"{new_ok}. Under the best-fitting history, drift would create {fmt(u['E_genome_best'])} sites{ci} "
+              f"{t2n:.3g} × 2N_anc generations; in {bp}'s own drift units it is τ_BP = {tau:.3g}, {frac:.0f}% of "
+              f"the time a new neutral mutation needs, on average, to drift to fixation, {new_ok}. Under the best-fitting history, drift would create {fmt(u['E_genome_best'])} sites{ci} "
               f"in the genome as strongly BP-biased as this SNP (most drift-generous value, E_robust: "
               f"{fmt(u['E_robust'])}). We observe {fmt(u['O_genome'])} outside the GWAS peaks. "
               f"Verdict: {u['tier']}.")

@@ -18,6 +18,7 @@ out <- args[2]
 FLOOR <- 0.01   # bottom of the log axis: observed zeros are marked there, model curves stop there
 pair_lab <- c(A1w = "BAM vs APA + BEN", A2w = "BIK vs DOV + DOG", A3w = "BAVA vs DOV + DOG",
               A4w = "BIR vs DOV + DOG", C1w = "APA vs BEN (control)", C2w = "DOV vs DOG (control)")
+short_lab <- c(A1w = "BAM", A2w = "BIK", A3w = "BAVA", A4w = "BIR", C1w = "APA-BEN", C2w = "DOV-DOG")
 an_lab <- c(unfolded = "Polarized (BP-derived allele)", folded = "Label-free (either allele)")
 
 curve <- read_tsv(file.path(tail_dir, "curve.tsv"), show_col_types = FALSE)
@@ -53,6 +54,14 @@ marks <- units |>
   ungroup()
 
 model_cols <- c(M0 = "#1b9e77", M1 = "#d95f02", M2 = "#7570b3", M3 = "#e7298a")
+# panels with no admissible model, named in the caption
+none_adm <- units |>
+  group_by(pair, analysis) |>
+  summarise(none = all(best_model == "none"), .groups = "drop") |>
+  filter(none) |>
+  mutate(lab = paste0(short_lab[pair], ifelse(analysis == "folded", " label-free", " polarized")))
+none_txt <- if (nrow(none_adm) == 0) "every panel has at least one" else
+  paste0("none admissible for ", paste(none_adm$lab, collapse = ", "))
 obs <- filter(d, kind == "observed", count_genome > 0)
 # where the observed count first reaches zero: one open circle on the floor
 obs0 <- d |>
@@ -79,10 +88,10 @@ p <- ggplot() +
   facet_grid(pair ~ analysis, labeller = labeller(pair = label_wrap_gen(10))) +
   labs(x = expression("Allele-frequency difference at least " * Delta),
        y = "Sites in the genome (log scale)",
-       caption = paste("Black: observed outside the GWAS peaks; open circle: first threshold with no such site.",
-                       "Colour: expected under each\nadmissible model (none admissible for the label-free",
-                       "BAVA and BIR fits). Dashed: own index SNPs (P1-P6) at their tail threshold,\nin their",
-                       "headline analysis.")) +
+       caption = paste(strwrap(paste0(
+         "Black: observed outside the GWAS peaks; open circle: first threshold with no such site. Colour: ",
+         "expected under each admissible model (", none_txt, "). Dashed: own index SNPs (P1-P6) at their tail ",
+         "threshold, in their headline analysis."), 125), collapse = "\n")) +
   theme_bw(base_size = 9) +
   theme(strip.text.y = element_text(angle = 0, hjust = 0), panel.grid.minor = element_blank(),
         legend.position = "bottom", plot.caption = element_text(hjust = 0, size = 7.5))

@@ -307,3 +307,15 @@ Made by Claude on 2026-10-15 under the approved plan; for review by J. Gallant.
 **Check clarification.** The §9.2 total check (spectrum + invariant sites = L_mask) failed for C2w's label-free spectrum by 596 of 524,449,573 sites. All 596 are invariant sites in two 1-Mb blocks (chr1, 55 and 57 Mb) that hold no fitting-mask SNP. `06_gather.py` counts them in L_mask but keys its per-block invariant counts by the SNP blocks, so they were left out of the check's sum. The same holds for every pair and variant (0–1,965 sites each). L_mask, which E uses, was always correct. `10_checks.py` now adds these sites back from the spectrum chunks, so the check is exact, and it reports their number.
 
 Made by Claude on 2026-10-16 under the approved plan; for review by J. Gallant.
+
+### Notes made after the results (2026-10-16)
+
+These were decided or found after unit results existed. None changes a tier. Each is listed so a reader can judge it.
+
+1. **§6.3 single-TP override not run.** The rule can only move a call toward drift, and only when the move is larger than one tier. Every own unit with a tier is already in the top tier ("drift readily makes this"), except BAM Peak 1, which is one tier below it, so no move can exceed one tier. The three units with no admissible model (BAVA Peaks 2 and 6, BIR Peak 2) have no tier to move; their O_genome (955–2,577) already shows such differentiation is common in the genome. The single-TP fits would take about 1.5 days of compute and cannot change a call, so they were not run. They can be run on request.
+2. **"Empirical rank" (§6.3) is reported as O_genome.** §4 does not define a rank. For a unit with no admissible model, the report gives O_genome: the number of callable SNPs outside the unit's own peak ±250 kb that are at least as differentiated as the index SNP.
+3. **Sentence template (§10).** "[T/2N] × 2Ne generations, [x]% of the time a new neutral mutation needs to fix" does not say which Ne. The report gives T/2N_anc and computes x from τ_BP, the BP population's own drift since the split (x = τ_BP / 2). In every headline best fit the BP population is smaller than the ancestor, so τ_BP > T/2N_anc and this is the drift-generous reading. The clause that follows is graded: below 25%, existing variation only; 25–100%, mostly existing variation; above 100%, new mutations could have drifted to fixation.
+4. **K_needed as a share of the genome (§2).** The report adds 1 / E_robust, the share of all callable sites that would each have to be able to make a fish BP for drift to be expected to produce one site this differentiated.
+5. **Headline flag in the *szaboi*-only run.** That run has no folded analysis. `09_tail.py` set the folded analysis as the headline for units of pairs with no admissible unfolded model, so those units had no headline row. The unfolded analysis is now the headline when no folded analysis exists. The headline run is not affected: it has both analyses.
+
+Made by Claude on 2026-10-16; for review by J. Gallant.
