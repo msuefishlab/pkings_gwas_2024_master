@@ -38,22 +38,42 @@ d <- curve |>
          pair = factor(pair_lab[pair], levels = pair_lab),
          analysis = factor(an_lab[analysis], levels = an_lab))
 
-marks <- units |>
+own <- units |>
   filter(own == "True", headline == "True") |>
   mutate(x = abs(as.numeric(tail_threshold)),
+         O = pmax(as.numeric(O_genome), FLOOR),
+         E = as.numeric(E_genome_best),
+         model = sub("f$", "", best_model),
+         pair_id = pair,
          pair = factor(pair_lab[pair], levels = pair_lab),
-         analysis = factor(an_lab[analysis], levels = an_lab),
-         label = paste0("P", peak)) |>
-  filter(x >= 0.3) |>
+         analysis = factor(an_lab[analysis], levels = an_lab)) |>
+  filter(x >= 0.3)
+
+# plotted heights per row, so marker labels sit just above each row's data (the y range is free per row)
+row_top <- d |>
+  filter(kind == "observed" | count_genome >= FLOOR) |>
+  group_by(pair) |>
+  summarise(top = max(y), .groups = "drop")
+
+marks <- own |>
+  mutate(label = paste0("P", peak)) |>
   group_by(pair, analysis, x) |>
   summarise(label = paste(label, collapse = ","), .groups = "drop") |>
-  # stagger labels of nearby markers
+  left_join(row_top, by = "pair") |>
+  # stagger nearby markers: alternate label height, and put every second label right of its line unless the
+  # line is at the right edge
   arrange(pair, analysis, x) |>
   group_by(pair, analysis) |>
-  mutate(ly = ifelse(seq_along(x) %% 2 == 1, 3e7, 2e6)) |>
+  mutate(k = seq_along(x),
+         ly = ifelse(k %% 2 == 1, top * 30, top * 4),
+         hj = ifelse(k %% 2 == 0 & x < 0.95, -0.08, 1.08)) |>
   ungroup()
 
-model_cols <- c(M0 = "#1b9e77", M1 = "#d95f02", M2 = "#7570b3", M3 = "#e7298a")
+# Okabe-Ito colours and one linetype per model, so models stay apart in greyscale and for colour-blind readers
+model_cols <- c(M0 = "#009E73", M1 = "#E69F00", M2 = "#0072B2", M3 = "#CC79A7")
+model_lty <- c(M0 = "dotted", M1 = "dashed", M2 = "solid", M3 = "longdash")
+y_lab <- function(b) c("0.01", "0.1", "1", "10", "100", "1k", "10k", "100k", "1M", "10M", "100M",
+                       "1G")[round(log10(b)) + 3]
 # panels with no admissible model, named in the caption
 none_adm <- units |>
   group_by(pair, analysis) |>
@@ -74,27 +94,38 @@ mod <- filter(d, kind == "model", count_genome >= FLOOR)
 
 p <- ggplot() +
   geom_vline(data = marks, aes(xintercept = x), colour = "grey55", linetype = "dashed", linewidth = 0.35) +
-  geom_text(data = marks, aes(x = x, y = ly, label = label), size = 2.6, hjust = 1.08, vjust = 1,
+  geom_text(data = marks, aes(x = x, y = ly, label = label, hjust = hj), size = 2.6, vjust = 1,
             colour = "grey25") +
-  geom_line(data = filter(mod, !is_best), aes(delta, y, colour = model, group = series),
-            linewidth = 0.4, alpha = 0.8) +
-  geom_line(data = filter(mod, is_best), aes(delta, y, colour = model, group = series), linewidth = 1.1) +
-  geom_line(data = obs, aes(delta, y), linewidth = 0.6, colour = "black") +
+  geom_line(data = filter(mod, !is_best), aes(delta, y, colour = model, linetype = model, group = series),
+            linewidth = 0.45) +
+  geom_line(data = filter(mod, is_best), aes(delta, y, colour = model, linetype = model, group = series),
+            linewidth = 1.2) +
+  geom_line(data = obs, aes(delta, y), linewidth = 0.5, colour = "black") +
   geom_point(data = obs0, aes(delta, y), shape = 1, size = 1.8, stroke = 0.6, colour = "black") +
-  scale_colour_manual(values = model_cols, name = "Model (admissible;\nthick = best)") +
-  scale_y_log10(limits = c(FLOOR, 3e7), breaks = 10^seq(-2, 7, 1),
-                labels = c("0.01", "0.1", "1", "10", "100", "1k", "10k", "100k", "1M", "10M")) +
-  scale_x_continuous(limits = c(0.3, 1), breaks = seq(0.3, 1, 0.1)) +
-  facet_grid(pair ~ analysis, labeller = labeller(pair = label_wrap_gen(10))) +
+  # each own unit's O (black circle) and E under the best model (diamond), as in unit_results.tsv
+  geom_point(data = filter(own, model != "none", E >= FLOOR), aes(x, E, fill = model), shape = 23, size = 2,
+             stroke = 0.4, colour = "black", show.legend = FALSE) +
+  geom_point(data = own, aes(x, O), shape = 21, size = 1.6, fill = "black", colour = "white", stroke = 0.3) +
+  scale_colour_manual(values = model_cols, name = "Model") +
+  scale_fill_manual(values = model_cols, guide = "none") +
+  scale_linetype_manual(values = model_lty, name = "Model") +
+  scale_y_log10(breaks = 10^seq(-2, 9, 1), labels = y_lab) +
+  scale_x_continuous(limits = c(0.3, 1), breaks = seq(0.3, 1, 0.1), expand = expansion(mult = c(0.01, 0.04))) +
+  facet_grid(pair ~ analysis, scales = "free_y", labeller = labeller(pair = label_wrap_gen(14))) +
+  guides(colour = guide_legend(nrow = 1, override.aes = list(linewidth = 0.8)),
+         linetype = guide_legend(nrow = 1)) +
   labs(x = expression("Allele-frequency difference at least " * Delta),
        y = "Sites in the genome (log scale)",
        caption = paste(strwrap(paste0(
-         "Black: observed outside the GWAS peaks; open circle: first threshold with no such site. Colour: ",
-         "expected under each admissible model (", none_txt, "). Dashed: own index SNPs (P1-P6) at their tail ",
-         "threshold, in their headline analysis."), 125), collapse = "\n")) +
+         "Black line: observed outside the GWAS peaks; open circle: first threshold with no such site. Coloured ",
+         "lines: expected under each admissible model, thick = best model (", none_txt, "). Dashed: own index ",
+         "SNPs (P1-P6) at their tail threshold, in their headline analysis; at each, black dot = observed count ",
+         "O and diamond = expected count E under the best model, as in the results table. Observed zeros are ",
+         "drawn at 0.01."), 125), collapse = "\n")) +
   theme_bw(base_size = 9) +
   theme(strip.text.y = element_text(angle = 0, hjust = 0), panel.grid.minor = element_blank(),
-        legend.position = "bottom", plot.caption = element_text(hjust = 0, size = 7.5))
+        legend.position = "bottom", legend.title = element_text(size = 7.5),
+        plot.caption = element_text(hjust = 0, size = 7.5))
 
 ggsave(paste0(out, ".pdf"), p, width = 7.2, height = 10.5)
 ggsave(paste0(out, ".png"), p, width = 7.2, height = 10.5, dpi = 200)
