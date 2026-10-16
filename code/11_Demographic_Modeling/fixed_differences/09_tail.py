@@ -25,6 +25,7 @@ For each unit (pair x index SNP) and analysis:
   E_hetNe      the same with local Ne scaled by f_w per 1-Mb block (T/f, m*f, theta*f), f clipped to 0.2-1.5,
                each block weighted by its callable sites over the whole scan (06b_block_scan.py); the same on
                the wider f grid 0.05-2.0 is reported as information
+  E_boot2.5, E_boot97.5   95% interval of E_genome over the bootstrap refits of the best model
   E_grid2      E under the best model with the grid doubled (pts -> 2 pts; Addendum 2b)
   E_robust     max(upper 97.5% bootstrap E under the best model, point E under every admissible model,
                E_hetNe and E_grid2 under the best model)
@@ -222,7 +223,7 @@ def _do_pair(pair):
         models = [m for m in info if info[m]["folded"] == folded]
         E_by = {m: max(e[R].sum() for e in info[m]["exp_ridge"]) * ratio for m in models}
         res = dict(thr=thr, O_mask=O_mask, O_genome=O_genome, E_by=E_by, best=None, E_point=float("nan"),
-                   E_het=float("nan"), E_het_wide=float("nan"), E_boot=float("nan"), E_grid2=float("nan"),
+                   E_het=float("nan"), E_het_wide=float("nan"), E_boot=float("nan"), E_boot_lo=float("nan"), E_grid2=float("nan"),
                    f_star=float("nan"),
                    E_robust=float("nan"), tier="model-dependent (no admissible model): report O")
         if not adm[folded]:
@@ -257,7 +258,7 @@ def _do_pair(pair):
             v["boot_exp"] = refit_spectra(boot.get((pair, bm), []))
         Eb = [e[R].sum() * ratio for e in v["boot_exp"]]
         if len(Eb) >= 20:
-            res["E_boot"] = float(np.quantile(Eb, 0.975))
+            res["E_boot_lo"], res["E_boot"] = (float(x) for x in np.quantile(Eb, [0.025, 0.975]))
         else:
             print(f"WARNING {pair} peak {u['peak']} {'folded' if folded else 'unfolded'}: {len(Eb)} bootstrap "
                   f"refits for best model {bm}; E_robust lacks the bootstrap bound", flush=True)
@@ -304,7 +305,7 @@ def _do_pair(pair):
                           f"{res['O_mask']:.2f}", f"{res['O_genome']:.2f}", res["best"] or "none",
                           f"{Ep / ratio:.4g}", f"{Ep:.4g}",
                           ";".join(f"{m}={e:.4g}" for m, e in res["E_by"].items()),
-                          f"{res['E_het']:.4g}", f"{res['E_het_wide']:.4g}", f"{res['E_boot']:.4g}",
+                          f"{res['E_het']:.4g}", f"{res['E_het_wide']:.4g}", f"{res['E_boot_lo']:.4g}", f"{res['E_boot']:.4g}",
                           f"{res['E_grid2']:.4g}", f"{Er:.4g}", res["tier"],
                           # section 4: K_needed = L_scan / E_genome (best model); the E_robust version too
                           f"{L_scan / Ep:.4g}" if Ep == Ep and Ep > 0 else "NA",
@@ -411,7 +412,7 @@ def main():
             o.write("\t".join(f"{x:.4g}" if isinstance(x, float) else str(x) for x in r) + "\n")
     with open(os.path.join(OUT, f"tail/unit_results{a.suffix}.tsv"), "w") as o:
         o.write("pair\tpeak\town\tcontrol\tanalysis\theadline\tf_bp\tf_tp\ttail_threshold\tO_mask\tO_genome\t"
-                "best_model\tE_mask_best\tE_genome_best\tE_by_model\tE_hetNe\tE_hetNe_wide_f\tE_boot97.5\tE_grid2\tE_robust\t"
+                "best_model\tE_mask_best\tE_genome_best\tE_by_model\tE_hetNe\tE_hetNe_wide_f\tE_boot2.5\tE_boot97.5\tE_grid2\tE_robust\t"
                 "tier\tK_needed\tK_needed_robust\ttau_BP\ttau_TP\tf_peak\tf_star\n")
         for r in urows:
             o.write("\t".join(str(x) for x in r) + "\n")
