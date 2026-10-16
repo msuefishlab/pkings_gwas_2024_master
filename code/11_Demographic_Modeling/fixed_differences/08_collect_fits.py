@@ -102,16 +102,29 @@ def main():
               "(strict yes)" if row["converged_strict"] else "(strict no)",
               " ".join(f"{p}={v:.4g}" for p, v in row["params"].items()), flush=True)
 
+    # Deviation 2, change 4: a model whose best LL is still below its nested sub-model's (M0 < M1 < M2, same
+    # folding) has not reached its optimum and is not converged.
+    for row in rows:
+        row["nested_ok"] = True
+        base, f = row["model"].rstrip("f"), "f" if row["model"].endswith("f") else ""
+        sub = {"M1": "M0", "M2": "M1"}.get(base)
+        if sub and (row["pair"], sub + f) in best and row["LL"] < best[(row["pair"], sub + f)]["LL"]:
+            row["nested_ok"] = False
+            row["converged"] = False
+            print(row["pair"], row["model"], f"below nested {sub + f} by "
+                  f"{best[(row['pair'], sub + f)]['LL'] - row['LL']:.1f}: NOT converged", flush=True)
+
     with open(os.path.join(OUT, f"fits/best_fits{a.suffix}.tsv"), "w") as o:
         o.write("pair\tmodel\tn_starts\tLL\ttheta\tconverged\tLL_gap_top3\tparams\tse\t"
-                "converged_strict\tc_adj\tgap_adj\ttop3_params\n")
+                "converged_strict\tc_adj\tgap_adj\ttop3_params\tnested_ok\n")
         for r in rows:
             o.write(f"{r['pair']}\t{r['model']}\t{r['n_starts']}\t{r['LL']:.4f}\t{r['theta']:.6g}\t{r['converged']}\t"
                     f"{r['LL_gap_top3']:.3f}\t"
                     + ";".join(f"{k}={v:.6g}" for k, v in r["params"].items()) + "\t"
                     + ";".join(f"{k}={v:.4g}" for k, v in r.get("se", {}).items()) + "\t"
                     + f"{r['converged_strict']}\t{r['c_adj']:.6g}\t{r['gap_adj']:.4g}\t"
-                    + "|".join(";".join(f"{k}={v:.8g}" for k, v in t.items()) for t in r["top3"]) + "\n")
+                    + "|".join(";".join(f"{k}={v:.8g}" for k, v in t.items()) for t in r["top3"])
+                    + f"\t{r['nested_ok']}\n")
 
     # adjusted LRTs (information only): M0 (no migration) nested in M1 and in M2
     if a.godambe:

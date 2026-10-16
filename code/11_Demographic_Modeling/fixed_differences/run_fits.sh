@@ -8,6 +8,7 @@
 ## then pools every round (08_collect_fits.py --godambe).
 ##   bash code/11_Demographic_Modeling/fixed_differences/run_fits.sh fit [dependency_jobid]
 ##   bash code/11_Demographic_Modeling/fixed_differences/run_fits.sh refine 2|3
+##   bash code/11_Demographic_Modeling/fixed_differences/run_fits.sh nested 1|2
 ##   bash code/11_Demographic_Modeling/fixed_differences/run_fits.sh collect [dependency_jobid]
 ##   bash code/11_Demographic_Modeling/fixed_differences/run_fits.sh boot
 set -euo pipefail
@@ -56,6 +57,44 @@ PY
   done; done < "${fits}/refine${round}_starts.txt"
   arr=$(sbatch --parsable --export=root=${root},FD_OUT=${fd_out},TASKS=${tasks} --array=1-$(wc -l < "${tasks}")%150 ${dir}/07_fit_models.sb)
   echo "refine round ${round}: ${arr} ($(wc -l < "${tasks}") tasks)"
+elif [[ "$1" == "nested" ]]; then
+  # Deviation 2, change 4: a model whose best LL is below its nested sub-model's (M0 < M1 < M2, same folding)
+  # gets 20 more starts from the sub-model's best fit, embedded and perturbed by 2^0.25. Pass 1 after round 2
+  # (seeds 351-354), pass 2 after round 3 (seeds 361-364).
+  pass=$2
+  case ${pass} in 1) base=350;; 2) base=360;; *) echo "pass 1 or 2"; exit 1;; esac
+  tasks=${fits}/tasks_nested${pass}.txt; : > "${tasks}"
+  python3 - "${fits}" ${PAIRS} > "${fits}/nested${pass}_starts.txt" <<'PY'
+import csv, glob, os, sys
+fits, pairs = sys.argv[1], sys.argv[2:]
+fixed = {"pair", "model", "target", "seed", "start", "LL", "theta", "seconds"}
+def best(pair, m):
+    rows = [r for f in glob.glob(os.path.join(fits, f"{pair}.{m}.data.seed*.tsv"))
+            for r in csv.DictReader(open(f), delimiter="\t")]
+    return max(rows, key=lambda r: float(r["LL"])) if rows else None
+for pair in pairs:
+    for f in ("", "f"):
+        for sub, sup in (("M0", "M1"), ("M1", "M2")):
+            b, B = best(pair, sub + f), best(pair, sup + f)
+            if b is None or B is None or float(B["LL"]) >= float(b["LL"]):
+                continue
+            p = {k: v for k, v in b.items() if k not in fixed}
+            if sup == "M2":  # symmetric m -> both directions
+                m = p.pop("m")
+                p = {**{k: p[k] for k in ("nu_BP", "nu_TP", "T")}, "m_BP_from_TP": m, "m_TP_from_BP": m,
+                     **({"p_misid": p["p_misid"]} if "p_misid" in p else {})}
+            print(pair, sup + f, ",".join(p.values()), f"{float(b['LL']) - float(B['LL']):.1f}", file=sys.stdout)
+PY
+  while read -r p m p0 short; do for s in 1 2 3 4; do
+    echo "--pair ${p} --model ${m} --starts 5 --seed $((base + s)) --p0 ${p0} --fold 0.25 --maxtime 2400" >> "${tasks}"
+  done; done < "${fits}/nested${pass}_starts.txt"
+  cat "${fits}/nested${pass}_starts.txt"
+  if [[ -s "${tasks}" ]]; then
+    arr=$(sbatch --parsable --export=root=${root},FD_OUT=${fd_out},TASKS=${tasks} --array=1-$(wc -l < "${tasks}")%150 ${dir}/07_fit_models.sb)
+    echo "nested pass ${pass}: ${arr} ($(wc -l < "${tasks}") tasks)"
+  else
+    echo "nested pass ${pass}: no violations"
+  fi
 elif [[ "$1" == "collect" ]]; then
   dep=${2:+--dependency=afterany:$2}
   col=$(sbatch --parsable ${dep} --time=06:00:00 --mem=16G --job-name=fd_collect -o ${logs}/collect_%j.log \

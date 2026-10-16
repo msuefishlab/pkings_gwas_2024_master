@@ -266,3 +266,11 @@ So a rate that stays high could be either leftover mislabelling or too-simple mo
 The §5 rule is still computed and reported (`converged_strict` in `fits/best_fits.tsv`). Everything else is unchanged: models, the misidentification limit, the adequacy gate, tiers, bootstrap refits and sensitivity rows.
 
 Made by Claude on 2026-10-15 under the approved plan, as a technical fix to the fitting; for review by J. Gallant.
+
+#### Addendum 2a (2026-10-15, after refinement round 2, before collection and before any E)
+
+**What was seen.** Best log-likelihoods per pair × model after round 2 (raw LL only; no Godambe factor, E, ladder, gate or tier). One fit lay below its own nested sub-model: C1w M2f, 18,284 raw units below C1w M1f. M2 contains M1 (set m_BP_from_TP = m_TP_from_BP = m), so its true optimum cannot be lower. Agreement among the best three starts (change 2) cannot catch this: starts that all sit in the same wrong basin agree.
+
+4. **Nested-start guard.** M0 ⊂ M1 ⊂ M2, within the unfolded and within the folded analyses. Where a model's best LL lies below its sub-model's, it gets 20 more starts from the sub-model's best fit embedded in it (M0 → M1: m starts at 0; M1 → M2: both migration rates start at m), perturbed by 2^±0.25 (`run_fits.sh nested 1`, seeds 351–354, after round 2; `nested 2`, seeds 361–364, after round 3). These starts are pooled with every round. A model still below its sub-model at collection is not converged (`nested_ok` in `fits/best_fits.tsv`). M3 does not nest M2 (its sizes change exponentially from the founder split), so it is not checked.
+
+Made by Claude on 2026-10-15 under the approved plan, as a technical fix to the fitting; for review by J. Gallant.
