@@ -1,8 +1,9 @@
 #!/bin/bash
 ## run_fits.sh: DESIGN.md section 5. Stage 1 fits every model to the four headline pairs and the two
 ## TP-TP controls, 20 perturbed starts each (4 tasks x 5 starts), then collects them with Godambe
-## uncertainties. Stage 2 (run with "boot" after stage 1 has been collected) refits 100 block-bootstrap
-## spectra under M3 and under the highest-likelihood converged model, each started from its best fit.
+## uncertainties. Stage 2 (run with "boot" after stage 1 has been collected and 09_tail.py has run once) refits
+## 100 block-bootstrap spectra under M3 and under the best (highest-likelihood admissible) model, each started
+## from its best fit; 09_tail.py then runs again to use them.
 ## Deviation 2 adds refinement rounds between the two stages: 20 more starts per pair x model, perturbed from
 ## the best start so far (round 2: fold 0.5, seeds 201-204; round 3: fold 0.25, seeds 301-304). "collect"
 ## then pools every round (08_collect_fits.py --godambe).
@@ -10,7 +11,9 @@
 ##   bash code/11_Demographic_Modeling/fixed_differences/run_fits.sh refine 2|3
 ##   bash code/11_Demographic_Modeling/fixed_differences/run_fits.sh nested 1|2
 ##   bash code/11_Demographic_Modeling/fixed_differences/run_fits.sh collect [dependency_jobid]
+##   bash code/11_Demographic_Modeling/fixed_differences/run_fits.sh tail [dependency_jobid]
 ##   bash code/11_Demographic_Modeling/fixed_differences/run_fits.sh boot
+##   bash code/11_Demographic_Modeling/fixed_differences/run_fits.sh tail <boot_jobid>
 set -euo pipefail
 root="$(git rev-parse --show-toplevel)"
 cd "${root}"
@@ -100,23 +103,33 @@ elif [[ "$1" == "collect" ]]; then
   col=$(sbatch --parsable ${dep} --time=06:00:00 --mem=16G --job-name=fd_collect -o ${logs}/collect_%j.log \
     --wrap "cd ${root} && export OMP_NUM_THREADS=1 && $(dx ${dir}/08_collect_fits.py --godambe)")
   echo "collect ${col}"
+elif [[ "$1" == "tail" ]]; then
+  # 09_tail.py: once after collect (gives tail/models.tsv for "boot"), and again after the bootstrap refits
+  dep=${2:+--dependency=afterany:$2}
+  t=$(sbatch --parsable ${dep} --time=04:00:00 --mem=16G --job-name=fd_tail -o ${logs}/tail_%j.log \
+    --wrap "cd ${root} && export OMP_NUM_THREADS=1 && $(dx ${dir}/09_tail.py)")
+  echo "tail ${t}"
 else
   tasks=${fits}/tasks_boot.txt; : > "${tasks}"
-  # M3 and the best converged model per pair, from best_fits.tsv
-  python3 - "${fits}/best_fits.tsv" > "${fits}/boot_targets.txt" <<'PY'
+  # M3 and the best model per pair (DESIGN.md section 5: the highest-LL admissible model). Admissibility needs the
+  # adequacy gate, so 09_tail.py runs once before this stage; its tail/models.tsv says which models are admissible.
+  # Where no model of an analysis is admissible, the highest-LL converged model is refitted (information only).
+  [[ -s "${fd_out}/tail/models.tsv" ]] || { echo "run 09_tail.py first (needs tail/models.tsv)"; exit 1; }
+  python3 - "${fits}/best_fits.tsv" "${fd_out}/tail/models.tsv" > "${fits}/boot_targets.txt" <<'PY'
 import csv, sys
 rows = list(csv.DictReader(open(sys.argv[1]), delimiter="\t"))
+adm = {(r["pair"], r["model"]) for r in csv.DictReader(open(sys.argv[2]), delimiter="\t") if r["admissible"] == "True"}
 by = {}
 for r in rows:
     by.setdefault(r["pair"], []).append(r)
 for pair, rs_all in by.items():
-    # unfolded and folded analyses separately: the best converged model of each, plus M3 / M3f
+    # unfolded and folded analyses separately: the best admissible model of each, plus M3 / M3f
     for folded in (False, True):
         rs = [r for r in rs_all if r["model"].endswith("f") == folded]
         if not rs:
             continue
-        conv = [r for r in rs if r["converged"] == "True"] or rs
-        top = max(conv, key=lambda r: float(r["LL"]))
+        pool = ([r for r in rs if (pair, r["model"]) in adm] or [r for r in rs if r["converged"] == "True"] or rs)
+        top = max(pool, key=lambda r: float(r["LL"]))
         m3 = "M3f" if folded else "M3"
         targets = {top["model"]: top}
         targets.update({r["model"]: r for r in rs if r["model"] == m3})

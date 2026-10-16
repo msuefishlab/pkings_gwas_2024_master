@@ -223,6 +223,9 @@ def main():
                 Eb.append(float(br["theta"]) * np.ma.filled(mb, 0.0)[R].sum() * ratio)
             if len(Eb) >= 20:
                 res["E_boot"] = float(np.quantile(Eb, 0.975))
+            else:
+                print(f"WARNING {pair} peak {u['peak']} {'folded' if folded else 'unfolded'}: {len(Eb)} bootstrap "
+                      f"refits for best model {bm}; E_robust lacks the bootstrap bound", flush=True)
             cands = [E_by[m] for m in adm[folded]] + [x for x in (res["E_boot"], res["E_het"]) if x == x]
             res["E_robust"] = max(cands)
             tier = tier_of(res["E_robust"])
