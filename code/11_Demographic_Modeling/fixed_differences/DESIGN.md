@@ -271,6 +271,39 @@ Made by Claude on 2026-10-15 under the approved plan, as a technical fix to the 
 
 **What was seen.** Best log-likelihoods per pair × model after round 2 (raw LL only; no Godambe factor, E, ladder, gate or tier). One fit lay below its own nested sub-model: C1w M2f, 18,284 raw units below C1w M1f. M2 contains M1 (set m_BP_from_TP = m_TP_from_BP = m), so its true optimum cannot be lower. Agreement among the best three starts (change 2) cannot catch this: starts that all sit in the same wrong basin agree.
 
-4. **Nested-start guard.** M0 ⊂ M1 ⊂ M2, within the unfolded and within the folded analyses. Where a model's best LL lies below its sub-model's, it gets 20 more starts from the sub-model's best fit embedded in it (M0 → M1: m starts at 0; M1 → M2: both migration rates start at m), perturbed by 2^±0.25 (`run_fits.sh nested 1`, seeds 351–354, after round 2; `nested 2`, seeds 361–364, after round 3). These starts are pooled with every round. A model still below its sub-model at collection is not converged (`nested_ok` in `fits/best_fits.tsv`). M3 does not nest M2 (its sizes change exponentially from the founder split), so it is not checked.
+4. **Nested-start guard.** M0 ⊂ M1 ⊂ M2, within the unfolded and within the folded analyses. Where a model's best LL lies below any of its sub-models' (M1 below M0; M2 below M0 or M1), it gets 20 more starts from the best such sub-model's fit embedded in it (M0 → M1: m starts at 0; M1 → M2: both migration rates start at m), perturbed by 2^±0.25 (`run_fits.sh nested 1`, seeds 351–354, after round 2; `nested 2`, seeds 361–364, after round 3). These starts are pooled with every round. A model still below its sub-model at collection is not converged (`nested_ok` in `fits/best_fits.tsv`). M3 does not nest M2 (its sizes change exponentially from the founder split), so it is not checked.
 
 Made by Claude on 2026-10-15 under the approved plan, as a technical fix to the fitting; for review by J. Gallant.
+
+### Code corrections and clarifications (2026-10-15, before collection and before any E)
+
+An independent read of the code against this document found places where the code did not do what the design says. The code now follows the design. None of these changes was informed by any E, tier, ladder, gate or unit result; none existed.
+
+**Corrected to match the design.**
+- **Headline per unit, not per pair** (Addenda 1a, 1b). Peak 2 and Peak 6 units have no derived-allele Δ, so their headline is the folded analysis even where the pair's unfolded analysis is admissible. The code had set one headline per pair, leaving five units (A2w and A3w Peaks 2 and 6, A4w Peak 2) without a headline row.
+- **Tail boundary.** Δ_idx is stored to four decimals; a Δ on the projected grid could round up past its own cell and drop it from R. The tolerance is now 10⁻⁴, below the smallest grid spacing (1/1380).
+- **E_hetNe weights** (§4). Each 1-Mb block is weighted by its callable sites over the whole scan (`06b_block_scan.py`), not by its sites in the fitting mask, which under-weighted the exon-dense blocks where background selection lowers Ne most. f is clipped to 0.2–1.5 as written; the same sum on a wider grid (0.05–2.0) is reported as information only.
+- **K_needed** = L_scan / E_genome under the best model (§4); L_scan / E_robust is reported beside it.
+- **§6.3 override.** When the model fails at the extremes, the tier is now read from O_genome, as written.
+- **Asymmetry** (§4) is reported for unfolded models only; a folded spectrum has no derived side.
+- **Bootstrap** (§5). The refits now also give 95% intervals for T/2N and τ. The bootstrap target is the best admissible model (commit `8f22f87`).
+- **§9.3 checks** added: model-implied π, dxy, Fst and Tajima's D against the data, the corner-cell grid check (which sets "numerically unreliable" on the tier), and Poisson parameter recovery (20 replicates of each best model, `07_fit_models.py --sim`).
+- **Fixed-difference counts.** The descriptive counts in `fixed_diff_counts.tsv` came from a 0.0025-wide histogram that dropped Δ = −0.95 exactly but kept +0.95. `11_clusters.py` recounts both directions from the site table. The model-relative asymmetry (§6.4) uses the projected spectra and was not affected.
+- **File selection.** Collection and bootstrap reading now take only files named for the run (`<pair><suffix>.`), so sensitivity fits cannot be pooled into the headline.
+
+**Clarifications of the text.**
+- §4 "the four whole populations not in the pair": there are five for each headline pair and six for each control. f_w uses all whole populations not in the pair.
+- f\* treats the peak region as 500 kb. O_genome leaves out the unit's own peak ±250 kb, while E_genome is scaled to all of L_scan; that keeps E slightly larger, the drift-generous direction.
+- The linkage factor c (Deviation 2) is computed from dadi's GIM and Hessian, which include θ as a parameter under the multinomial likelihood.
+
+Made by Claude on 2026-10-15 under the approved plan; for review by J. Gallant.
+
+#### Addendum 2b (2026-10-16, after a smoke test on the C2w control, before any E of a headline pair)
+
+**What was seen.** The §9.3 checks were run on the C2w control (DOV–DOG) with its round 1–2 best fits. The expected counts in the |Δ| ≥ 0.95 corners changed when the grid doubled, by 17–23% under M1–M3 and M1f–M3f and by 77–82% under M0 and M0f. Every C2w model is therefore "numerically unreliable" under §9.3. C2w holds almost no near-fixed differences, so these corners are nearly empty. The smoke test also wrote C2w unit rows; they were checked for shape only and were not read. No E, ladder, gate or tier of a headline pair had been computed.
+
+5. **E on twice the grid.** For the best model of each analysis, E over R is also computed with the grid doubled (pts → 2 pts), with θ refitted on that grid, and reported as `E_grid2`. It joins the E_robust maximum (§6.1). The finer grid is the more accurate one, and taking the maximum keeps the call drift-generous whichever way the grid moves E. The §9.3 flag still applies as written. The bootstrap refits stay on the default grid, because the doubled grid costs about 100 s per M3 evaluation.
+
+**Check clarification.** The §9.2 total check (spectrum + invariant sites = L_mask) failed for C2w's label-free spectrum by 596 of 524,449,573 sites. All 596 are invariant sites in two 1-Mb blocks (chr1, 55 and 57 Mb) that hold no fitting-mask SNP. `06_gather.py` counts them in L_mask but keys its per-block invariant counts by the SNP blocks, so they were left out of the check's sum. The same holds for every pair and variant (0–1,965 sites each). L_mask, which E uses, was always correct. `10_checks.py` now adds these sites back from the spectrum chunks, so the check is exact, and it reports their number.
+
+Made by Claude on 2026-10-16 under the approved plan; for review by J. Gallant.

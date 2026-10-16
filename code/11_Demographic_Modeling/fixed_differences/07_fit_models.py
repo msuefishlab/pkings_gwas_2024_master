@@ -14,6 +14,7 @@ same demography and no misidentification parameter.
 Writes one row per start to fits/<pair><suffix>.<model>.seed<seed>.tsv.
 With --boot K, fits bootstrap spectrum K instead of the data, starting from --p0 (for confidence intervals).
 With --p0 alone, refines the data fit from those parameters (Deviation 2 rounds; perturbation --fold).
+With --sim K, fits Poisson replicate K drawn from the theta-scaled model at --p0 (section 9.3 parameter recovery).
 
 Usage (inside dadi_tools.sif, from the repo root):
   python3 .../07_fit_models.py --pair A1w --model M3 --starts 5 --seed 1
@@ -88,6 +89,20 @@ def bootstrap_spectra(pk, n_boot=100, seed=20261015, block_mb=1, folded=False):
     return out
 
 
+def poisson_replicate(model, data, p0, k, seed=20261016):
+    """Replicate k: Poisson counts around the theta-scaled expected spectrum of the model at p0."""
+    func_ex, pts_l, pnames, _, _, fixed = model_setup(model, data.sample_sizes)
+    if fixed:
+        p0 = [f if f is not None else v for v, f in zip(p0, fixed)]
+    m = func_ex(p0, data.sample_sizes, pts_l)
+    # draw from the unfolded expectation and fold afterwards (a folded Poisson draw is the fold of an unfolded one)
+    theta = dadi.Inference.optimal_sfs_scaling(m.fold() if is_folded(model) else m, data)
+    lam = np.ma.filled(theta * m, 0.0)
+    sim = dadi.Spectrum(np.random.default_rng(seed + k).poisson(np.clip(lam, 0, None)).astype(float),
+                        mask_corners=True)
+    return sim.fold() if is_folded(model) else sim
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--pair", required=True)
@@ -96,6 +111,7 @@ def main():
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--suffix", default="")
     ap.add_argument("--boot", default=None, help="refit bootstrap spectra K[,K2,...] (needs --p0)")
+    ap.add_argument("--sim", default=None, help="refit Poisson replicates K[,K2,...] of the model at --p0")
     ap.add_argument("--p0", default=None, help="comma-separated start parameters (bootstrap refits)")
     ap.add_argument("--maxtime", type=float, default=2400, help="seconds per start")
     ap.add_argument("--fold", type=float, default=None,
@@ -108,6 +124,9 @@ def main():
     if a.boot is not None:
         boots = bootstrap_spectra(pk, folded=is_folded(a.model))
         targets = [(f"boot{k}", boots[int(k)]) for k in a.boot.split(",")]
+    if a.sim is not None:
+        targets = [(f"sim{k}", poisson_replicate(a.model, targets[0][1], [float(v) for v in a.p0.split(",")], int(k)))
+                   for k in a.sim.split(",")]
     os.makedirs(os.path.join(OUT, "fits"), exist_ok=True)
     np.random.seed(a.seed)
     for tag, data in targets:

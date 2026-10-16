@@ -11,6 +11,7 @@
 ##   bash code/11_Demographic_Modeling/fixed_differences/run_fits.sh refine 2|3
 ##   bash code/11_Demographic_Modeling/fixed_differences/run_fits.sh nested 1|2
 ##   bash code/11_Demographic_Modeling/fixed_differences/run_fits.sh collect [dependency_jobid]
+##   bash code/11_Demographic_Modeling/fixed_differences/run_fits.sh checks [dependency_jobid]
 ##   bash code/11_Demographic_Modeling/fixed_differences/run_fits.sh tail [dependency_jobid]
 ##   bash code/11_Demographic_Modeling/fixed_differences/run_fits.sh boot
 ##   bash code/11_Demographic_Modeling/fixed_differences/run_fits.sh tail <boot_jobid>
@@ -77,8 +78,11 @@ def best(pair, m):
     return max(rows, key=lambda r: float(r["LL"])) if rows else None
 for pair in pairs:
     for f in ("", "f"):
-        for sub, sup in (("M0", "M1"), ("M1", "M2")):
-            b, B = best(pair, sub + f), best(pair, sup + f)
+        for subs, sup in ((["M0"], "M1"), (["M0", "M1"], "M2")):
+            B = best(pair, sup + f)
+            # the best sub-model that lies above the larger model, if any
+            cands = [b for b in (best(pair, s + f) for s in subs) if b is not None]
+            b = max(cands, key=lambda r: float(r["LL"])) if cands else None
             if b is None or B is None or float(B["LL"]) >= float(b["LL"]):
                 continue
             p = {k: v for k, v in b.items() if k not in fixed}
@@ -106,9 +110,17 @@ elif [[ "$1" == "collect" ]]; then
 elif [[ "$1" == "tail" ]]; then
   # 09_tail.py: once after collect (gives tail/models.tsv for "boot"), and again after the bootstrap refits
   dep=${2:+--dependency=afterany:$2}
-  t=$(sbatch --parsable ${dep} --time=04:00:00 --mem=16G --job-name=fd_tail -o ${logs}/tail_%j.log \
+  # one worker per pair (09_tail.py reads SLURM_CPUS_PER_TASK); with the bootstrap and Poisson refits a pair whose
+  # best model is M3 needs a few hours of IM evaluations
+  t=$(sbatch --parsable ${dep} --time=12:00:00 --cpus-per-task=6 --mem=32G --job-name=fd_tail -o ${logs}/tail_%j.log \
     --wrap "cd ${root} && export OMP_NUM_THREADS=1 && $(dx ${dir}/09_tail.py)")
   echo "tail ${t}"
+elif [[ "$1" == "checks" ]]; then
+  # 10_checks.py (sections 9.2, 9.3): after collect and before the first tail, so tiers carry the numerics flag
+  dep=${2:+--dependency=afterany:$2}
+  c=$(sbatch --parsable ${dep} --time=08:00:00 --mem=16G --job-name=fd_checks -o ${logs}/checks_%j.log \
+    --wrap "cd ${root} && export OMP_NUM_THREADS=1 && $(dx ${dir}/10_checks.py)")
+  echo "checks ${c}"
 else
   tasks=${fits}/tasks_boot.txt; : > "${tasks}"
   # M3 and the best model per pair (DESIGN.md section 5: the highest-LL admissible model). Admissibility needs the
@@ -128,21 +140,29 @@ for pair, rs_all in by.items():
         rs = [r for r in rs_all if r["model"].endswith("f") == folded]
         if not rs:
             continue
-        pool = ([r for r in rs if (pair, r["model"]) in adm] or [r for r in rs if r["converged"] == "True"] or rs)
+        admissible = [r for r in rs if (pair, r["model"]) in adm]
+        pool = admissible or [r for r in rs if r["converged"] == "True"] or rs
         top = max(pool, key=lambda r: float(r["LL"]))
         m3 = "M3f" if folded else "M3"
-        targets = {top["model"]: top}
-        targets.update({r["model"]: r for r in rs if r["model"] == m3})
-        for r in targets.values():
+        # role "best" (the admissible best model: bootstrap + Poisson recovery), otherwise bootstrap only
+        targets = {r["model"]: (r, "M3") for r in rs if r["model"] == m3}
+        targets[top["model"]] = (top, "best" if admissible else "info")
+        for r, role in targets.values():
             p0 = ",".join(kv.split("=")[1] for kv in r["params"].split(";"))
-            print(pair, r["model"], p0)
+            print(pair, r["model"], p0, role)
 PY
-  while read -r p m p0; do
+  while read -r p m p0 role; do
     # 100 bootstrap spectra per target, five per task (keeps the array under the 1,000-job queue limit)
     for k in $(seq 0 5 95); do
       echo "--pair ${p} --model ${m} --starts 1 --seed $((k + 1000)) --boot $(seq -s, ${k} $((k + 4))) --p0 ${p0} --maxtime 1500" >> "${tasks}"
     done
+    # section 9.3 parameter recovery: 20 Poisson replicates of the best model, five per task
+    if [[ "${role}" == "best" ]]; then
+      for k in 0 5 10 15; do
+        echo "--pair ${p} --model ${m} --starts 1 --seed $((k + 2000)) --sim $(seq -s, ${k} $((k + 4))) --p0 ${p0} --maxtime 1500" >> "${tasks}"
+      done
+    fi
   done < "${fits}/boot_targets.txt"
   arr=$(sbatch --parsable --export=root=${root},FD_OUT=${fd_out},TASKS=${tasks} --array=1-$(wc -l < "${tasks}")%150 ${dir}/07_fit_models.sb)
-  echo "bootstrap refits ${arr} ($(wc -l < "${tasks}") tasks)"
+  echo "bootstrap refits and Poisson recovery ${arr} ($(wc -l < "${tasks}") tasks)"
 fi

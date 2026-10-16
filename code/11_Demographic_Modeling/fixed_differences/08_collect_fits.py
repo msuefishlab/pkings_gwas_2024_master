@@ -42,7 +42,10 @@ def main():
     for path in glob.glob(os.path.join(OUT, f"fits/*{a.suffix}.M*.data.seed*.tsv")):
         with open(path) as fh:
             for r in csv.DictReader(fh, delimiter="\t"):
-                runs[(r["pair"], r["model"])].append(r)
+                # only this run's files (<pair><suffix>.<model>...): an empty suffix must not pick up a
+                # sensitivity fit such as A1w_ex5.M3... whose rows also say pair A1w
+                if os.path.basename(path).split(".")[0] == r["pair"] + a.suffix:
+                    runs[(r["pair"], r["model"])].append(r)
 
     rows, best = [], {}
     for (pair, model), rs in sorted(runs.items()):
@@ -107,12 +110,12 @@ def main():
     for row in rows:
         row["nested_ok"] = True
         base, f = row["model"].rstrip("f"), "f" if row["model"].endswith("f") else ""
-        sub = {"M1": "M0", "M2": "M1"}.get(base)
-        if sub and (row["pair"], sub + f) in best and row["LL"] < best[(row["pair"], sub + f)]["LL"]:
-            row["nested_ok"] = False
-            row["converged"] = False
-            print(row["pair"], row["model"], f"below nested {sub + f} by "
-                  f"{best[(row['pair'], sub + f)]['LL'] - row['LL']:.1f}: NOT converged", flush=True)
+        for sub in {"M1": ["M0"], "M2": ["M0", "M1"]}.get(base, []):
+            if (row["pair"], sub + f) in best and row["LL"] < best[(row["pair"], sub + f)]["LL"]:
+                row["nested_ok"] = False
+                row["converged"] = False
+                print(row["pair"], row["model"], f"below nested {sub + f} by "
+                      f"{best[(row['pair'], sub + f)]['LL'] - row['LL']:.1f}: NOT converged", flush=True)
 
     with open(os.path.join(OUT, f"fits/best_fits{a.suffix}.tsv"), "w") as o:
         o.write("pair\tmodel\tn_starts\tLL\ttheta\tconverged\tLL_gap_top3\tparams\tse\t"

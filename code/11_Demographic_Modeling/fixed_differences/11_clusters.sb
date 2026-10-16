@@ -1,0 +1,26 @@
+#!/bin/bash --login
+#SBATCH --time=01:00:00
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=2G
+#SBATCH --job-name=fd_clusters
+#SBATCH -o output_data/slurm_logs/11_Demographic_Modeling/clusters_%x_%A_%a.log
+## 11_clusters.sb: 11_clusters.py on one site-table chunk per array task; submitted without --array it runs
+## --combine (joins clusters across chunk boundaries, writes the cluster BEDs, counts, Phase B gate and
+## parallel count; DESIGN.md sections 4, 8, 10). Run after run_to_spectra.sh (needs sfs/projections.tsv and
+## sfs/deserts.tsv for the 03_spectra.py inclusion rules).
+##   n=$(( $(wc -l < input_data/11_Demographic_Modeling/chunks.tsv) - 2 ))
+##   j=$(sbatch --parsable --export=root=$(pwd),FD_OUT=${FD_OUT} --array=0-${n}%60 code/11_Demographic_Modeling/fixed_differences/11_clusters.sb)
+##   sbatch --dependency=afterok:${j} --export=root=$(pwd),FD_OUT=${FD_OUT} \
+##     -o output_data/slurm_logs/11_Demographic_Modeling/clusters_combine_%j.log code/11_Demographic_Modeling/fixed_differences/11_clusters.sb
+## Optional: ANRULE=frac applies AN >= 80% of 2n to every pair.
+set -euo pipefail
+cd "${root}"
+source "${root}/pkings_gwas.env"
+export OMP_NUM_THREADS=1
+export FD_OUT=${FD_OUT:-output_data/11_Demographic_Modeling/fixed_differences}
+if [[ -n "${SLURM_ARRAY_TASK_ID:-}" ]]; then args=(--chunk "${SLURM_ARRAY_TASK_ID}"); else args=(--combine); fi
+[[ -n "${ANRULE:-}" ]] && args+=(--an_rule "${ANRULE}")
+singularity exec --bind /mnt/gs21 "${dadi_image}" \
+  python3 code/11_Demographic_Modeling/fixed_differences/11_clusters.py "${args[@]}"
+echo "done ${args[*]} (FD_OUT=${FD_OUT})"
